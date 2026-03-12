@@ -14,7 +14,7 @@ const MOBILE_BREAKPOINT = 768;
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(true); // true par défaut pour éviter flash sidebar sur mobile
   const pathname = usePathname();
 
   useEffect(() => {
@@ -36,14 +36,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Barre mobile : hamburger + logo */}
+      {/* Barre mobile : hamburger (toggle) + logo */}
       <header className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden">
         <Button
           variant="ghost"
           size="icon"
           className="h-10 w-10 min-h-[44px] min-w-[44px]"
-          onClick={() => setMobileMenuOpen(true)}
-          aria-label="Ouvrir le menu"
+          onClick={() => setMobileMenuOpen((prev) => !prev)}
+          aria-label={mobileMenuOpen ? "Fermer le menu" : "Ouvrir le menu"}
         >
           <Menu className="h-6 w-6" />
         </Button>
@@ -65,19 +65,28 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         )}
       </AnimatePresence>
 
-      {/* Sidebar : overlay sur mobile, fixe sur desktop */}
+      {/* Sidebar : cachée par défaut sur mobile (hidden), visible en overlay à l'ouverture ; toujours visible sur desktop (md:block) */}
       <div
         className={cn(
-          "fixed left-0 top-0 z-50 h-full transition-transform duration-200 ease-out md:z-40",
-          mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+          "fixed left-0 top-0 z-50 h-full md:z-40",
+          isMobile && !mobileMenuOpen && "hidden",
+          "md:block"
         )}
       >
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          onCloseMobile={() => setMobileMenuOpen(false)}
-          mobileMode={isMobile}
-        />
+        <div
+          className={cn(
+            "h-full transition-transform duration-200 ease-out",
+            isMobile && !mobileMenuOpen && "-translate-x-full",
+            (mobileMenuOpen || !isMobile) && "translate-x-0"
+          )}
+        >
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+            onCloseMobile={() => setMobileMenuOpen(false)}
+            mobileMode={isMobile}
+          />
+        </div>
       </div>
 
       {/* Contenu : marge à gauche sur desktop uniquement */}
