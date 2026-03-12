@@ -234,60 +234,52 @@ export default function DashboardPage() {
         className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
       >
         <motion.div variants={item}>
-          <Card
-            role="button"
-            tabIndex={0}
-            onClick={() => setDashboardView(showCaDetail ? "all" : "ca_detail")}
-            onKeyDown={(e) => e.key === "Enter" && setDashboardView(showCaDetail ? "all" : "ca_detail")}
-            className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 focus:ring-offset-2"
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                CA du mois
-              </CardTitle>
-              <Euro className="h-4 w-4 text-brand-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <motion.p
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                className="text-2xl font-bold text-brand-blue-600"
-              >
-                {loading ? "—" : formatCurrency(stats.caMensuel)}
-              </motion.p>
-              <Progress value={progressValue} className="mt-2 h-2" />
-              <p className="text-xs text-gray-500 mt-1">Cliquez pour le détail par mois</p>
-            </CardContent>
-          </Card>
+          <Link href="/projets?view=ca" className="block">
+            <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 focus:ring-offset-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">
+                  CA du mois
+                </CardTitle>
+                <Euro className="h-4 w-4 text-brand-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <motion.p
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="text-2xl font-bold text-brand-blue-600"
+                >
+                  {loading ? "—" : formatCurrency(stats.caMensuel)}
+                </motion.p>
+                <Progress value={progressValue} className="mt-2 h-2" />
+                <p className="text-xs text-gray-500 mt-1">Cliquez pour voir les projets</p>
+              </CardContent>
+            </Card>
+          </Link>
         </motion.div>
 
         <motion.div variants={item}>
-          <Card
-            role="button"
-            tabIndex={0}
-            onClick={() => setDashboardView(showCaDetail ? "all" : "ca_detail")}
-            onKeyDown={(e) => e.key === "Enter" && setDashboardView(showCaDetail ? "all" : "ca_detail")}
-            className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 focus:ring-offset-2"
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                CA annuel
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-brand-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <motion.p
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-                className="text-2xl font-bold text-gray-900"
-              >
-                {loading ? "—" : formatCurrency(stats.caAnnuel)}
-              </motion.p>
-              <p className="text-xs text-gray-500 mt-1">Cliquez pour le détail</p>
-            </CardContent>
-          </Card>
+          <Link href="/projets?view=ca" className="block">
+            <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 focus:ring-offset-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">
+                  CA annuel
+                </CardTitle>
+                <TrendingUp className="h-4 w-4 text-brand-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <motion.p
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-2xl font-bold text-gray-900"
+                >
+                  {loading ? "—" : formatCurrency(stats.caAnnuel)}
+                </motion.p>
+                <p className="text-xs text-gray-500 mt-1">Cliquez pour voir les projets</p>
+              </CardContent>
+            </Card>
+          </Link>
         </motion.div>
 
         <motion.div variants={item}>
@@ -318,35 +310,29 @@ export default function DashboardPage() {
         </motion.div>
 
         <motion.div variants={item}>
-          <Card
-            role="button"
-            tabIndex={0}
-            onClick={() => setDashboardView(dashboardView === "impayes" ? "all" : "impayes")}
-            onKeyDown={(e) => e.key === "Enter" && setDashboardView(dashboardView === "impayes" ? "all" : "impayes")}
-            className={`cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 border-red-200 bg-red-50/50 ${
-              dashboardView === "impayes" ? "ring-2 ring-red-500 ring-offset-2" : ""
-            }`}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-red-700">
-                Impayés
-              </CardTitle>
-              <AlertCircle className="h-4 w-4 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <motion.p
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 }}
-                className="text-2xl font-bold text-red-600"
-              >
-                {loading ? "—" : formatCurrency(stats.facturesImpayees)}
-              </motion.p>
-              <p className="text-xs text-red-600 mt-1">
-                {stats.nbProjetsImpayes} chantier(s) non soldé(s) · Cliquez pour filtrer
-              </p>
-            </CardContent>
-          </Card>
+          <Link href="/projets?filter=unpaid" className="block">
+            <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 border-red-200 bg-red-50/50">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-red-700">
+                  Impayés
+                </CardTitle>
+                <AlertCircle className="h-4 w-4 text-red-500" />
+              </CardHeader>
+              <CardContent>
+                <motion.p
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="text-2xl font-bold text-red-600"
+                >
+                  {loading ? "—" : formatCurrency(stats.facturesImpayees)}
+                </motion.p>
+                <p className="text-xs text-red-600 mt-1">
+                  {stats.nbProjetsImpayes} chantier(s) non soldé(s) · Cliquez pour filtrer
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
         </motion.div>
       </motion.div>
 

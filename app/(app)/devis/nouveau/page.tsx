@@ -33,6 +33,7 @@ export default function NouveauDevisPage() {
     d.setMonth(d.getMonth() + 1);
     return d.toISOString().slice(0, 10);
   });
+  const [notes, setNotes] = useState("");
   const [items, setItems] = useState<QuoteItem[]>([{ ...defaultItem }]);
   const [companyName, setCompanyName] = useState("Mon entreprise");
   const [companyAddress, setCompanyAddress] = useState("123 rue Example, 75000 Paris");
@@ -78,6 +79,7 @@ export default function NouveauDevisPage() {
       clientAddress: client?.address ?? "",
       devisNumber: `DEV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
       validUntil: new Date(validUntil).toLocaleDateString("fr-FR"),
+      notes: notes.trim() || undefined,
       items: items.map((i) => ({
         description: i.description,
         quantity: i.quantity,
@@ -155,6 +157,16 @@ export default function NouveauDevisPage() {
           <div>
             <label className="text-sm font-medium text-gray-700 mb-1 block">Valide jusqu&apos;au</label>
             <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Notes / Observations</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Instructions, conditions particulières, rappels..."
+              rows={3}
+              className="flex min-h-[80px] w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-500"
+            />
           </div>
         </CardContent>
       </Card>

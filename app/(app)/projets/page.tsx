@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProjects } from "@/hooks/use-projects";
+import { projectRestantDu } from "@/types/database";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,17 +37,28 @@ const statusVariant: Record<ProjectStatus, "gray" | "default" | "destructive" | 
   termine: "success",
 };
 
+export type ProjetFilter = ProjectStatus | "all" | "unpaid";
+
 export default function ProjetsPage() {
-  const [filter, setFilter] = useState<ProjectStatus | "all">("all");
+  const searchParams = useSearchParams();
+  const filterParam = searchParams.get("filter");
+  const [filter, setFilter] = useState<ProjetFilter>("all");
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const { projects, loading, error, refetch } = useProjects();
 
+  useEffect(() => {
+    if (filterParam === "unpaid") setFilter("unpaid");
+    else if (filterParam && (["all", "en_preparation", "en_cours", "urgent_retard", "termine"] as const).includes(filterParam as any))
+      setFilter(filterParam as ProjetFilter);
+  }, [filterParam]);
+
   const filtered = useMemo(() => {
     let list = projects;
-    if (filter !== "all") list = list.filter((p) => p.status === filter);
+    if (filter === "unpaid") list = list.filter((p) => projectRestantDu(p) > 0);
+    else if (filter !== "all") list = list.filter((p) => p.status === filter);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -119,7 +132,7 @@ export default function ProjetsPage() {
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              {(["all", "en_preparation", "en_cours", "urgent_retard", "termine"] as const).map(
+              {(["all", "unpaid", "en_preparation", "en_cours", "urgent_retard", "termine"] as const).map(
                 (s) => (
                   <Button
                     key={s}
@@ -128,7 +141,7 @@ export default function ProjetsPage() {
                     onClick={() => setFilter(s)}
                     className="min-h-[44px]"
                   >
-                    {s === "all" ? "Tous" : statusLabels[s]}
+                    {s === "all" ? "Tous" : s === "unpaid" ? "Impayés" : statusLabels[s]}
                   </Button>
                 )
               )}

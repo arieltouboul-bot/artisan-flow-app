@@ -99,6 +99,8 @@ export interface DevisPDFData {
   clientAddress: string;
   devisNumber: string;
   validUntil: string;
+  /** Notes ou observations affichées sur le devis */
+  notes?: string | null;
   items: {
     description: string;
     quantity: number;
@@ -135,6 +137,13 @@ function DevisPDFDocument({ data }: { data: DevisPDFData }) {
             <Text>Valable jusqu&apos;au {data.validUntil}</Text>
           </View>
         </View>
+
+        {data.notes && data.notes.trim() ? (
+          <View style={[styles.section, { marginTop: 12 }]}>
+            <Text style={styles.label}>Notes / Observations</Text>
+            <Text style={{ fontSize: 9, color: "#475569", lineHeight: 1.4 }}>{data.notes.trim()}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.table}>
           <View style={[styles.tableRow, styles.tableHeader]}>

@@ -128,6 +128,8 @@ export interface Quote {
   project_id: string;
   client_id: string;
   number: string;
+  /** Notes ou observations (affichées sur le devis / PDF) */
+  notes?: string | null;
   items: QuoteItem[];
   total_ht: number;
   total_ttc: number;

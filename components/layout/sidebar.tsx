@@ -162,7 +162,7 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
           const showCalendarBadge = item.key === "calendar" && appointmentSoon;
           const showProjectsBadge = item.key === "projects" && staleProjectsCount > 0;
           return (
-            <Link key={item.href} href={item.href}>
+            <Link key={item.href} href={item.href} onClick={() => onCloseMobile?.()}>
               <motion.div
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
