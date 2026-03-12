@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { Suspense, useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,7 +39,7 @@ const statusVariant: Record<ProjectStatus, "gray" | "default" | "destructive" | 
 
 export type ProjetFilter = ProjectStatus | "all" | "unpaid";
 
-export default function ProjetsPage() {
+function ProjetsContent() {
   const searchParams = useSearchParams();
   const filterParam = searchParams.get("filter");
   const [filter, setFilter] = useState<ProjetFilter>("all");
@@ -262,5 +262,13 @@ export default function ProjetsPage() {
         </DialogContent>
       </Dialog>
     </motion.div>
+  );
+}
+
+export default function ProjetsPage() {
+  return (
+    <Suspense fallback={<div>Chargement...</div>}>
+      <ProjetsContent />
+    </Suspense>
   );
 }
