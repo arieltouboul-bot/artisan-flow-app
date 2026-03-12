@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Sidebar } from "./sidebar";
-import { Logo } from "./logo";
+import { Navbar } from "./navbar";
 import { FloatingAssistant } from "@/components/assistant/floating-assistant";
 import { cn } from "@/lib/utils";
 
@@ -12,12 +12,9 @@ const MOBILE_BREAKPOINT = 768;
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const isOpen = mobileMenuOpen;
-  const [isMobile, setIsMobile] = useState(true); // true par défaut pour éviter flash sidebar sur mobile
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(true);
   const pathname = usePathname();
-
-  const toggleMobileMenu = () => setMobileMenuOpen((prev) => !prev);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
@@ -33,69 +30,55 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setMobileMenuOpen(false);
+    setIsSidebarOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const onEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsSidebarOpen(false);
+    };
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, []);
+
+  const showOverlay = isMobile && isSidebarOpen;
+  const sidebarTranslate = isMobile && !isSidebarOpen ? "-translate-x-full" : "translate-x-0";
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Barre mobile : logo cliquable (ouvre/ferme la Sidebar) en haut à gauche */}
-      <header className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden">
-        <button
-          type="button"
-          onClick={toggleMobileMenu}
-          className="flex min-h-[44px] min-w-[44px] -ml-1 items-center justify-start rounded-lg transition-colors hover:bg-gray-100 active:bg-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-500 focus-visible:ring-offset-2"
-          aria-label={isOpen ? "Fermer le menu" : "Ouvrir le menu"}
-          aria-expanded={isOpen}
-        >
-          <Logo showText size="compact" />
-        </button>
-        <div className="flex-1 min-w-2" aria-hidden="true" />
-      </header>
+      <Navbar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
 
-      {/* Overlay mobile quand le menu est ouvert */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-black/50 md:hidden"
-            onClick={() => setMobileMenuOpen(false)}
-            aria-hidden="true"
-          />
-        )}
-      </AnimatePresence>
+      {/* Overlay : fond noir semi-transparent pour fermer le menu au clic */}
+      {showOverlay && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
-      {/* Sidebar : sur mobile glisse depuis la gauche (animation) ; sur PC reste fixe à gauche */}
+      {/* Sidebar : translate-x-0 si ouvert, -translate-x-full si caché (mobile) ; toujours visible sur PC */}
       <div
         className={cn(
           "fixed left-0 top-0 z-50 h-full md:z-40",
-          isMobile && !mobileMenuOpen && "pointer-events-none"
+          isMobile && !isSidebarOpen && "pointer-events-none"
         )}
       >
-        <motion.div
-          className="h-full"
-          initial={false}
-          animate={{
-            x: isMobile && !mobileMenuOpen ? "-100%" : 0,
-          }}
-          transition={{
-            type: "tween",
-            duration: 0.3,
-            ease: [0.32, 0.72, 0, 1],
-          }}
+        <div
+          className={cn(
+            "h-full w-[260px] transition-transform duration-300 ease-out md:w-auto md:translate-x-0",
+            sidebarTranslate
+          )}
         >
-          <Sidebar
-            collapsed={sidebarCollapsed}
-            onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-            onCloseMobile={() => setMobileMenuOpen(false)}
-            mobileMode={isMobile}
-          />
-        </motion.div>
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onCloseMobile={() => setIsSidebarOpen(false)}
+          mobileMode={isMobile}
+        />
+        </div>
       </div>
 
-      {/* Contenu : marge à gauche sur desktop uniquement */}
       <main
         className={cn(
           "relative min-h-screen p-4 pt-20 pb-8 transition-[margin] duration-200 md:pt-4 md:p-6 lg:p-8",
@@ -116,4 +99,3 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-

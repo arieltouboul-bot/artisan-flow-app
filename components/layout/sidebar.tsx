@@ -88,7 +88,10 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
       initial={false}
       animate={{ width }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-gray-200 bg-white shadow-sm"
+      className={cn(
+        "flex h-screen flex-col border-r border-gray-200 bg-white shadow-sm",
+        mobileMode ? "relative" : "fixed left-0 top-0 z-40"
+      )}
     >
       <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 px-4">
         <Link href="/dashboard" className="flex items-center gap-2 overflow-hidden">
