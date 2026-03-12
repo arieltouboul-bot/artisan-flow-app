@@ -170,7 +170,7 @@ export default function ProjetsPage() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -8 }}
                       transition={{ delay: i * 0.03 }}
-                      className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-brand-blue-50/50 group"
+                      className="flex flex-col gap-4 px-4 py-4 transition-colors hover:bg-brand-blue-50/50 group sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-6"
                     >
                       <Link href={`/projets/${project.id}`} className="flex min-w-0 flex-1 items-center gap-4">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-blue-100 text-brand-blue-600">
@@ -191,7 +191,7 @@ export default function ProjetsPage() {
                           </div>
                         </div>
                       </Link>
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-3 sm:flex-nowrap">
                         {isOverdue && (
                           <Badge variant="destructive" className="shrink-0">En retard</Badge>
                         )}

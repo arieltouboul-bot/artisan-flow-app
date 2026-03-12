@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -7,11 +7,17 @@ const inter = Inter({
   variable: "--font-sans",
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#2563eb",
+};
+
 export const metadata: Metadata = {
   title: "ArtisanFlow - Gestion chantiers & finances",
   description: "Application de gestion pour artisans : chantiers, devis, factures et clients.",
   manifest: "/manifest.json",
-  themeColor: "#2563eb",
   icons: {
     icon: [
       { url: "/icons/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },

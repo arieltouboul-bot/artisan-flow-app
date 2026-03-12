@@ -509,7 +509,7 @@ export default function DashboardPage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.1 }}
-                  className="h-[320px] w-full"
+                  className="h-[320px] min-h-[240px] w-full overflow-hidden"
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={stats.chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -638,7 +638,7 @@ export default function DashboardPage() {
               </p>
             </CardHeader>
             <CardContent>
-              <div className="h-[280px] w-full">
+              <div className="h-[280px] min-h-[240px] w-full overflow-hidden">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stats.chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
