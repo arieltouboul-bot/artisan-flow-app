@@ -100,7 +100,7 @@ export default function ProjetDetailPage() {
       setContractAmount(String(currentProject.contract_amount ?? ""));
       setMaterialCosts(String(currentProject.material_costs ?? ""));
     }
-  }, [currentProject?.id, currentProject?.address, currentProject?.contract_amount, currentProject?.material_costs]);
+  }, [currentProject]);
 
   const handleSaveNotes = async () => {
     if (!supabase || !id) return;

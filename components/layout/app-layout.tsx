@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "./sidebar";
+import { Logo } from "./logo";
 import { FloatingAssistant } from "@/components/assistant/floating-assistant";
-import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MOBILE_BREAKPOINT = 768;
@@ -14,8 +13,11 @@ const MOBILE_BREAKPOINT = 768;
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isOpen = mobileMenuOpen;
   const [isMobile, setIsMobile] = useState(true); // true par défaut pour éviter flash sidebar sur mobile
   const pathname = usePathname();
+
+  const toggleMobileMenu = () => setMobileMenuOpen((prev) => !prev);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
@@ -36,19 +38,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Barre mobile : hamburger (toggle) + logo */}
+      {/* Barre mobile : logo cliquable (ouvre/ferme la Sidebar) en haut à gauche */}
       <header className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10 min-h-[44px] min-w-[44px]"
-          onClick={() => setMobileMenuOpen((prev) => !prev)}
-          aria-label={mobileMenuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+        <button
+          type="button"
+          onClick={toggleMobileMenu}
+          className="flex min-h-[44px] min-w-[44px] -ml-1 items-center justify-start rounded-lg transition-colors hover:bg-gray-100 active:bg-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-500 focus-visible:ring-offset-2"
+          aria-label={isOpen ? "Fermer le menu" : "Ouvrir le menu"}
+          aria-expanded={isOpen}
         >
-          <Menu className="h-6 w-6" />
-        </Button>
-        <span className="text-lg font-bold text-brand-blue-600">ArtisanFlow</span>
-        <div className="h-10 w-10 min-w-[44px]" />
+          <Logo showText size="compact" />
+        </button>
+        <div className="flex-1 min-w-2" aria-hidden="true" />
       </header>
 
       {/* Overlay mobile quand le menu est ouvert */}
@@ -58,6 +59,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             className="fixed inset-0 z-40 bg-black/50 md:hidden"
             onClick={() => setMobileMenuOpen(false)}
             aria-hidden="true"
@@ -65,20 +67,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         )}
       </AnimatePresence>
 
-      {/* Sidebar : cachée par défaut sur mobile (hidden), visible en overlay à l'ouverture ; toujours visible sur desktop (md:block) */}
+      {/* Sidebar : sur mobile glisse depuis la gauche (animation) ; sur PC reste fixe à gauche */}
       <div
         className={cn(
           "fixed left-0 top-0 z-50 h-full md:z-40",
-          isMobile && !mobileMenuOpen && "hidden",
-          "md:block"
+          isMobile && !mobileMenuOpen && "pointer-events-none"
         )}
       >
-        <div
-          className={cn(
-            "h-full transition-transform duration-200 ease-out",
-            isMobile && !mobileMenuOpen && "-translate-x-full",
-            (mobileMenuOpen || !isMobile) && "translate-x-0"
-          )}
+        <motion.div
+          className="h-full"
+          initial={false}
+          animate={{
+            x: isMobile && !mobileMenuOpen ? "-100%" : 0,
+          }}
+          transition={{
+            type: "tween",
+            duration: 0.3,
+            ease: [0.32, 0.72, 0, 1],
+          }}
         >
           <Sidebar
             collapsed={sidebarCollapsed}
@@ -86,7 +92,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             onCloseMobile={() => setMobileMenuOpen(false)}
             mobileMode={isMobile}
           />
-        </div>
+        </motion.div>
       </div>
 
       {/* Contenu : marge à gauche sur desktop uniquement */}

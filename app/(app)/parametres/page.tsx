@@ -34,7 +34,7 @@ export default function ParametresPage() {
       setSiret(profile.siret ?? "");
       setAddress(profile.address ?? "");
     }
-  }, [profile?.id]);
+  }, [profile]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -42,7 +42,7 @@ export default function ParametresPage() {
     if (stored === "fr" || stored === "en") {
       setLanguage(stored);
     }
-  }, []);
+  }, [setLanguage]);
 
   const handleLogout = async () => {
     const supabase = createClient();
