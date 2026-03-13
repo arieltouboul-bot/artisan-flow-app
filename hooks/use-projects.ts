@@ -67,10 +67,17 @@ export function useProjects(clientId?: string | null) {
       setLoading(false);
       return;
     }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setProjects([]);
+      setLoading(false);
+      return;
+    }
     setError(null);
     let query = supabase
       .from("projects")
       .select("*, client:clients(id, name, email, phone, address, contract_amount, material_costs, amount_collected, created_at)")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (clientId) query = query.eq("client_id", clientId);
     const { data, error: fetchError } = await query;
@@ -128,12 +135,19 @@ export function useProject(projectId: string | null) {
       setLoading(false);
       return;
     }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setProject(null);
+      setLoading(false);
+      return;
+    }
     setError(null);
     setLoading(true);
     const { data, error: fetchError } = await supabase
       .from("projects")
       .select("*, client:clients(id, name, email, phone, address, contract_amount, material_costs, amount_collected, created_at)")
       .eq("id", projectId)
+      .eq("user_id", user.id)
       .single();
     if (fetchError) {
       setError(fetchError.message);

@@ -14,6 +14,7 @@ export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+   const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -28,10 +29,18 @@ export default function SignupPage() {
       setLoading(false);
       return;
     }
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      (typeof window !== "undefined" ? window.location.origin : "");
     const { error: signError } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${typeof window !== "undefined" ? window.location.origin : ""}/auth/callback` },
+      options: {
+        emailRedirectTo: `${baseUrl}/auth/confirm`,
+        data: {
+          company_name: companyName.trim() || null,
+        },
+      },
     });
     setLoading(false);
     if (signError) {
@@ -111,6 +120,19 @@ export default function SignupPage() {
                   className="min-h-[48px]"
                   minLength={6}
                   required
+                />
+              </div>
+              <div>
+                <label htmlFor="company" className="text-sm font-medium text-gray-700 mb-1 block">
+                  Nom de l&apos;entreprise ou de l&apos;artisan
+                </label>
+                <Input
+                  id="company"
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="Ex : Dupont Rénovation"
+                  className="min-h-[48px]"
                 />
               </div>
               {error && (
