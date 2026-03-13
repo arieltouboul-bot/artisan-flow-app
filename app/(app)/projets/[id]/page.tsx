@@ -21,6 +21,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { useProject } from "@/hooks/use-projects";
 import { useProjectTasks } from "@/hooks/use-project-tasks";
 import { useProjectTransactions } from "@/hooks/use-project-transactions";
+import { useProjectExpenses, EXPENSE_CATEGORIES } from "@/hooks/use-project-expenses";
 import { useEmployees } from "@/hooks/use-employees";
 import { useProjectEmployees } from "@/hooks/use-project-employees";
 import { createClient } from "@/lib/supabase/client";
@@ -63,6 +64,7 @@ export default function ProjetDetailPage() {
   const { project, loading: projectLoading, error: projectError, refetch: refetchProject } = useProject(id);
   const { tasks, loading: tasksLoading, addTask, toggleTask, deleteTask } = useProjectTasks(id);
   const { transactions, loading: transactionsLoading, addTransaction } = useProjectTransactions(id);
+  const { expenses, loading: expensesLoading, addExpense, deleteExpense, totalHT: expensesTotalHT, totalTvaRecuperable } = useProjectExpenses(id);
   const { employees } = useEmployees();
   const { assignments, loading: teamLoading, assignEmployee, unassignEmployee } = useProjectEmployees(id);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
@@ -84,6 +86,14 @@ export default function ProjetDetailPage() {
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState<string | null>(null);
+  const [expenseOpen, setExpenseOpen] = useState(false);
+  const [expenseDescription, setExpenseDescription] = useState("");
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseTvaRate, setExpenseTvaRate] = useState(20);
+  const [expenseCategory, setExpenseCategory] = useState<"achat_materiel" | "location" | "main_oeuvre" | "sous_traitance">("achat_materiel");
+  const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [expenseSaving, setExpenseSaving] = useState(false);
+  const [expenseError, setExpenseError] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -174,6 +184,35 @@ export default function ProjetDetailPage() {
     window.setTimeout(() => {
       setPaymentSuccess(null);
     }, 3000);
+  };
+
+  const handleAddExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setExpenseError(null);
+    const amount = parseFloat(expenseAmount.replace(",", "."));
+    if (Number.isNaN(amount) || amount < 0) {
+      setExpenseError("Montant invalide.");
+      return;
+    }
+    setExpenseSaving(true);
+    const { error } = await addExpense({
+      description: expenseDescription.trim(),
+      amount_ht: amount,
+      tva_rate: expenseTvaRate,
+      category: expenseCategory,
+      date: expenseDate,
+    });
+    setExpenseSaving(false);
+    if (error) {
+      setExpenseError(error);
+      return;
+    }
+    setExpenseOpen(false);
+    setExpenseDescription("");
+    setExpenseAmount("");
+    setExpenseTvaRate(20);
+    setExpenseCategory("achat_materiel");
+    setExpenseDate(new Date().toISOString().slice(0, 10));
   };
 
   if (!id || (isLoaded && !currentProject)) {
@@ -538,14 +577,74 @@ export default function ProjetDetailPage() {
                 </div>
                 </div>
               </div>
+              {/* Suivi Financier : Marge Brute (CA HT - dépenses HT) et TVA à décaisser */}
+              <div className="pt-4 border-t border-gray-200">
+                <p className="text-sm font-medium text-gray-700 mb-2">Suivi Financier</p>
+                <div className="flex flex-wrap gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500">Marge Brute</p>
+                    <p className="text-lg font-bold text-emerald-600">
+                      {formatCurrency(parseNum(contractAmount) - expensesTotalHT)}
+                    </p>
+                    <p className="text-xs text-gray-400">CA HT − Dépenses HT</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">TVA à décaisser</p>
+                    <p className="text-lg font-bold text-brand-blue-600">
+                      {formatCurrency(Math.max(0, (parseNum(contractAmount) * 20) / 100 - totalTvaRecuperable))}
+                    </p>
+                    <p className="text-xs text-gray-400">TVA collectée − TVA récupérable</p>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex flex-wrap gap-6 pt-2">
                 <div>
-                  <p className="text-sm text-gray-500">Marge brute</p>
+                  <p className="text-sm text-gray-500">Marge (contrat − coûts matériaux saisis)</p>
                   <p className={`text-lg font-bold ${(parseNum(contractAmount) - parseNum(materialCosts)) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                     {formatCurrency(parseNum(contractAmount) - parseNum(materialCosts))}
                   </p>
                 </div>
               </div>
+
+              <div className="pt-2 border-t border-gray-100">
+                <p className="text-sm text-gray-500 mb-2">Dépenses (matériel, location, main d&apos;œuvre, sous-traitance)</p>
+                {expensesLoading ? (
+                  <div className="flex items-center gap-2 py-2 text-gray-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Chargement...
+                  </div>
+                ) : expenses.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-2">Aucune dépense. Ajoutez-en pour suivre la marge et la TVA.</p>
+                ) : (
+                  <ul className="space-y-1 text-sm mb-2">
+                    {expenses.map((ex) => (
+                      <li key={ex.id} className="flex justify-between items-center py-1">
+                        <span>
+                          {formatDate(ex.date)} — {EXPENSE_CATEGORIES.find((c) => c.value === ex.category)?.label ?? ex.category} · {ex.description || "—"}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          <span className="font-medium">{formatCurrency(ex.amount_ht)} HT</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:bg-red-50"
+                            onClick={() => deleteExpense(ex.id)}
+                            aria-label="Supprimer la dépense"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Button type="button" variant="outline" size="sm" onClick={() => setExpenseOpen(true)} className="min-h-[44px]">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Ajouter une dépense
+                </Button>
+              </div>
+
               {transactions.length > 0 && (
                 <div className="pt-4 border-t border-gray-100">
                   <p className="text-sm text-gray-500 mb-2">Paiements enregistrés</p>
@@ -670,6 +769,77 @@ export default function ProjetDetailPage() {
               </Button>
               <Button type="submit" disabled={paymentSaving}>
                 {paymentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={expenseOpen} onOpenChange={(o) => { setExpenseOpen(o); setExpenseError(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ajouter une dépense</DialogTitle>
+            <p className="text-sm text-gray-500">Matériel, location, main d&apos;œuvre, sous-traitance</p>
+          </DialogHeader>
+          <form onSubmit={handleAddExpense} className="space-y-4">
+            <div>
+              <label className="text-sm text-gray-500 block mb-1">Catégorie</label>
+              <select
+                value={expenseCategory}
+                onChange={(e) => setExpenseCategory(e.target.value as typeof expenseCategory)}
+                className="w-full min-h-[44px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                {EXPENSE_CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm text-gray-500 block mb-1">Description</label>
+              <Input
+                value={expenseDescription}
+                onChange={(e) => setExpenseDescription(e.target.value)}
+                placeholder="Ex: Achat carrelage"
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm text-gray-500 block mb-1">Montant HT (€)</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  value={expenseAmount}
+                  onChange={(e) => setExpenseAmount(e.target.value)}
+                  className="min-h-[44px]"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-500 block mb-1">TVA %</label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={expenseTvaRate}
+                  onChange={(e) => setExpenseTvaRate(Number(e.target.value) || 20)}
+                  className="min-h-[44px]"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm text-gray-500 block mb-1">Date</label>
+              <Input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className="min-h-[44px]" />
+            </div>
+            {expenseError && <p className="text-sm text-red-600">{expenseError}</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setExpenseOpen(false)} disabled={expenseSaving}>
+                Annuler
+              </Button>
+              <Button type="submit" disabled={expenseSaving}>
+                {expenseSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer"}
               </Button>
             </DialogFooter>
           </form>

@@ -121,6 +121,8 @@ export interface QuoteItem {
   total_buy: number;
   total_sell: number;
   margin: number;
+  /** Pour distinguer Matériel / Pose sur le PDF */
+  lineType?: "material" | "pose" | null;
 }
 
 export interface Quote {
@@ -130,6 +132,8 @@ export interface Quote {
   number: string;
   /** Notes ou observations (affichées sur le devis / PDF) */
   notes?: string | null;
+  /** Pourcentage d'acompte à la signature (ex: 30) */
+  acompte_percentage?: number | null;
   items: QuoteItem[];
   total_ht: number;
   total_ttc: number;
@@ -137,6 +141,25 @@ export interface Quote {
   status: "brouillon" | "envoye" | "accepte" | "refuse";
   valid_until: string;
   created_at: string;
+}
+
+/** Catégories de dépenses (table expenses) */
+export type ExpenseCategory =
+  | "achat_materiel"
+  | "location"
+  | "main_oeuvre"
+  | "sous_traitance";
+
+export interface Expense {
+  id: string;
+  project_id: string;
+  user_id: string;
+  description: string;
+  amount_ht: number;
+  tva_rate: number;
+  category: ExpenseCategory;
+  date: string;
+  created_at?: string;
 }
 
 export interface Invoice {

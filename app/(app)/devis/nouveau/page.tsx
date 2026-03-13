@@ -34,13 +34,14 @@ export default function NouveauDevisPage() {
     return d.toISOString().slice(0, 10);
   });
   const [notes, setNotes] = useState("");
+  const [acomptePercentage, setAcomptePercentage] = useState(30);
   const [items, setItems] = useState<QuoteItem[]>([{ ...defaultItem }]);
   const [companyName, setCompanyName] = useState("Mon entreprise");
   const [companyAddress, setCompanyAddress] = useState("123 rue Example, 75000 Paris");
   const [companySiret, setCompanySiret] = useState("123 456 789 00012");
   const TVA_RATE = 20;
 
-  const updateItem = (index: number, field: keyof QuoteItem, value: number | string) => {
+  const updateItem = (index: number, field: keyof QuoteItem, value: number | string | null | undefined) => {
     setItems((prev) => {
       const next = [...prev];
       const item = { ...next[index], [field]: value };
@@ -80,12 +81,14 @@ export default function NouveauDevisPage() {
       devisNumber: `DEV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
       validUntil: new Date(validUntil).toLocaleDateString("fr-FR"),
       notes: notes.trim() || undefined,
+      acomptePercentage,
       items: items.map((i) => ({
         description: i.description,
         quantity: i.quantity,
         unit: i.unit,
         unit_price_sell: i.unit_price_sell,
         total_sell: i.total_sell,
+        lineType: i.lineType ?? undefined,
       })),
       totalHT: totals.total_ht,
       tvaRate: TVA_RATE,
@@ -159,6 +162,19 @@ export default function NouveauDevisPage() {
             <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
           </div>
           <div>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Pourcentage d&apos;acompte</label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              step={5}
+              value={acomptePercentage}
+              onChange={(e) => setAcomptePercentage(Number(e.target.value) || 0)}
+              className="min-h-[48px] w-full max-w-[120px]"
+            />
+            <p className="text-xs text-gray-500 mt-1">% à la signature (ex: 30)</p>
+          </div>
+          <div>
             <label className="text-sm font-medium text-gray-700 mb-1 block">Notes / Observations</label>
             <textarea
               value={notes}
@@ -185,6 +201,7 @@ export default function NouveauDevisPage() {
               <thead>
                 <tr className="border-b border-gray-200 text-left text-gray-500">
                   <th className="pb-2 pr-2">Désignation</th>
+                  <th className="pb-2 pr-2 w-24">Type</th>
                   <th className="pb-2 pr-2 w-20">Qté</th>
                   <th className="pb-2 pr-2 w-16">Unité</th>
                   <th className="pb-2 pr-2 w-28">Prix achat</th>
@@ -203,6 +220,17 @@ export default function NouveauDevisPage() {
                         onChange={(e) => updateItem(index, "description", e.target.value)}
                         className="h-10"
                       />
+                    </td>
+                    <td className="py-2 pr-2">
+                      <select
+                        value={item.lineType ?? ""}
+                        onChange={(e) => updateItem(index, "lineType", e.target.value === "material" ? "material" : e.target.value === "pose" ? "pose" : undefined)}
+                        className="h-10 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
+                      >
+                        <option value="">—</option>
+                        <option value="material">Matériel</option>
+                        <option value="pose">Pose</option>
+                      </select>
                     </td>
                     <td className="py-2 pr-2">
                       <Input

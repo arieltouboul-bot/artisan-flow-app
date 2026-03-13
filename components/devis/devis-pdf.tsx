@@ -63,11 +63,20 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     fontWeight: "bold",
   },
-  colDesc: { width: "35%" },
-  colQty: { width: "12%" },
-  colUnit: { width: "12%" },
-  colPrice: { width: "18%" },
-  colTotal: { width: "23%" },
+  colDesc: { width: "28%" },
+  colType: { width: "10%" },
+  colQty: { width: "10%" },
+  colUnit: { width: "10%" },
+  colPrice: { width: "16%" },
+  colTotal: { width: "26%" },
+  signatureBlock: {
+    marginTop: 32,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+    width: "50%",
+  },
+  signatureLabel: { fontSize: 8, color: "#64748b", marginBottom: 24, textTransform: "uppercase" },
   totalBlock: {
     marginTop: 24,
     alignItems: "flex-end",
@@ -101,12 +110,16 @@ export interface DevisPDFData {
   validUntil: string;
   /** Notes ou observations affichées sur le devis */
   notes?: string | null;
+  /** Pourcentage d'acompte à la signature (ex: 30). Par défaut 0 si non fourni. */
+  acomptePercentage?: number;
   items: {
     description: string;
     quantity: number;
     unit: string;
     unit_price_sell: number;
     total_sell: number;
+    /** Matériel ou Pose pour distinguer sur le PDF */
+    lineType?: "material" | "pose" | null;
   }[];
   totalHT: number;
   tvaRate: number;
@@ -114,6 +127,10 @@ export interface DevisPDFData {
 }
 
 function DevisPDFDocument({ data }: { data: DevisPDFData }) {
+  const acomptePct = data.acomptePercentage ?? 0;
+  const acompteAmount = acomptePct > 0 ? (data.totalTTC * acomptePct) / 100 : 0;
+  const showTypeColumn = data.items.some((i) => i.lineType === "material" || i.lineType === "pose");
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -148,6 +165,7 @@ function DevisPDFDocument({ data }: { data: DevisPDFData }) {
         <View style={styles.table}>
           <View style={[styles.tableRow, styles.tableHeader]}>
             <Text style={styles.colDesc}>Désignation</Text>
+            {showTypeColumn && <Text style={styles.colType}>Type</Text>}
             <Text style={styles.colQty}>Qté</Text>
             <Text style={styles.colUnit}>Unité</Text>
             <Text style={styles.colPrice}>P.U. HT</Text>
@@ -156,6 +174,11 @@ function DevisPDFDocument({ data }: { data: DevisPDFData }) {
           {data.items.map((item, i) => (
             <View key={i} style={styles.tableRow}>
               <Text style={styles.colDesc}>{item.description}</Text>
+              {showTypeColumn && (
+                <Text style={styles.colType}>
+                  {item.lineType === "material" ? "Matériel" : item.lineType === "pose" ? "Pose" : "—"}
+                </Text>
+              )}
               <Text style={styles.colQty}>{item.quantity}</Text>
               <Text style={styles.colUnit}>{item.unit}</Text>
               <Text style={styles.colPrice}>{item.unit_price_sell.toFixed(2)} €</Text>
@@ -179,6 +202,18 @@ function DevisPDFDocument({ data }: { data: DevisPDFData }) {
             <Text style={styles.totalLabel}>Total TTC</Text>
             <Text style={styles.totalValue}>{data.totalTTC.toFixed(2)} €</Text>
           </View>
+          {acomptePct > 0 && (
+            <View style={[styles.totalLine, { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#e5e7eb" }]}>
+              <Text style={styles.totalLabel}>Acompte de {acomptePct}% à la signature</Text>
+              <Text style={styles.totalValue}>{acompteAmount.toFixed(2)} €</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.signatureBlock}>
+          <Text style={styles.signatureLabel}>Bon pour accord</Text>
+          <View style={{ borderBottomWidth: 1, borderBottomColor: "#94a3b8", height: 36 }} />
+          <Text style={{ fontSize: 8, color: "#94a3b8", marginTop: 4 }}>Signature du client</Text>
         </View>
 
         <View style={styles.footer}>
