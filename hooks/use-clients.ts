@@ -1,8 +1,8 @@
-\"use client\";
+"use client";
 
-import { useState, useEffect, useCallback } from \"react\";
-import { createClient } from \"@/lib/supabase/client\";
-import type { Client } from \"@/types/database\";
+import { useState, useEffect, useCallback } from "react";
+import { createClient } from "../lib/supabase/client";
+import type { Client } from "@/types/database";
 
 export function useClients() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -12,11 +12,13 @@ export function useClients() {
   const fetchClients = useCallback(async () => {
     const supabase = createClient();
     if (!supabase) {
-      setError(\"Supabase non configuré (vérifiez .env.local)\");
+      setError("Supabase non configuré (vérifiez .env.local)");
       setLoading(false);
       return;
     }
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       setClients([]);
       setLoading(false);
@@ -24,10 +26,12 @@ export function useClients() {
     }
     setError(null);
     const { data, error: fetchError } = await supabase
-      .from(\"clients\")
-      .select(\"id, name, email, phone, address, contract_amount, material_costs, amount_collected, created_at, user_id\")
-      .eq(\"user_id\", user.id)
-      .order(\"created_at\", { ascending: false });
+      .from("clients")
+      .select(
+        "id, name, email, phone, address, contract_amount, material_costs, amount_collected, created_at, user_id"
+      )
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
     if (fetchError) {
       setError(fetchError.message);
       setClients([]);
@@ -61,3 +65,4 @@ export function useClients() {
 
   return { clients, loading, error, refetch: fetchClients };
 }
+
