@@ -1,6 +1,5 @@
 import { AppLayout } from "@/components/layout/app-layout";
 import { AssistantProvider } from "@/context/assistant-context";
-import { LanguageProvider } from "@/context/language-context";
 
 export default function AppRouteLayout({
   children,
@@ -8,10 +7,8 @@ export default function AppRouteLayout({
   children: React.ReactNode;
 }) {
   return (
-    <LanguageProvider>
-      <AssistantProvider>
-        <AppLayout>{children}</AppLayout>
-      </AssistantProvider>
-    </LanguageProvider>
+    <AssistantProvider>
+      <AppLayout>{children}</AppLayout>
+    </AssistantProvider>
   );
 }

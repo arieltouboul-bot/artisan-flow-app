@@ -78,6 +78,7 @@ export default function DashboardPage() {
   const { appointments: todayAppointments } = useTodayAppointments();
   const [newReminder, setNewReminder] = useState("");
   const welcomeName = displayName(user ?? null, profile?.company_name ?? null);
+  const currency = profile?.currency ?? "EUR";
 
   useEffect(() => {
     const onFocus = () => {
@@ -249,7 +250,7 @@ export default function DashboardPage() {
                   transition={{ delay: 0.2 }}
                   className="text-2xl font-bold text-brand-blue-600"
                 >
-                  {loading ? "—" : formatCurrency(stats.caMensuel)}
+                  {loading ? "—" : formatCurrency(stats.caMensuel, currency)}
                 </motion.p>
                 <Progress value={progressValue} className="mt-2 h-2" />
                 <p className="text-xs text-gray-500 mt-1">Cliquez pour voir les projets</p>
@@ -274,7 +275,7 @@ export default function DashboardPage() {
                   transition={{ delay: 0.3 }}
                   className="text-2xl font-bold text-gray-900"
                 >
-                  {loading ? "—" : formatCurrency(stats.caAnnuel)}
+                  {loading ? "—" : formatCurrency(stats.caAnnuel, currency)}
                 </motion.p>
                 <p className="text-xs text-gray-500 mt-1">Cliquez pour voir les projets</p>
               </CardContent>
@@ -303,7 +304,7 @@ export default function DashboardPage() {
                 {loading ? "—" : formatCurrency(stats.margeTotale)} (contrats − matériaux)
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
-                Frais matériaux total : {loading ? "—" : formatCurrency(stats.totalMaterialCosts)}
+                Frais matériaux total : {loading ? "—" : formatCurrency(stats.totalMaterialCosts, currency)}
               </p>
             </CardContent>
           </Card>
@@ -325,7 +326,7 @@ export default function DashboardPage() {
                   transition={{ delay: 0.5 }}
                   className="text-2xl font-bold text-red-600"
                 >
-                  {loading ? "—" : formatCurrency(stats.facturesImpayees)}
+                  {loading ? "—" : formatCurrency(stats.facturesImpayees, currency)}
                 </motion.p>
                 <p className="text-xs text-red-600 mt-1">
                   {stats.nbProjetsImpayes} chantier(s) non soldé(s) · Cliquez pour filtrer
@@ -503,7 +504,7 @@ export default function DashboardPage() {
                       <XAxis dataKey="month" className="text-xs" interval={0} />
                       <YAxis className="text-xs" tickFormatter={(v) => `${v / 1000}k €`} />
                       <Tooltip
-                        formatter={(value: number) => [formatCurrency(value), ""]}
+                        formatter={(value: number) => [formatCurrency(value, currency), ""]}
                         contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
                       />
                       <Legend />
@@ -589,7 +590,7 @@ export default function DashboardPage() {
                                     : "text-emerald-600"
                                 }
                               >
-                                {formatCurrency(restant)} dû
+                                {formatCurrency(restant, currency)} dû
                               </span>
                               <Link href={`/projets/${project.id}`}>
                                 <Button variant="ghost" size="sm" className="text-brand-blue-600">
@@ -631,7 +632,7 @@ export default function DashboardPage() {
                     <XAxis dataKey="month" className="text-xs" interval={0} />
                     <YAxis className="text-xs" tickFormatter={(v) => `${v / 1000}k €`} />
                     <Tooltip
-                      formatter={(value: number) => [formatCurrency(value), ""]}
+                      formatter={(value: number) => [formatCurrency(value, currency), ""]}
                       contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
                     />
                     <Legend />

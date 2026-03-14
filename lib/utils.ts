@@ -1,15 +1,41 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+export type Currency = "EUR" | "USD" | "GBP" | "ILS";
+
+const CURRENCY_SYMBOLS: Record<Currency, string> = {
+  EUR: "€",
+  USD: "$",
+  GBP: "£",
+  ILS: "₪",
+};
+
+const CURRENCY_LOCALES: Record<Currency, string> = {
+  EUR: "fr-FR",
+  USD: "en-US",
+  GBP: "en-GB",
+  ILS: "he-IL",
+};
+
+export function getCurrencySymbol(currency: Currency = "EUR"): string {
+  return CURRENCY_SYMBOLS[currency];
 }
 
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("fr-FR", {
+export function formatCurrency(value: number, currency: Currency = "EUR"): string {
+  return new Intl.NumberFormat(CURRENCY_LOCALES[currency], {
     style: "currency",
-    currency: "EUR",
+    currency,
   }).format(value);
+}
+
+/** Pour affichage avec symbole personnalisé (ex: "1 234,56 €") */
+export function formatCurrencyWithSymbol(value: number, currency: Currency = "EUR"): string {
+  const locale = currency === "EUR" ? "fr-FR" : "en-US";
+  const formatted = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+  return `${formatted} ${getCurrencySymbol(currency)}`;
 }
 
 export function formatDate(date: string | Date): string {

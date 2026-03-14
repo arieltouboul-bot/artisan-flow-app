@@ -123,6 +123,8 @@ export interface QuoteItem {
   margin: number;
   /** Pour distinguer Matériel / Pose sur le PDF */
   lineType?: "material" | "pose" | null;
+  /** Taux de TVA par ligne (0, 5.5, 10, 20) */
+  tva_rate?: number;
 }
 
 export interface Quote {

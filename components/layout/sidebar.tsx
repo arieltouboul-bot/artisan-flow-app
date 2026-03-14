@@ -20,8 +20,10 @@ import {
   Calendar,
   HelpCircle,
   X,
+  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { t } from "@/lib/translations";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,6 +40,7 @@ const navItems = [
   { href: "/calendar", key: "calendar", icon: Calendar },
   { href: "/devis/nouveau", key: "newQuote", icon: FileText },
   { href: "/clients", key: "clients", icon: Users },
+  { href: "/materiel", key: "material", icon: Package },
   { href: "/employees", key: "team", icon: UsersRound },
   { href: "/parametres", key: "settings", icon: Settings },
 ];
@@ -121,7 +124,7 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
             size="icon"
             className="h-10 w-10 min-h-[44px] min-w-[44px] shrink-0"
             onClick={onCloseMobile}
-            aria-label="Fermer le menu"
+            aria-label={t("closeMenu", language)}
           >
             <X className="h-5 w-5" />
           </Button>
@@ -131,34 +134,7 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
         {navItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
           const Icon = item.icon;
-          const label =
-            language === "en"
-              ? item.key === "dashboard"
-                ? "Dashboard"
-                : item.key === "projects"
-                ? "Projects"
-                : item.key === "calendar"
-                ? "Calendar"
-                : item.key === "newQuote"
-                ? "New quote"
-                : item.key === "clients"
-                ? "Clients"
-                : item.key === "team"
-                ? "Team"
-                : "Settings"
-              : item.key === "dashboard"
-              ? "Dashboard"
-              : item.key === "projects"
-              ? "Projets"
-              : item.key === "calendar"
-              ? "Calendrier"
-              : item.key === "newQuote"
-              ? "Nouveau devis"
-              : item.key === "clients"
-              ? "Clients"
-              : item.key === "team"
-              ? "Équipe"
-              : "Paramètres";
+          const label = t(item.key, language);
           const showCalendarBadge = item.key === "calendar" && appointmentSoon;
           const showProjectsBadge = item.key === "projects" && staleProjectsCount > 0;
           return (
@@ -255,7 +231,7 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
                 exit={{ opacity: 0 }}
                 className="truncate"
               >
-                Déconnexion
+                {t("logout", language)}
               </motion.span>
             )}
           </AnimatePresence>

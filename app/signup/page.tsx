@@ -2,16 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Hammer, Loader2 } from "lucide-react";
+import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
 
 export default function SignupPage() {
-  const router = useRouter();
+  const { language } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
    const [companyName, setCompanyName] = useState("");
@@ -60,11 +61,9 @@ export default function SignupPage() {
         >
           <Card className="overflow-hidden shadow-brand-glow">
             <CardContent className="pt-6">
-              <p className="text-gray-700 mb-4">
-                Vérifiez votre boîte mail pour confirmer votre inscription.
-              </p>
+              <p className="text-gray-700 mb-4">{t("checkEmail", language)}</p>
               <Link href="/login">
-                <Button className="w-full min-h-[48px]">Retour à la connexion</Button>
+                <Button className="w-full min-h-[48px]">{t("backToLogin", language)}</Button>
               </Link>
             </CardContent>
           </Card>
@@ -87,30 +86,28 @@ export default function SignupPage() {
         </div>
         <Card className="overflow-hidden shadow-brand-glow">
           <CardHeader>
-            <CardTitle className="text-xl text-center">Inscription</CardTitle>
-            <p className="text-sm text-gray-500 text-center">
-              Créez votre compte ArtisanFlow
-            </p>
+            <CardTitle className="text-xl text-center">{t("signupTitle", language)}</CardTitle>
+            <p className="text-sm text-gray-500 text-center">{t("signupSubtitle", language)}</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignup} className="space-y-4">
               <div>
                 <label htmlFor="email" className="text-sm font-medium text-gray-700 mb-1 block">
-                  Email
+                  {t("email", language)}
                 </label>
                 <Input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="vous@exemple.fr"
+                  placeholder={t("placeholderEmail", language)}
                   className="min-h-[48px]"
                   required
                 />
               </div>
               <div>
                 <label htmlFor="password" className="text-sm font-medium text-gray-700 mb-1 block">
-                  Mot de passe (min. 6 caractères)
+                  {t("passwordMin", language)}
                 </label>
                 <Input
                   id="password"
@@ -124,14 +121,14 @@ export default function SignupPage() {
               </div>
               <div>
                 <label htmlFor="company" className="text-sm font-medium text-gray-700 mb-1 block">
-                  Nom de l&apos;entreprise ou de l&apos;artisan
+                  {t("companyName", language)}
                 </label>
                 <Input
                   id="company"
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Ex : Dupont Rénovation"
+                  placeholder={t("placeholderCompany", language)}
                   className="min-h-[48px]"
                 />
               </div>
@@ -142,14 +139,14 @@ export default function SignupPage() {
                 {loading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  "S&apos;inscrire"
+                  t("signUp", language)
                 )}
               </Button>
             </form>
             <p className="text-sm text-gray-500 text-center mt-4">
-              Déjà un compte ?{" "}
+              {t("alreadyAccount", language)}{" "}
               <Link href="/login" className="text-brand-blue-600 hover:underline font-medium">
-                Se connecter
+                {t("signIn", language)}
               </Link>
             </p>
           </CardContent>

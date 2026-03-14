@@ -8,6 +8,7 @@ import {
   StyleSheet,
   pdf,
 } from "@react-pdf/renderer";
+import type { Currency } from "@/lib/utils";
 
 const styles = StyleSheet.create({
   page: {
@@ -120,16 +121,26 @@ export interface DevisPDFData {
     total_sell: number;
     /** Matériel ou Pose pour distinguer sur le PDF */
     lineType?: "material" | "pose" | null;
+    /** Taux TVA par ligne (0, 5.5, 10, 20) */
+    tva_rate?: number;
   }[];
   totalHT: number;
-  tvaRate: number;
+  /** Montant total de la TVA (pour affichage quand taux variables par ligne) */
+  totalTVA: number;
   totalTTC: number;
+  /** Devise pour les montants (défaut EUR) */
+  currency?: Currency;
 }
+
+const CURRENCY_SYMBOLS: Record<string, string> = { EUR: "€", USD: "$", GBP: "£", ILS: "₪" };
 
 function DevisPDFDocument({ data }: { data: DevisPDFData }) {
   const acomptePct = data.acomptePercentage ?? 0;
   const acompteAmount = acomptePct > 0 ? (data.totalTTC * acomptePct) / 100 : 0;
   const showTypeColumn = data.items.some((i) => i.lineType === "material" || i.lineType === "pose");
+  const sym = CURRENCY_SYMBOLS[data.currency ?? "EUR"] ?? "€";
+
+  const fmt = (value: number) => value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " " + sym;
 
   return (
     <Document>
@@ -181,8 +192,8 @@ function DevisPDFDocument({ data }: { data: DevisPDFData }) {
               )}
               <Text style={styles.colQty}>{item.quantity}</Text>
               <Text style={styles.colUnit}>{item.unit}</Text>
-              <Text style={styles.colPrice}>{item.unit_price_sell.toFixed(2)} €</Text>
-              <Text style={styles.colTotal}>{item.total_sell.toFixed(2)} €</Text>
+              <Text style={styles.colPrice}>{fmt(item.unit_price_sell)}</Text>
+              <Text style={styles.colTotal}>{fmt(item.total_sell)}</Text>
             </View>
           ))}
         </View>
@@ -190,22 +201,20 @@ function DevisPDFDocument({ data }: { data: DevisPDFData }) {
         <View style={styles.totalBlock}>
           <View style={styles.totalLine}>
             <Text style={styles.totalLabel}>Total HT</Text>
-            <Text style={styles.totalValue}>{data.totalHT.toFixed(2)} €</Text>
+            <Text style={styles.totalValue}>{fmt(data.totalHT)}</Text>
           </View>
           <View style={styles.totalLine}>
-            <Text style={styles.totalLabel}>TVA {data.tvaRate}%</Text>
-            <Text style={styles.totalValue}>
-              {((data.totalTTC - data.totalHT)).toFixed(2)} €
-            </Text>
+            <Text style={styles.totalLabel}>TVA</Text>
+            <Text style={styles.totalValue}>{fmt(data.totalTVA)}</Text>
           </View>
           <View style={styles.totalLine}>
             <Text style={styles.totalLabel}>Total TTC</Text>
-            <Text style={styles.totalValue}>{data.totalTTC.toFixed(2)} €</Text>
+            <Text style={styles.totalValue}>{fmt(data.totalTTC)}</Text>
           </View>
           {acomptePct > 0 && (
             <View style={[styles.totalLine, { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#e5e7eb" }]}>
               <Text style={styles.totalLabel}>Acompte de {acomptePct}% à la signature</Text>
-              <Text style={styles.totalValue}>{acompteAmount.toFixed(2)} €</Text>
+              <Text style={styles.totalValue}>{fmt(acompteAmount)}</Text>
             </View>
           )}
         </View>

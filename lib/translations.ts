@@ -1,0 +1,120 @@
+export type Language = "fr" | "en";
+
+export const translations: Record<string, { fr: string; en: string }> = {
+  // Auth & common
+  signUp: { fr: "S'inscrire", en: "Sign up" },
+  signIn: { fr: "Se connecter", en: "Sign in" },
+  logout: { fr: "Déconnexion", en: "Log out" },
+  email: { fr: "Email", en: "Email" },
+  password: { fr: "Mot de passe", en: "Password" },
+  passwordMin: { fr: "Mot de passe (min. 6 caractères)", en: "Password (min. 6 characters)" },
+  companyName: { fr: "Nom de l'entreprise ou de l'artisan", en: "Company or artisan name" },
+  backToLogin: { fr: "Retour à la connexion", en: "Back to sign in" },
+  alreadyAccount: { fr: "Déjà un compte ?", en: "Already have an account?" },
+  checkEmail: { fr: "Vérifiez votre boîte mail pour confirmer votre inscription.", en: "Check your inbox to confirm your registration." },
+  signupTitle: { fr: "Inscription", en: "Sign up" },
+  signupSubtitle: { fr: "Créez votre compte ArtisanFlow", en: "Create your ArtisanFlow account" },
+  placeholderEmail: { fr: "vous@exemple.fr", en: "you@example.com" },
+  placeholderCompany: { fr: "Ex : Dupont Rénovation", en: "e.g. Dupont Renovation" },
+
+  // Language
+  language: { fr: "Langue", en: "Language" },
+  french: { fr: "Français", en: "French" },
+  english: { fr: "English", en: "English" },
+
+  // Sidebar & nav
+  dashboard: { fr: "Dashboard", en: "Dashboard" },
+  projects: { fr: "Projets", en: "Projects" },
+  calendar: { fr: "Calendrier", en: "Calendar" },
+  newQuote: { fr: "Nouveau devis", en: "New quote" },
+  clients: { fr: "Clients", en: "Clients" },
+  team: { fr: "Équipe", en: "Team" },
+  material: { fr: "Matériel", en: "Materials" },
+  settings: { fr: "Paramètres", en: "Settings" },
+  helpSupport: { fr: "Aide & Support", en: "Help & Support" },
+  openMenu: { fr: "Ouvrir le menu", en: "Open menu" },
+  closeMenu: { fr: "Fermer le menu", en: "Close menu" },
+
+  // Home
+  getStarted: { fr: "Commencer l'aventure", en: "Get started" },
+  talkToAI: { fr: "Parler avec l'Agent IA Expert", en: "Talk with the AI Expert" },
+  heroTitle: { fr: "Artisan Flow : Votre chantier, votre équipe, votre succès.", en: "Artisan Flow: Your site, your team, your success." },
+  heroSubtitle: { fr: "Gérez vos chantiers, vos marges et vos clients en un clin d'œil.", en: "Manage your jobsites, margins and clients at a glance." },
+  cardProjects: { fr: "Chantiers", en: "Projects" },
+  cardProjectsText: { fr: "Suivez vos projets et tâches en un seul endroit.", en: "Track your projects, dates and tasks in one place." },
+  cardMargins: { fr: "Marges & CA", en: "Margins & Revenue" },
+  cardMarginsText: { fr: "Pilotez votre activité avec des tableaux de bord clairs.", en: "Pilot your business with clear dashboards." },
+  cardClients: { fr: "Clients", en: "Clients" },
+  cardClientsText: { fr: "Centralisez vos contacts et historiques.", en: "Centralise your contacts and history by client." },
+
+  // Material section
+  materialManagement: { fr: "Gestion de Matériel", en: "Material Management" },
+  catalogue: { fr: "Catalogue Matériaux", en: "Materials Catalogue" },
+  catalogueDesc: { fr: "Liste des articles avec prix HT, TVA et stock", en: "List of items with HT price, VAT and stock" },
+  rental: { fr: "Location", en: "Rental" },
+  rentalDesc: { fr: "Suivi du matériel loué par chantier", en: "Track equipment rented per project" },
+  suppliers: { fr: "Fournisseurs", en: "Suppliers" },
+  suppliersDesc: { fr: "Liste de vos fournisseurs habituels", en: "List of your usual suppliers" },
+  addArticle: { fr: "Ajouter un article", en: "Add item" },
+  addSupplier: { fr: "Ajouter un fournisseur", en: "Add supplier" },
+  name: { fr: "Nom", en: "Name" },
+  unitPriceHT: { fr: "Prix unitaire HT", en: "Unit price (excl. tax)" },
+  defaultVAT: { fr: "TVA par défaut", en: "Default VAT" },
+  stock: { fr: "Stock", en: "Stock" },
+  category: { fr: "Catégorie", en: "Category" },
+  noItems: { fr: "Aucun article. Ajoutez-en pour les retrouver dans vos devis.", en: "No items. Add some to use them in quotes." },
+  noSuppliers: { fr: "Aucun fournisseur.", en: "No suppliers." },
+
+  // Currency
+  currency: { fr: "Devise", en: "Currency" },
+  euro: { fr: "Euro (€)", en: "Euro (€)" },
+  dollar: { fr: "Dollar ($)", en: "Dollar ($)" },
+  pound: { fr: "Livre Sterling (£)", en: "Pound (£)" },
+  shekel: { fr: "Shekel (₪)", en: "Shekel (₪)" },
+
+  // Quote / Devis
+  newQuoteTitle: { fr: "Nouveau devis", en: "New quote" },
+  quoteLines: { fr: "Lignes du devis", en: "Quote lines" },
+  addLine: { fr: "Ajouter une ligne", en: "Add line" },
+  description: { fr: "Désignation", en: "Description" },
+  quantity: { fr: "Qté", en: "Qty" },
+  unit: { fr: "Unité", en: "Unit" },
+  purchasePrice: { fr: "Prix achat", en: "Purchase price" },
+  salePrice: { fr: "Prix vente", en: "Sale price" },
+  margin: { fr: "Marge", en: "Margin" },
+  totalHT: { fr: "Total HT", en: "Total (excl. tax)" },
+  totalMargin: { fr: "Marge totale", en: "Total margin" },
+  marginRate: { fr: "Taux marge", en: "Margin rate" },
+  totalTTC: { fr: "Total TTC", en: "Total (incl. tax)" },
+  validUntil: { fr: "Valide jusqu'au", en: "Valid until" },
+  depositPercent: { fr: "Pourcentage d'acompte", en: "Deposit %" },
+  depositHint: { fr: "% à la signature (ex: 30)", en: "% on signature (e.g. 30)" },
+  notesObservations: { fr: "Notes / Observations", en: "Notes / Observations" },
+  downloadPDF: { fr: "Télécharger le devis PDF", en: "Download quote PDF" },
+  type: { fr: "Type", en: "Type" },
+  materialType: { fr: "Matériel", en: "Material" },
+  laborType: { fr: "Pose", en: "Labor" },
+  vat: { fr: "TVA", en: "VAT" },
+
+  // Settings
+  settingsTitle: { fr: "Paramètres", en: "Settings" },
+  settingsSubtitle: { fr: "Compte et profil entreprise", en: "Account and company profile" },
+  account: { fr: "Compte", en: "Account" },
+  interfaceLanguage: { fr: "Langue de l'interface", en: "Interface language" },
+  interfaceLanguageHint: { fr: "Français ou Anglais pour les libellés et l'agent IA", en: "French or English for labels and AI agent" },
+  loading: { fr: "Chargement...", en: "Loading..." },
+  companyInfo: { fr: "Informations entreprise", en: "Company details" },
+  logo: { fr: "Logo", en: "Logo" },
+  changeLogo: { fr: "Changer le logo", en: "Change logo" },
+  uploadLogo: { fr: "Uploader le logo", en: "Upload logo" },
+  save: { fr: "Enregistrer", en: "Save" },
+  cancel: { fr: "Annuler", en: "Cancel" },
+  saved: { fr: "Enregistré", en: "Saved" },
+  languageAndCurrency: { fr: "Langue et devise", en: "Language & currency" },
+};
+
+export function t(key: string, lang: Language): string {
+  const entry = translations[key];
+  if (!entry) return key;
+  return lang === "en" ? entry.en : entry.fr;
+}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import type { Currency } from "@/lib/utils";
 
 export interface CompanyProfile {
   id: string;
@@ -10,6 +11,8 @@ export interface CompanyProfile {
   siret: string | null;
   address: string | null;
   logo_url: string | null;
+  /** Devise : EUR, USD, GBP, ILS */
+  currency?: Currency | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -50,7 +53,7 @@ export function useProfile() {
   }, [fetchProfile]);
 
   const upsertProfile = useCallback(
-    async (updates: { company_name?: string; siret?: string; address?: string; logo_url?: string | null }) => {
+    async (updates: { company_name?: string; siret?: string; address?: string; logo_url?: string | null; currency?: Currency | null }) => {
       const supabase = createClient();
       if (!supabase) return { error: new Error("Supabase non configuré") };
       const { data: { user } } = await supabase.auth.getUser();

@@ -12,8 +12,17 @@ import { useProfile } from "@/hooks/use-profile";
 import { createClient } from "@/lib/supabase/client";
 import { Settings, Mail, Loader2, LogOut, Building2, Upload, ImageIcon } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
+import type { Currency } from "@/lib/utils";
 
 const BUCKET = "company-logos";
+
+const CURRENCY_OPTIONS: { value: Currency; labelKey: string }[] = [
+  { value: "EUR", labelKey: "euro" },
+  { value: "USD", labelKey: "dollar" },
+  { value: "GBP", labelKey: "pound" },
+  { value: "ILS", labelKey: "shekel" },
+];
 
 export default function ParametresPage() {
   const router = useRouter();
@@ -23,6 +32,7 @@ export default function ParametresPage() {
   const [companyName, setCompanyName] = useState("");
   const [siret, setSiret] = useState("");
   const [address, setAddress] = useState("");
+  const [currency, setCurrency] = useState<Currency>("EUR");
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [logoLoading, setLogoLoading] = useState(false);
@@ -33,6 +43,7 @@ export default function ParametresPage() {
       setCompanyName(profile.company_name ?? "");
       setSiret(profile.siret ?? "");
       setAddress(profile.address ?? "");
+      setCurrency((profile.currency as Currency) ?? "EUR");
     }
   }, [profile]);
 
@@ -98,7 +109,7 @@ export default function ParametresPage() {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Loader2 className="h-10 w-10 animate-spin text-brand-blue-500" />
-        <p className="mt-2 text-gray-500">Chargement...</p>
+        <p className="mt-2 text-gray-500">{t("loading", language)}</p>
       </div>
     );
   }
@@ -111,11 +122,9 @@ export default function ParametresPage() {
     >
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900 md:text-3xl">
-          Paramètres
+          {t("settingsTitle", language)}
         </h1>
-        <p className="mt-1 text-gray-500">
-          Compte et profil entreprise
-        </p>
+        <p className="mt-1 text-gray-500">{t("settingsSubtitle", language)}</p>
       </div>
 
       <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
@@ -221,47 +230,52 @@ export default function ParametresPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5 text-brand-blue-500" />
-            Compte
+            {t("account", language)}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-gray-100 bg-gray-50/50 p-4">
             <div>
-              <p className="text-sm font-medium text-gray-500">Langue de l&apos;interface</p>
+              <p className="text-sm font-medium text-gray-500">{t("interfaceLanguage", language)}</p>
+              <p className="text-xs text-gray-500">{t("interfaceLanguageHint", language)}</p>
+            </div>
+            <div className="flex rounded-lg border border-gray-200 bg-white p-0.5">
+              <button
+                type="button"
+                onClick={() => setLanguage("fr")}
+                className={`rounded-md px-3 py-2 text-sm font-medium min-h-[40px] ${language === "fr" ? "bg-brand-blue-500 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+              >
+                🇫🇷 {t("french", language)}
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage("en")}
+                className={`rounded-md px-3 py-2 text-sm font-medium min-h-[40px] ${language === "en" ? "bg-brand-blue-500 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+              >
+                🇬🇧 {t("english", language)}
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-gray-100 bg-gray-50/50 p-4">
+            <div>
+              <p className="text-sm font-medium text-gray-500">{t("currency", language)}</p>
               <p className="text-xs text-gray-500">
-                Français ou Anglais pour les libellés et l&apos;agent IA
+                {language === "fr" ? "Utilisée pour les montants (devis, marges, totaux)" : "Used for amounts (quotes, margins, totals)"}
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={language === "fr" ? "default" : "outline"}
-                size="sm"
-                className="min-h-[40px] px-4"
-                onClick={() => {
-                  setLanguage("fr");
-                  if (typeof window !== "undefined") {
-                    window.localStorage.setItem("af_language", "fr");
-                  }
-                }}
-              >
-                Français
-              </Button>
-              <Button
-                type="button"
-                variant={language === "en" ? "default" : "outline"}
-                size="sm"
-                className="min-h-[40px] px-4"
-                onClick={() => {
-                  setLanguage("en");
-                  if (typeof window !== "undefined") {
-                    window.localStorage.setItem("af_language", "en");
-                  }
-                }}
-              >
-                English
-              </Button>
-            </div>
+            <select
+              value={currency}
+              onChange={(e) => {
+                const c = e.target.value as Currency;
+                setCurrency(c);
+                upsertProfile({ currency: c });
+              }}
+              className="min-h-[40px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+            >
+              {CURRENCY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{t(opt.labelKey, language)}</option>
+              ))}
+            </select>
           </div>
           <div className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50/50 p-4">
             <Mail className="h-5 w-5 text-gray-500" />
@@ -282,7 +296,7 @@ export default function ParametresPage() {
             onClick={handleLogout}
           >
             <LogOut className="h-4 w-4 mr-2" />
-            Se déconnecter
+            {t("logout", language)}
           </Button>
         </CardContent>
       </Card>

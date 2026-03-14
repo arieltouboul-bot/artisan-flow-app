@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Hammer, Sparkles } from "lucide-react";
-
-type Language = "fr" | "en";
+import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
 
 const container = {
   hidden: { opacity: 0 },
@@ -22,16 +21,7 @@ const item = {
 };
 
 export default function Home() {
-  const [language, setLanguage] = useState<Language>("fr");
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem("af_language");
-    if (stored === "fr" || stored === "en") {
-      setLanguage(stored);
-    }
-  }, []);
-
+  const { language, setLanguage } = useLanguage();
   const isEn = language === "en";
 
   return (
@@ -53,10 +43,29 @@ export default function Home() {
             initial={{ opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
+            className="flex items-center gap-2"
           >
+            <div className="flex rounded-lg border border-white/20 bg-white/5 p-0.5">
+              <button
+                type="button"
+                onClick={() => setLanguage("fr")}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium min-h-[40px] ${language === "fr" ? "bg-white/20 text-white" : "text-blue-200 hover:text-white"}`}
+                aria-label="Français"
+              >
+                🇫🇷 Français
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage("en")}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium min-h-[40px] ${language === "en" ? "bg-white/20 text-white" : "text-blue-200 hover:text-white"}`}
+                aria-label="English"
+              >
+                🇬🇧 English
+              </button>
+            </div>
             <Link href="/login">
               <Button variant="ghost" className="text-white hover:bg-white/10 hover:text-white min-h-[44px]">
-                {isEn ? "Sign in" : "Connexion"}
+                {t("signIn", language)}
               </Button>
             </Link>
           </motion.div>
@@ -79,25 +88,21 @@ export default function Home() {
             variants={item}
             className="text-4xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl max-w-4xl mx-auto leading-tight"
           >
-            {isEn
-              ? "Artisan Flow: Your site, your team, your success."
-              : "Artisan Flow : Votre chantier, votre équipe, votre succès."}
+            {t("heroTitle", language)}
           </motion.h1>
           <motion.p
             variants={item}
             className="mx-auto mt-6 max-w-2xl text-lg text-blue-100 md:text-xl"
           >
-            {isEn
-              ? "Manage your jobsites, margins and clients at a glance."
-              : "Gérez vos chantiers, vos marges et vos clients en un clin d'œil."}
+            {t("heroSubtitle", language)}
           </motion.p>
           <motion.div variants={item} className="mt-12 flex flex-wrap items-center justify-center gap-4">
-            <Link href="/login">
+            <Link href="/signup">
               <Button
                 size="lg"
                 className="min-h-[56px] px-10 text-base font-semibold bg-white text-blue-900 hover:bg-blue-50 shadow-xl"
               >
-                {isEn ? "Get started" : "Commencer l'aventure"}
+                {t("signUp", language)}
               </Button>
             </Link>
             <Link href="/login">
@@ -107,7 +112,7 @@ export default function Home() {
                 className="min-h-[56px] gap-2 border-2 border-white/50 bg-white/10 px-8 text-base font-semibold text-white hover:bg-white/20"
               >
                 <Sparkles className="h-5 w-5" />
-                {isEn ? "✨ Talk with the AI Expert" : "✨ Parler avec l'Agent IA Expert"}
+                ✨ {t("talkToAI", language)}
               </Button>
             </Link>
           </motion.div>
@@ -120,34 +125,19 @@ export default function Home() {
           className="mt-24 grid gap-6 md:grid-cols-3"
         >
           {[
-            {
-              title: isEn ? "Projects" : "Chantiers",
-              text: isEn
-                ? "Track your projects, dates and tasks in one place."
-                : "Suivez vos projets et tâches en un seul endroit.",
-            },
-            {
-              title: isEn ? "Margins & Revenue" : "Marges & CA",
-              text: isEn
-                ? "Pilot your business with clear dashboards."
-                : "Pilotez votre activité avec des tableaux de bord clairs.",
-            },
-            {
-              title: isEn ? "Clients" : "Clients",
-              text: isEn
-                ? "Centralise your contacts and history by client."
-                : "Centralisez vos contacts et historiques.",
-            },
-          ].map(({ title, text }, i) => (
+            { titleKey: "cardProjects", textKey: "cardProjectsText" },
+            { titleKey: "cardMargins", textKey: "cardMarginsText" },
+            { titleKey: "cardClients", textKey: "cardClientsText" },
+          ].map(({ titleKey, textKey }, i) => (
             <motion.div
-              key={title}
+              key={titleKey}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1 + i * 0.1 }}
               className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
             >
-              <h3 className="font-semibold text-white">{title}</h3>
-              <p className="mt-2 text-sm text-blue-200">{text}</p>
+              <h3 className="font-semibold text-white">{t(titleKey, language)}</h3>
+              <p className="mt-2 text-sm text-blue-200">{t(textKey, language)}</p>
             </motion.div>
           ))}
         </motion.section>

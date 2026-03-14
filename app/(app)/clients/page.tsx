@@ -21,6 +21,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useClients } from "@/hooks/use-clients";
+import { useProfile } from "@/hooks/use-profile";
 import { createClient } from "@/lib/supabase/client";
 import type { Client } from "@/types/database";
 import { clientMargeBrute, clientRestantDu } from "@/types/database";
@@ -64,6 +65,8 @@ export default function ClientsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { clients, loading, error, refetch } = useClients();
+  const { profile } = useProfile();
+  const currency = profile?.currency ?? "EUR";
 
   const filtered = clients.filter((c) => {
     const q = search.toLowerCase().trim();
@@ -343,13 +346,13 @@ export default function ClientsPage() {
               <span>
                 <strong>Marge brute :</strong>{" "}
                 <span className={margeBruteForm >= 0 ? "text-emerald-600" : "text-red-600"}>
-                  {formatCurrency(margeBruteForm)}
+                  {formatCurrency(margeBruteForm, currency)}
                 </span>
               </span>
               <span>
                 <strong>Restant dû :</strong>{" "}
                 <span className={restantDuForm > 0 ? "text-red-600" : "text-emerald-600"}>
-                  {formatCurrency(restantDuForm)}
+                  {formatCurrency(restantDuForm, currency)}
                 </span>
               </span>
             </div>
@@ -478,7 +481,7 @@ function ClientRow({
         )}
       </TableCell>
       <TableCell className="text-right tabular-nums">
-        {formatCurrency(client.contract_amount ?? 0)}
+        {formatCurrency(client.contract_amount ?? 0, currency)}
       </TableCell>
       <TableCell className={`text-right tabular-nums ${marge >= 0 ? "text-emerald-600" : "text-red-600"}`}>
         {formatCurrency(marge)}
@@ -488,7 +491,7 @@ function ClientRow({
           hasImpayé ? "text-red-600" : isSoldé ? "text-emerald-600" : "text-gray-700"
         }`}
       >
-        {formatCurrency(restant)}
+        {formatCurrency(restant, currency)}
       </TableCell>
       <TableCell>
         {mapsUrl ? (
