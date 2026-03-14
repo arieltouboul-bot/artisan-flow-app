@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,10 +16,13 @@ import {
 import { useLanguage } from "@/context/language-context";
 import { useInventory } from "@/hooks/use-inventory";
 import { useSuppliers } from "@/hooks/use-suppliers";
+import { useProjects } from "@/hooks/use-projects";
 import { t } from "@/lib/translations";
 import { formatConvertedCurrency, cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
-import { Package, Plus, Trash2, Loader2, Truck, Calendar, ExternalLink, Sparkles } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { Package, Plus, Trash2, Loader2, Truck, Calendar, ExternalLink, Sparkles, Scan } from "lucide-react";
+import type { ScanInvoiceResult } from "@/app/api/scan-invoice/route";
 
 const VAT_OPTIONS = [0, 5.5, 10, 20];
 const GOOGLE_MAPS_SEARCH_URL = "https://www.google.com/maps/search/magasin+de+bricolage+materiaux+hardware+store/";
@@ -30,6 +33,8 @@ export default function MaterielPage() {
   const currency = displayCurrency;
   const { items, loading, error, addItem, deleteItem } = useInventory();
   const { suppliers, loading: suppliersLoading, error: suppliersError, addSupplier, deleteSupplier, refetch: refetchSuppliers } = useSuppliers();
+  const { projects } = useProjects();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [addOpen, setAddOpen] = useState(false);
   const [addName, setAddName] = useState("");
@@ -53,6 +58,21 @@ export default function MaterielPage() {
   const [extractError, setExtractError] = useState<string | null>(null);
 
   const [deleteSupplierId, setDeleteSupplierId] = useState<string | null>(null);
+
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<ScanInvoiceResult | null>(null);
+  const [scanVendor, setScanVendor] = useState("");
+  const [scanDate, setScanDate] = useState("");
+  const [scanAmountHt, setScanAmountHt] = useState("");
+  const [scanTva, setScanTva] = useState("");
+  const [scanAmountTtc, setScanAmountTtc] = useState("");
+  const [scanItemsText, setScanItemsText] = useState("");
+  const [scanProjectId, setScanProjectId] = useState<string>("");
+  const [saveExpenseLoading, setSaveExpenseLoading] = useState(false);
+  const [saveExpenseError, setSaveExpenseError] = useState<string | null>(null);
+  const [saveExpenseSuccess, setSaveExpenseSuccess] = useState(false);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,6 +133,107 @@ export default function MaterielPage() {
     setSupplierPhone("");
     setSupplierAddress("");
     refetchSuppliers();
+  };
+
+  const openScanInvoice = () => {
+    setScanError(null);
+    setScanResult(null);
+    setScanLoading(false);
+    setSaveExpenseError(null);
+    setSaveExpenseSuccess(false);
+    setScanProjectId("");
+    setScanOpen(true);
+    setTimeout(() => fileInputRef.current?.click(), 150);
+  };
+
+  const onScanFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !file.type.startsWith("image/")) {
+      setScanError(t("invalidImage", language));
+      return;
+    }
+    setScanError(null);
+    setScanLoading(true);
+    setScanResult(null);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch("/api/scan-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: dataUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setScanError(data.error || t("scanInvoiceError", language));
+        setScanLoading(false);
+        return;
+      }
+      const result = data as ScanInvoiceResult;
+      setScanResult(result);
+      setScanVendor(result.vendor);
+      setScanDate(result.date);
+      setScanAmountHt(String(result.amount_ht));
+      setScanTva(String(result.tva));
+      setScanAmountTtc(String(result.amount_ttc));
+      setScanItemsText(result.items.join("\n"));
+    } catch {
+      setScanError(t("scanInvoiceError", language));
+    }
+    setScanLoading(false);
+  };
+
+  const handleSaveScannedExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaveExpenseError(null);
+    if (!scanProjectId) {
+      setSaveExpenseError(t("noProjectSelected", language));
+      return;
+    }
+    const amountHt = parseFloat(scanAmountHt.replace(",", "."));
+    if (Number.isNaN(amountHt) || amountHt < 0) {
+      setSaveExpenseError(t("invalidAmountHt", language));
+      return;
+    }
+    const supabase = createClient();
+    if (!supabase) {
+      setSaveExpenseError(t("connectionError", language));
+      return;
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setSaveExpenseError(t("notLoggedIn", language));
+      return;
+    }
+    const tvaRate = amountHt > 0 && parseFloat(scanTva.replace(",", "."))
+      ? (parseFloat(scanTva.replace(",", ".")) / amountHt) * 100
+      : 20;
+    const description = [scanVendor, scanItemsText.trim()].filter(Boolean).join(" — ") || t("scannedInvoice", language);
+    setSaveExpenseLoading(true);
+    const { error: insertError } = await supabase.from("expenses").insert({
+      project_id: scanProjectId,
+      user_id: user.id,
+      description,
+      amount_ht: amountHt,
+      tva_rate: Math.round(tvaRate * 10) / 10,
+      category: "achat_materiel",
+      date: scanDate || new Date().toISOString().slice(0, 10),
+    });
+    setSaveExpenseLoading(false);
+    if (insertError) {
+      setSaveExpenseError(insertError.message);
+      return;
+    }
+    setSaveExpenseSuccess(true);
+    setTimeout(() => {
+      setScanOpen(false);
+      setScanResult(null);
+    }, 1500);
   };
 
   const handleExtractFromPaste = async () => {
@@ -184,12 +305,27 @@ export default function MaterielPage() {
                 </CardTitle>
                 <p className="text-sm text-gray-500">{t("catalogueDesc", language)}</p>
               </div>
-              <Button onClick={() => setAddOpen(true)} className="min-h-[44px]">
-                <Plus className="h-4 w-4 mr-2" />
-                {t("addArticle", language)}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={openScanInvoice} className="min-h-[44px]">
+                  <Scan className="h-4 w-4 mr-2" />
+                  {t("scanInvoice", language)}
+                </Button>
+                <Button onClick={() => setAddOpen(true)} className="min-h-[44px]">
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t("addArticle", language)}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={onScanFileChange}
+                className="hidden"
+                aria-hidden
+              />
               {error && (
                 <div className={cn("rounded-lg bg-red-50 p-4 text-sm text-red-700 mb-4")}>
                   {error}
@@ -477,6 +613,91 @@ export default function MaterielPage() {
               {t("deleteSupplier", language)}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Scan invoice */}
+      <Dialog open={scanOpen} onOpenChange={(open) => { setScanOpen(open); if (!open) { setScanError(null); setScanResult(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("scanInvoice", language)}</DialogTitle>
+          </DialogHeader>
+          {scanError && (
+            <p className="text-sm text-red-600 rounded-lg bg-red-50 p-2">{scanError}</p>
+          )}
+          {scanLoading ? (
+            <div className="flex items-center justify-center gap-2 py-12 text-gray-500">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span>{t("analyzingInvoice", language)}</span>
+            </div>
+          ) : scanResult ? (
+            <form onSubmit={handleSaveScannedExpense} className="space-y-4">
+              <p className="text-sm text-gray-500">{t("verifyAndSave", language)}</p>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("invoiceVendor", language)}</label>
+                <Input value={scanVendor} onChange={(e) => setScanVendor(e.target.value)} className="min-h-[44px]" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("invoiceDate", language)}</label>
+                <Input type="date" value={scanDate} onChange={(e) => setScanDate(e.target.value)} className="min-h-[44px]" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">{t("invoiceAmountHt", language)}</label>
+                  <Input type="number" step="0.01" min="0" value={scanAmountHt} onChange={(e) => setScanAmountHt(e.target.value)} className="min-h-[44px]" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">{t("invoiceTva", language)}</label>
+                  <Input type="number" step="0.01" min="0" value={scanTva} onChange={(e) => setScanTva(e.target.value)} className="min-h-[44px]" />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("invoiceAmountTtc", language)}</label>
+                <Input type="number" step="0.01" min="0" value={scanAmountTtc} onChange={(e) => setScanAmountTtc(e.target.value)} className="min-h-[44px]" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("invoiceItems", language)}</label>
+                <textarea
+                  value={scanItemsText}
+                  onChange={(e) => setScanItemsText(e.target.value)}
+                  rows={3}
+                  className={cn("w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm min-h-[80px] resize-y")}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("selectProjectForExpense", language)}</label>
+                <select
+                  value={scanProjectId}
+                  onChange={(e) => setScanProjectId(e.target.value)}
+                  className={cn("w-full min-h-[44px] rounded-lg border border-gray-200 px-3 py-2 bg-white")}
+                  required
+                >
+                  <option value="">—</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              {saveExpenseError && <p className="text-sm text-red-600">{saveExpenseError}</p>}
+              {saveExpenseSuccess && <p className="text-sm text-emerald-600">{t("expenseSaved", language)}</p>}
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setScanOpen(false)} disabled={saveExpenseLoading}>
+                  {t("cancel", language)}
+                </Button>
+                <Button type="submit" disabled={saveExpenseLoading}>
+                  {saveExpenseLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("saveToExpenses", language)}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : (
+            <div className="py-6 text-center">
+              <p className="text-sm text-gray-600 mb-4">{t("takePhotoOrChooseFile", language)}</p>
+              <Button type="button" onClick={() => fileInputRef.current?.click()} className="min-h-[44px]">
+                <Scan className="h-4 w-4 mr-2" />
+                {t("takePhotoOrChooseFile", language)}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </motion.div>
