@@ -21,10 +21,12 @@
     "framer-motion": "^11.11.17",
     "lucide-react": "^0.460.0",
     "next": "14.2.18",
+    "openai": "^6.29.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.13.3",
-    "tailwind-merge": "^2.6.1"
+    "tailwind-merge": "^2.6.1",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",

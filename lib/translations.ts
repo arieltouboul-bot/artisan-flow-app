@@ -80,6 +80,11 @@ export const translations: Record<string, { fr: string; en: string }> = {
 
   // Scan invoice (OCR)
   scanInvoice: { fr: "Scanner une facture", en: "Scan an invoice" },
+  scanOcrLaunching: { fr: "Lancement de l'OCR...", en: "Launching OCR..." },
+  scanOcrReading: { fr: "Lecture du document...", en: "Reading document..." },
+  scanOcrError: { fr: "Erreur de lecture. Réessayez ou utilisez « Améliorer avec l'IA ».", en: "Read error. Try again or use « Improve with AI »." },
+  scanImproveWithAI: { fr: "Améliorer avec l'IA", en: "Improve with AI" },
+  scanImprovingWithAI: { fr: "Analyse IA en cours...", en: "AI analysis in progress..." },
   analyzingInvoice: { fr: "Analyse en cours...", en: "Analyzing..." },
   saveToExpenses: { fr: "Enregistrer dans les dépenses", en: "Save to expenses" },
   invoiceVendor: { fr: "Fournisseur / Magasin", en: "Vendor / Store" },

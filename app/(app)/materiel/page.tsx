@@ -23,6 +23,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { createClient } from "@/lib/supabase/client";
 import { Package, Plus, Trash2, Loader2, Truck, Calendar, ExternalLink, Sparkles, Scan } from "lucide-react";
 import type { ScanInvoiceResult } from "@/app/api/scan-invoice/route";
+import { parseInvoiceText } from "@/lib/invoice-ocr";
 
 const VAT_OPTIONS = [0, 5.5, 10, 20];
 const GOOGLE_MAPS_SEARCH_URL = "https://www.google.com/maps/search/magasin+de+bricolage+materiaux+hardware+store/";
@@ -61,8 +62,10 @@ export default function MaterielPage() {
 
   const [scanOpen, setScanOpen] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
+  const [scanImproveLoading, setScanImproveLoading] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanInvoiceResult | null>(null);
+  const [scanImageDataUrl, setScanImageDataUrl] = useState<string | null>(null);
   const [scanVendor, setScanVendor] = useState("");
   const [scanDate, setScanDate] = useState("");
   const [scanAmountHt, setScanAmountHt] = useState("");
@@ -138,12 +141,24 @@ export default function MaterielPage() {
   const openScanInvoice = () => {
     setScanError(null);
     setScanResult(null);
+    setScanImageDataUrl(null);
     setScanLoading(false);
+    setScanImproveLoading(false);
     setSaveExpenseError(null);
     setSaveExpenseSuccess(false);
     setScanProjectId("");
     setScanOpen(true);
     setTimeout(() => fileInputRef.current?.click(), 150);
+  };
+
+  const applyScanResult = (result: ScanInvoiceResult) => {
+    setScanResult(result);
+    setScanVendor(result.vendor);
+    setScanDate(result.date);
+    setScanAmountHt(String(result.amount_ht));
+    setScanTva(String(result.tva));
+    setScanAmountTtc(String(result.amount_ttc));
+    setScanItemsText(result.items.join("\n"));
   };
 
   const onScanFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -154,8 +169,8 @@ export default function MaterielPage() {
       return;
     }
     setScanError(null);
-    setScanLoading(true);
     setScanResult(null);
+    setScanLoading(true);
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -163,29 +178,47 @@ export default function MaterielPage() {
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
+      setScanImageDataUrl(dataUrl);
+
+      const Tesseract = (await import("tesseract.js")).default;
+      const { data } = await Tesseract.recognize(file, "fra+eng");
+      const parsed = parseInvoiceText(data.text);
+      const result: ScanInvoiceResult = {
+        vendor: parsed.vendor,
+        date: parsed.date || new Date().toISOString().slice(0, 10),
+        amount_ht: parsed.amount_ht,
+        tva: parsed.tva,
+        amount_ttc: parsed.amount_ttc,
+        items: parsed.items,
+      };
+      applyScanResult(result);
+    } catch {
+      setScanError(t("scanOcrError", language));
+    }
+    setScanLoading(false);
+  };
+
+  const handleImproveWithAI = async () => {
+    if (!scanImageDataUrl) return;
+    setScanError(null);
+    setScanImproveLoading(true);
+    try {
       const res = await fetch("/api/scan-invoice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: dataUrl }),
+        body: JSON.stringify({ image: scanImageDataUrl }),
       });
       const data = await res.json();
       if (!res.ok) {
         setScanError(data.error || t("scanInvoiceError", language));
-        setScanLoading(false);
+        setScanImproveLoading(false);
         return;
       }
-      const result = data as ScanInvoiceResult;
-      setScanResult(result);
-      setScanVendor(result.vendor);
-      setScanDate(result.date);
-      setScanAmountHt(String(result.amount_ht));
-      setScanTva(String(result.tva));
-      setScanAmountTtc(String(result.amount_ttc));
-      setScanItemsText(result.items.join("\n"));
+      applyScanResult(data as ScanInvoiceResult);
     } catch {
       setScanError(t("scanInvoiceError", language));
     }
-    setScanLoading(false);
+    setScanImproveLoading(false);
   };
 
   const handleSaveScannedExpense = async (e: React.FormEvent) => {
@@ -616,47 +649,77 @@ export default function MaterielPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Scan invoice */}
-      <Dialog open={scanOpen} onOpenChange={(open) => { setScanOpen(open); if (!open) { setScanError(null); setScanResult(null); } }}>
-        <DialogContent className="max-w-md">
+      {/* Scan invoice — OCR local first, then optional "Améliorer avec l'IA" */}
+      <Dialog
+        open={scanOpen}
+        onOpenChange={(open) => {
+          setScanOpen(open);
+          if (!open) {
+            setScanError(null);
+            setScanResult(null);
+            setScanImageDataUrl(null);
+          }
+        }}
+      >
+        <DialogContent className={cn("max-w-md")}>
           <DialogHeader>
             <DialogTitle>{t("scanInvoice", language)}</DialogTitle>
           </DialogHeader>
           {scanError && (
-            <p className="text-sm text-red-600 rounded-lg bg-red-50 p-2">{scanError}</p>
+            <p className={cn("text-sm text-red-600 rounded-lg bg-red-50 p-2")}>{scanError}</p>
           )}
           {scanLoading ? (
-            <div className="flex items-center justify-center gap-2 py-12 text-gray-500">
+            <div className={cn("flex items-center justify-center gap-2 py-12 text-gray-500")}>
               <Loader2 className="h-8 w-8 animate-spin" />
-              <span>{t("analyzingInvoice", language)}</span>
+              <span>{t("scanOcrLaunching", language)}</span>
+            </div>
+          ) : scanImproveLoading ? (
+            <div className={cn("flex items-center justify-center gap-2 py-8 text-gray-500")}>
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span>{t("scanImprovingWithAI", language)}</span>
             </div>
           ) : scanResult ? (
             <form onSubmit={handleSaveScannedExpense} className="space-y-4">
-              <p className="text-sm text-gray-500">{t("verifyAndSave", language)}</p>
+              <p className={cn("text-sm text-gray-500")}>{t("verifyAndSave", language)}</p>
+              {scanImageDataUrl && (
+                <div className={cn("flex justify-end")}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className={cn("text-brand-blue-600 hover:text-brand-blue-700 text-xs")}
+                    onClick={handleImproveWithAI}
+                    disabled={scanImproveLoading}
+                  >
+                    <Sparkles className="h-3.5 w-3 mr-1.5" />
+                    {t("scanImproveWithAI", language)}
+                  </Button>
+                </div>
+              )}
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("invoiceVendor", language)}</label>
-                <Input value={scanVendor} onChange={(e) => setScanVendor(e.target.value)} className="min-h-[44px]" />
+                <label className={cn("text-sm font-medium text-gray-700 mb-1 block")}>{t("invoiceVendor", language)}</label>
+                <Input value={scanVendor} onChange={(e) => setScanVendor(e.target.value)} className={cn("min-h-[44px]")} />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("invoiceDate", language)}</label>
-                <Input type="date" value={scanDate} onChange={(e) => setScanDate(e.target.value)} className="min-h-[44px]" />
+                <label className={cn("text-sm font-medium text-gray-700 mb-1 block")}>{t("invoiceDate", language)}</label>
+                <Input type="date" value={scanDate} onChange={(e) => setScanDate(e.target.value)} className={cn("min-h-[44px]")} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className={cn("grid grid-cols-2 gap-4")}>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">{t("invoiceAmountHt", language)}</label>
-                  <Input type="number" step="0.01" min="0" value={scanAmountHt} onChange={(e) => setScanAmountHt(e.target.value)} className="min-h-[44px]" />
+                  <label className={cn("text-sm font-medium text-gray-700 mb-1 block")}>{t("invoiceAmountHt", language)}</label>
+                  <Input type="number" step="0.01" min="0" value={scanAmountHt} onChange={(e) => setScanAmountHt(e.target.value)} className={cn("min-h-[44px]")} />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">{t("invoiceTva", language)}</label>
-                  <Input type="number" step="0.01" min="0" value={scanTva} onChange={(e) => setScanTva(e.target.value)} className="min-h-[44px]" />
+                  <label className={cn("text-sm font-medium text-gray-700 mb-1 block")}>{t("invoiceTva", language)}</label>
+                  <Input type="number" step="0.01" min="0" value={scanTva} onChange={(e) => setScanTva(e.target.value)} className={cn("min-h-[44px]")} />
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("invoiceAmountTtc", language)}</label>
-                <Input type="number" step="0.01" min="0" value={scanAmountTtc} onChange={(e) => setScanAmountTtc(e.target.value)} className="min-h-[44px]" />
+                <label className={cn("text-sm font-medium text-gray-700 mb-1 block")}>{t("invoiceAmountTtc", language)}</label>
+                <Input type="number" step="0.01" min="0" value={scanAmountTtc} onChange={(e) => setScanAmountTtc(e.target.value)} className={cn("min-h-[44px]")} />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("invoiceItems", language)}</label>
+                <label className={cn("text-sm font-medium text-gray-700 mb-1 block")}>{t("invoiceItems", language)}</label>
                 <textarea
                   value={scanItemsText}
                   onChange={(e) => setScanItemsText(e.target.value)}
@@ -665,7 +728,7 @@ export default function MaterielPage() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("selectProjectForExpense", language)}</label>
+                <label className={cn("text-sm font-medium text-gray-700 mb-1 block")}>{t("selectProjectForExpense", language)}</label>
                 <select
                   value={scanProjectId}
                   onChange={(e) => setScanProjectId(e.target.value)}
@@ -678,21 +741,21 @@ export default function MaterielPage() {
                   ))}
                 </select>
               </div>
-              {saveExpenseError && <p className="text-sm text-red-600">{saveExpenseError}</p>}
-              {saveExpenseSuccess && <p className="text-sm text-emerald-600">{t("expenseSaved", language)}</p>}
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setScanOpen(false)} disabled={saveExpenseLoading}>
+              {saveExpenseError && <p className={cn("text-sm text-red-600")}>{saveExpenseError}</p>}
+              {saveExpenseSuccess && <p className={cn("text-sm text-emerald-600")}>{t("expenseSaved", language)}</p>}
+              <DialogFooter className={cn("gap-2")}>
+                <Button type="button" variant="outline" onClick={() => setScanOpen(false)} disabled={saveExpenseLoading} className={cn("min-h-[44px]")}>
                   {t("cancel", language)}
                 </Button>
-                <Button type="submit" disabled={saveExpenseLoading}>
+                <Button type="submit" disabled={saveExpenseLoading} className={cn("min-h-[44px]")}>
                   {saveExpenseLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("saveToExpenses", language)}
                 </Button>
               </DialogFooter>
             </form>
           ) : (
-            <div className="py-6 text-center">
-              <p className="text-sm text-gray-600 mb-4">{t("takePhotoOrChooseFile", language)}</p>
-              <Button type="button" onClick={() => fileInputRef.current?.click()} className="min-h-[44px]">
+            <div className={cn("py-6 text-center")}>
+              <p className={cn("text-sm text-gray-600 mb-4")}>{t("takePhotoOrChooseFile", language)}</p>
+              <Button type="button" onClick={() => fileInputRef.current?.click()} className={cn("min-h-[44px]")}>
                 <Scan className="h-4 w-4 mr-2" />
                 {t("takePhotoOrChooseFile", language)}
               </Button>
