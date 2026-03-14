@@ -1,0 +1,44 @@
+---
+description: Internationalisation (FR/EN) et affichage des montants pour Artisan Flow
+alwaysApply: true
+---
+
+# Règles i18n et monnaie – Artisan Flow
+
+## 1. Standard i18n (FR/EN)
+
+- **Toute** nouvelle fonctionnalité, page, bouton ou message doit exister en **français et en anglais**.
+- Ne jamais écrire de texte en dur dans l’UI. Toujours passer par les traductions.
+
+## 2. Workflow des traductions
+
+1. **Ajouter les clés** dans `lib/translations.ts` (objet `translations`) avec les deux champs `fr` et `en`.
+2. **Utiliser** `t(key, language)` dans le code, en récupérant `language` via `useLanguage()` depuis `@/context/language-context`.
+3. Pour les chaînes avec variables (ex. « Bonjour {name} »), utiliser `tReplace(key, language, { name: value })` (défini dans `lib/translations.ts`).
+
+```ts
+// ❌ À éviter
+<button>Enregistrer</button>
+<span>Projet : {name}</span>
+
+// ✅ Correct
+const { language } = useLanguage();
+<button>{t("save", language)}</button>
+<span>{tReplace("projectName", language, { name })}</span>
+```
+
+## 3. Montants financiers
+
+- Tout montant affiché (prix, CA, solde, dépenses, etc.) doit utiliser **`formatConvertedCurrency(montant, displayCurrency)`**.
+- Récupérer `displayCurrency` via le hook `useProfile()` (`@/hooks/use-profile`). Ne pas afficher de nombre seul avec le symbole € en dur.
+
+```ts
+// ❌ À éviter
+<span>{amount} €</span>
+
+// ✅ Correct
+const { displayCurrency } = useProfile();
+<span>{formatConvertedCurrency(amount, displayCurrency)}</span>
+```
+
+Respecter cette règle pour toute nouvelle fonctionnalité ou page du projet.
