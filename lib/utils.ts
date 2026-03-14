@@ -21,6 +21,20 @@ const CURRENCY_LOCALES: Record<Currency, string> = {
   ILS: "he-IL",
 };
 
+/** 1 EUR = X unités de la devise. Ex: 1 EUR = 1.08 USD → montant_affiché = montant_eur * rate */
+export const EUR_TO_CURRENCY_RATES: Record<Currency, number> = {
+  EUR: 1,
+  USD: 1.08,
+  GBP: 0.85,
+  ILS: 3.95,
+};
+
+/** Convertit un montant stocké en EUR vers la devise d'affichage. */
+export function convertCurrency(amountEur: number, toCurrency: Currency): number {
+  const rate = EUR_TO_CURRENCY_RATES[toCurrency];
+  return rate != null ? amountEur * rate : amountEur;
+}
+
 export function getCurrencySymbol(currency: Currency = "EUR"): string {
   return CURRENCY_SYMBOLS[currency];
 }
@@ -30,6 +44,12 @@ export function formatCurrency(value: number, currency: Currency = "EUR"): strin
     style: "currency",
     currency,
   }).format(value);
+}
+
+/** Formate un montant en EUR converti dans la devise d'affichage (pour CA, marges, etc. stockés en EUR). */
+export function formatConvertedCurrency(amountEur: number, displayCurrency: Currency): string {
+  const converted = convertCurrency(amountEur, displayCurrency);
+  return formatCurrency(converted, displayCurrency);
 }
 
 /** Pour affichage avec symbole personnalisé (ex: "1 234,56 €") */

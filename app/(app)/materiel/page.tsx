@@ -17,7 +17,7 @@ import { useLanguage } from "@/context/language-context";
 import { useInventory } from "@/hooks/use-inventory";
 import { useSuppliers } from "@/hooks/use-suppliers";
 import { t } from "@/lib/translations";
-import { formatCurrency, cn } from "@/lib/utils";
+import { formatConvertedCurrency, cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { Package, Plus, Trash2, Loader2, Truck, Calendar, ExternalLink, Sparkles } from "lucide-react";
 
@@ -26,8 +26,8 @@ const GOOGLE_MAPS_SEARCH_URL = "https://www.google.com/maps/search/magasin+de+br
 
 export default function MaterielPage() {
   const { language } = useLanguage();
-  const { profile } = useProfile();
-  const currency = profile?.currency ?? "EUR";
+  const { displayCurrency } = useProfile();
+  const currency = displayCurrency;
   const { items, loading, error, addItem, deleteItem } = useInventory();
   const { suppliers, loading: suppliersLoading, error: suppliersError, addSupplier, deleteSupplier, refetch: refetchSuppliers } = useSuppliers();
 
@@ -226,7 +226,7 @@ export default function MaterielPage() {
                         <tr key={item.id} className="border-b border-gray-100">
                           <td className="py-3 pr-2 font-medium">{item.name}</td>
                           <td className="py-3 pr-2 text-gray-600">{item.category || "—"}</td>
-                          <td className="py-3 pr-2">{formatCurrency(item.unit_price_ht, currency)}</td>
+                          <td className="py-3 pr-2">{formatConvertedCurrency(item.unit_price_ht, currency)}</td>
                           <td className="py-3 pr-2">{item.default_tva_rate} %</td>
                           <td className="py-3 pr-2">{item.stock_quantity}</td>
                           <td className="py-3 pr-2 text-gray-600">

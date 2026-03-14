@@ -12,10 +12,10 @@ import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 
 export default function SignupPage() {
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-   const [companyName, setCompanyName] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -40,6 +40,8 @@ export default function SignupPage() {
         emailRedirectTo: `${baseUrl}/auth/confirm`,
         data: {
           company_name: companyName.trim() || null,
+          preferred_language: language,
+          preferred_currency: "EUR",
         },
       },
     });
@@ -131,6 +133,25 @@ export default function SignupPage() {
                   placeholder={t("placeholderCompany", language)}
                   className="min-h-[48px]"
                 />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("language", language)}</label>
+                <div className="flex rounded-lg border border-gray-200 bg-white p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setLanguage("fr")}
+                    className={`flex-1 rounded-md px-3 py-2 text-sm font-medium min-h-[44px] ${language === "fr" ? "bg-brand-blue-500 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+                  >
+                    🇫🇷 {t("french", language)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLanguage("en")}
+                    className={`flex-1 rounded-md px-3 py-2 text-sm font-medium min-h-[44px] ${language === "en" ? "bg-brand-blue-500 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+                  >
+                    🇬🇧 {t("english", language)}
+                  </button>
+                </div>
               </div>
               {error && (
                 <p className="text-sm text-red-600 bg-red-50 p-2 rounded-lg">{error}</p>

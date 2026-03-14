@@ -6,6 +6,8 @@ import { motion } from "framer-motion";
 import { Sidebar } from "./sidebar";
 import { Navbar } from "./navbar";
 import { FloatingAssistant } from "@/components/assistant/floating-assistant";
+import { useProfile } from "@/hooks/use-profile";
+import { useLanguage } from "@/context/language-context";
 import { cn } from "@/lib/utils";
 
 const MOBILE_BREAKPOINT = 768;
@@ -32,6 +34,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setIsSidebarOpen(false);
   }, [pathname]);
+
+  const { profile } = useProfile();
+  const { setLanguage } = useLanguage();
+  useEffect(() => {
+    const lang = profile?.preferred_language;
+    if (lang === "fr" || lang === "en") setLanguage(lang);
+  }, [profile?.preferred_language, setLanguage]);
 
   useEffect(() => {
     const onEscape = (e: KeyboardEvent) => {

@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate, formatConvertedCurrency } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import type { ProjectStatus } from "@/types/database";
 import { Search, FolderKanban, ChevronRight, Loader2, Plus, Trash2 } from "lucide-react";
@@ -48,8 +48,8 @@ function ProjetsContent() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const { profile } = useProfile();
-  const currency = profile?.currency ?? "EUR";
+  const { displayCurrency } = useProfile();
+  const currency = displayCurrency;
   const { projects, loading, error, refetch } = useProjects();
 
   useEffect(() => {
@@ -202,7 +202,7 @@ function ProjetsContent() {
                           <div className="mt-2 max-w-[200px]">
                             <Progress value={percentPaid} className="h-2" />
                             <p className="text-xs text-gray-500 mt-0.5">
-                              {total > 0 ? `${Math.round(percentPaid)} % payé` : "—"} · {formatCurrency(paid, currency)} / {formatCurrency(total, currency)}
+                              {total > 0 ? `${Math.round(percentPaid)} % payé` : "—"} · {formatConvertedCurrency(paid, currency)} / {formatConvertedCurrency(total, currency)}
                             </p>
                           </div>
                         </div>

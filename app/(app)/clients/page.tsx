@@ -25,7 +25,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { createClient } from "@/lib/supabase/client";
 import type { Client } from "@/types/database";
 import { clientMargeBrute, clientRestantDu } from "@/types/database";
-import { formatCurrency, type Currency } from "@/lib/utils";
+import { formatConvertedCurrency, type Currency } from "@/lib/utils";
 import Link from "next/link";
 import {
   Search,
@@ -65,8 +65,8 @@ export default function ClientsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { clients, loading, error, refetch } = useClients();
-  const { profile } = useProfile();
-  const currency = profile?.currency ?? "EUR";
+  const { displayCurrency } = useProfile();
+  const currency = displayCurrency;
 
   const filtered = clients.filter((c) => {
     const q = search.toLowerCase().trim();
@@ -347,13 +347,13 @@ export default function ClientsPage() {
               <span>
                 <strong>Marge brute :</strong>{" "}
                 <span className={margeBruteForm >= 0 ? "text-emerald-600" : "text-red-600"}>
-                  {formatCurrency(margeBruteForm, currency)}
+                  {formatConvertedCurrency(margeBruteForm, currency)}
                 </span>
               </span>
               <span>
                 <strong>Restant dû :</strong>{" "}
                 <span className={restantDuForm > 0 ? "text-red-600" : "text-emerald-600"}>
-                  {formatCurrency(restantDuForm, currency)}
+                  {formatConvertedCurrency(restantDuForm, currency)}
                 </span>
               </span>
             </div>
@@ -484,17 +484,17 @@ function ClientRow({
         )}
       </TableCell>
       <TableCell className="text-right tabular-nums">
-        {formatCurrency(client.contract_amount ?? 0, currency)}
+        {formatConvertedCurrency(client.contract_amount ?? 0, currency)}
       </TableCell>
       <TableCell className={`text-right tabular-nums ${marge >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-        {formatCurrency(marge, currency)}
+        {formatConvertedCurrency(marge, currency)}
       </TableCell>
       <TableCell
         className={`text-right tabular-nums font-medium ${
           hasImpayé ? "text-red-600" : isSoldé ? "text-emerald-600" : "text-gray-700"
         }`}
       >
-        {formatCurrency(restant, currency)}
+        {formatConvertedCurrency(restant, currency)}
       </TableCell>
       <TableCell>
         {mapsUrl ? (

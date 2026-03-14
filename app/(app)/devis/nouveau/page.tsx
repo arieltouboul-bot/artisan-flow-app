@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useClients } from "@/hooks/use-clients";
 import { useProfile } from "@/hooks/use-profile";
 import { useLanguage } from "@/context/language-context";
-import { formatCurrency } from "@/lib/utils";
+import { formatConvertedCurrency } from "@/lib/utils";
 import { t } from "@/lib/translations";
 import { getDevisPDFBlob, type DevisPDFData } from "@/components/devis/devis-pdf";
 import type { QuoteItem } from "@/types/database";
@@ -30,8 +30,8 @@ const defaultItem: QuoteItem = {
 
 export default function NouveauDevisPage() {
   const { language } = useLanguage();
-  const { profile } = useProfile();
-  const currency = profile?.currency ?? "EUR";
+  const { profile, displayCurrency } = useProfile();
+  const currency = displayCurrency;
   const { clients } = useClients();
   const [clientId, setClientId] = useState("");
   useEffect(() => {
@@ -297,7 +297,7 @@ export default function NouveauDevisPage() {
                       />
                     </td>
                     <td className="py-2 pr-2 font-medium text-emerald-600">
-                      {formatCurrency(item.margin, currency)}
+                      {formatConvertedCurrency(item.margin, currency)}
                     </td>
                     <td className="py-2">
                       <Button
@@ -320,11 +320,11 @@ export default function NouveauDevisPage() {
           <div className="mt-6 flex flex-col items-end gap-2 rounded-lg bg-brand-blue-50/50 p-4">
             <div className="flex justify-end gap-8 text-sm">
               <span className="text-gray-600">{t("totalHT", language)}</span>
-              <span className="font-bold">{formatCurrency(totals.total_ht, currency)}</span>
+              <span className="font-bold">{formatConvertedCurrency(totals.total_ht, currency)}</span>
             </div>
             <div className="flex justify-end gap-8 text-sm">
               <span className="text-gray-600">{t("totalMargin", language)}</span>
-              <span className="font-bold text-emerald-600">{formatCurrency(totals.marge, currency)}</span>
+              <span className="font-bold text-emerald-600">{formatConvertedCurrency(totals.marge, currency)}</span>
             </div>
             <div className="flex justify-end gap-8 text-sm">
               <span className="text-gray-600">{t("marginRate", language)}</span>
@@ -332,7 +332,7 @@ export default function NouveauDevisPage() {
             </div>
             <div className="flex justify-end gap-8 text-base border-t border-brand-blue-200 pt-2 mt-2">
               <span className="text-gray-700">{t("totalTTC", language)}</span>
-              <span className="font-bold text-gray-900">{formatCurrency(totals.total_ttc, currency)}</span>
+              <span className="font-bold text-gray-900">{formatConvertedCurrency(totals.total_ttc, currency)}</span>
             </div>
           </div>
 

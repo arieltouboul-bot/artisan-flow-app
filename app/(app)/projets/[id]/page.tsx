@@ -17,7 +17,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatConvertedCurrency, formatDate } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { useProject } from "@/hooks/use-projects";
 import { useProjectTasks } from "@/hooks/use-project-tasks";
@@ -66,8 +66,8 @@ export default function ProjetDetailPage() {
   const { tasks, loading: tasksLoading, addTask, toggleTask, deleteTask } = useProjectTasks(id);
   const { transactions, loading: transactionsLoading, addTransaction } = useProjectTransactions(id);
   const { expenses, loading: expensesLoading, addExpense, deleteExpense, totalHT: expensesTotalHT, totalTvaRecuperable } = useProjectExpenses(id);
-  const { profile } = useProfile();
-  const currency = profile?.currency ?? "EUR";
+  const { displayCurrency } = useProfile();
+  const currency = displayCurrency;
   const { employees } = useEmployees();
   const { assignments, loading: teamLoading, assignEmployee, unassignEmployee } = useProjectEmployees(id);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
@@ -504,16 +504,16 @@ export default function ProjetDetailPage() {
               <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">Montant total (Contract Amount)</span>
-                  <span className="text-xl font-bold text-gray-900">{formatCurrency(parseNum(contractAmount), currency)}</span>
+                  <span className="text-xl font-bold text-gray-900">{formatConvertedCurrency(parseNum(contractAmount), currency)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">Déjà encaissé (Total Paid)</span>
-                  <span className="text-xl font-bold text-emerald-600">{formatCurrency(totalPaid, currency)}</span>
+                  <span className="text-xl font-bold text-emerald-600">{formatConvertedCurrency(totalPaid, currency)}</span>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                   <span className="text-sm font-medium text-gray-700">Reste à payer (Remaining Balance)</span>
                   <span className={`text-xl font-bold ${restant > 0 ? "text-amber-600" : "text-emerald-600"}`}>
-                    {formatCurrency(restant)}
+                    {formatConvertedCurrency(restant)}
                   </span>
                 </div>
                 <div className="pt-2">
@@ -587,14 +587,14 @@ export default function ProjetDetailPage() {
                   <div>
                     <p className="text-sm text-gray-500">Marge Brute</p>
                     <p className="text-lg font-bold text-emerald-600">
-                      {formatCurrency(parseNum(contractAmount) - expensesTotalHT, currency)}
+                      {formatConvertedCurrency(parseNum(contractAmount) - expensesTotalHT, currency)}
                     </p>
                     <p className="text-xs text-gray-400">CA HT − Dépenses HT</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">TVA à décaisser</p>
                     <p className="text-lg font-bold text-brand-blue-600">
-                      {formatCurrency(Math.max(0, (parseNum(contractAmount) * 20) / 100 - totalTvaRecuperable), currency)}
+                      {formatConvertedCurrency(Math.max(0, (parseNum(contractAmount) * 20) / 100 - totalTvaRecuperable), currency)}
                     </p>
                     <p className="text-xs text-gray-400">TVA collectée − TVA récupérable</p>
                   </div>
@@ -605,7 +605,7 @@ export default function ProjetDetailPage() {
                 <div>
                   <p className="text-sm text-gray-500">Marge (contrat − coûts matériaux saisis)</p>
                   <p className={`text-lg font-bold ${(parseNum(contractAmount) - parseNum(materialCosts)) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                    {formatCurrency(parseNum(contractAmount) - parseNum(materialCosts))}
+                    {formatConvertedCurrency(parseNum(contractAmount) - parseNum(materialCosts))}
                   </p>
                 </div>
               </div>
@@ -627,7 +627,7 @@ export default function ProjetDetailPage() {
                           {formatDate(ex.date)} — {EXPENSE_CATEGORIES.find((c) => c.value === ex.category)?.label ?? ex.category} · {ex.description || "—"}
                         </span>
                         <span className="flex items-center gap-2">
-                          <span className="font-medium">{formatCurrency(ex.amount_ht, currency)} HT</span>
+                          <span className="font-medium">{formatConvertedCurrency(ex.amount_ht, currency)} HT</span>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -655,7 +655,7 @@ export default function ProjetDetailPage() {
                     {transactions.map((tx) => (
                       <li key={tx.id} className="flex justify-between items-center py-1">
                         <span>{formatDate(tx.payment_date)} — {tx.payment_method || "—"}</span>
-                        <span className="font-medium">{formatCurrency(tx.amount, currency)}</span>
+                        <span className="font-medium">{formatConvertedCurrency(tx.amount, currency)}</span>
                       </li>
                     ))}
                   </ul>

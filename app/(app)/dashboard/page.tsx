@@ -18,15 +18,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatConvertedCurrency, convertCurrency, getCurrencySymbol } from "@/lib/utils";
 import { useDashboardStats, type DashboardView } from "@/hooks/use-dashboard-stats";
 import { useReminders } from "@/hooks/use-reminders";
 import { useTodayAppointments } from "@/hooks/use-appointments";
 import { useUser } from "@/hooks/use-user";
 import { useProfile } from "@/hooks/use-profile";
+import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
 import { projectRestantDu } from "@/types/database";
 import { TrendingUp, AlertCircle, Euro, Percent, FolderKanban, ArrowRight, X, Search, Bell, CheckSquare, Square, Trash2, Plus, CalendarClock, MapPin } from "lucide-react";
 import { formatTime } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import type { AppointmentType } from "@/types/database";
 
 const APPOINTMENT_TYPE_COLORS: Record<AppointmentType, string> = {
@@ -72,13 +81,15 @@ export default function DashboardPage() {
   const [globalSearch, setGlobalSearch] = useState("");
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const { user } = useUser();
-  const { profile } = useProfile();
+  const { profile, displayCurrency } = useProfile();
   const { stats, projects, projectsImpayes, loading, error, refetch } = useDashboardStats(selectedYear);
   const { reminders, addReminder, toggleReminder, deleteReminder } = useReminders();
   const { appointments: todayAppointments } = useTodayAppointments();
   const [newReminder, setNewReminder] = useState("");
   const welcomeName = displayName(user ?? null, profile?.company_name ?? null);
-  const currency = profile?.currency ?? "EUR";
+  const { language } = useLanguage();
+  const currency = displayCurrency;
+  const [chartModalOpen, setChartModalOpen] = useState(false);
 
   useEffect(() => {
     const onFocus = () => {
@@ -150,14 +161,12 @@ export default function DashboardPage() {
       <motion.div variants={item} className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 md:text-3xl">
-            Dashboard
+            {t("dashboard", language)}
           </h1>
-          <p className="mt-1 text-gray-500">
-            Vue d&apos;ensemble de votre activité
-          </p>
+          <p className="mt-1 text-gray-500">{t("dashboardOverview", language)}</p>
         </div>
         <p className="text-sm md:text-base text-gray-600 md:text-right">
-          Bonjour {welcomeName} 👋, voici l&apos;état de vos chantiers aujourd&apos;hui.
+          {t("helloState", language).replace("{name}", welcomeName)}
         </p>
       </motion.div>
 
@@ -178,7 +187,7 @@ export default function DashboardPage() {
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-brand-blue-600">Prochain rendez-vous</p>
+              <p className="text-sm font-medium text-brand-blue-600">{t("nextAppointment", language)}</p>
               <p className="mt-1 text-lg font-bold text-gray-900 truncate">{nextAppointment.title}</p>
               <p className="text-sm text-gray-500">
                 {formatTime(nextAppointment.start_at)} – {formatTime(nextAppointment.end_at)}
@@ -187,8 +196,8 @@ export default function DashboardPage() {
                     {countdownMins === -1
                       ? " · En cours"
                       : countdownMins === 0
-                        ? " · Dans moins d'une minute"
-                        : ` · Dans ${countdownMins} min`}
+                        ? ` · ${t("inMinutes", language)}`
+                        : ` · ${t("inXMinutes", language).replace("{n}", String(countdownMins))}`}
                   </span>
                 )}
               </p>
@@ -199,7 +208,7 @@ export default function DashboardPage() {
                 className="shrink-0 gap-2 min-h-[48px]"
               >
                 <MapPin className="h-4 w-4" />
-                Y aller
+                {t("getDirections", language)}
               </Button>
             )}
           </div>
@@ -210,14 +219,14 @@ export default function DashboardPage() {
         <div className="relative max-w-xl flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
-            placeholder="Rechercher un projet ou un client..."
+            placeholder={t("searchProjectClient", language)}
             value={globalSearch}
             onChange={(e) => setGlobalSearch(e.target.value)}
             className="pl-10 min-h-[48px]"
           />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-500">Année :</span>
+          <span className="text-sm font-medium text-gray-500">{t("year", language)} :</span>
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(Number(e.target.value))}
@@ -239,7 +248,7 @@ export default function DashboardPage() {
             <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 focus:ring-offset-2">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-500">
-                  CA du mois
+                  {t("caMonth", language)}
                 </CardTitle>
                 <Euro className="h-4 w-4 text-brand-blue-500" />
               </CardHeader>
@@ -250,10 +259,10 @@ export default function DashboardPage() {
                   transition={{ delay: 0.2 }}
                   className="text-2xl font-bold text-brand-blue-600"
                 >
-                  {loading ? "—" : formatCurrency(stats.caMensuel, currency)}
+                  {loading ? "—" : formatConvertedCurrency(stats.caMensuel, currency)}
                 </motion.p>
                 <Progress value={progressValue} className="mt-2 h-2" />
-                <p className="text-xs text-gray-500 mt-1">Cliquez pour voir les projets</p>
+                <p className="text-xs text-gray-500 mt-1">{t("clickToSeeProjects", language)}</p>
               </CardContent>
             </Card>
           </Link>
@@ -264,7 +273,7 @@ export default function DashboardPage() {
             <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 focus:ring-offset-2">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-gray-500">
-                  CA annuel
+                  {t("caYear", language)}
                 </CardTitle>
                 <TrendingUp className="h-4 w-4 text-brand-blue-500" />
               </CardHeader>
@@ -275,9 +284,9 @@ export default function DashboardPage() {
                   transition={{ delay: 0.3 }}
                   className="text-2xl font-bold text-gray-900"
                 >
-                  {loading ? "—" : formatCurrency(stats.caAnnuel, currency)}
+                  {loading ? "—" : formatConvertedCurrency(stats.caAnnuel, currency)}
                 </motion.p>
-                <p className="text-xs text-gray-500 mt-1">Cliquez pour voir les projets</p>
+                <p className="text-xs text-gray-500 mt-1">{t("clickToSeeProjects", language)}</p>
               </CardContent>
             </Card>
           </Link>
@@ -287,7 +296,7 @@ export default function DashboardPage() {
           <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-500">
-                Marge bénéficiaire
+                {t("profitMargin", language)}
               </CardTitle>
               <Percent className="h-4 w-4 text-emerald-500" />
             </CardHeader>
@@ -301,10 +310,10 @@ export default function DashboardPage() {
                 {loading ? "—" : `${stats.tauxMargeMoyen} %`}
               </motion.p>
               <p className="text-xs text-gray-500 mt-1">
-                {loading ? "—" : formatCurrency(stats.margeTotale)} (contrats − matériaux)
+                {loading ? "—" : formatConvertedCurrency(stats.margeTotale, currency)} ({t("contractsMinusMaterials", language)})
               </p>
               <p className="text-xs text-gray-400 mt-0.5">
-                Frais matériaux total : {loading ? "—" : formatCurrency(stats.totalMaterialCosts, currency)}
+                {t("totalMaterialFees", language)} : {loading ? "—" : formatConvertedCurrency(stats.totalMaterialCosts, currency)}
               </p>
             </CardContent>
           </Card>
@@ -315,7 +324,7 @@ export default function DashboardPage() {
             <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 border-red-200 bg-red-50/50">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-red-700">
-                  Impayés
+                  {t("unpaid", language)}
                 </CardTitle>
                 <AlertCircle className="h-4 w-4 text-red-500" />
               </CardHeader>
@@ -326,10 +335,10 @@ export default function DashboardPage() {
                   transition={{ delay: 0.5 }}
                   className="text-2xl font-bold text-red-600"
                 >
-                  {loading ? "—" : formatCurrency(stats.facturesImpayees, currency)}
+                  {loading ? "—" : formatConvertedCurrency(stats.facturesImpayees, currency)}
                 </motion.p>
                 <p className="text-xs text-red-600 mt-1">
-                  {stats.nbProjetsImpayes} chantier(s) non soldé(s) · Cliquez pour filtrer
+                  {stats.nbProjetsImpayes} {t("unpaidCount", language)}
                 </p>
               </CardContent>
             </Card>
@@ -342,14 +351,14 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-brand-blue-500" />
-              Mes Rappels
+              {t("myReminders", language)}
               {reminders.filter((r) => !r.completed).length > 0 && (
                 <span className="ml-2 rounded-full bg-brand-blue-100 px-2 py-0.5 text-sm font-medium text-brand-blue-600">
-                  {reminders.filter((r) => !r.completed).length} non terminé{reminders.filter((r) => !r.completed).length > 1 ? "s" : ""}
+                  {reminders.filter((r) => !r.completed).length} {language === "fr" ? "non terminé" : "pending"}{reminders.filter((r) => !r.completed).length > 1 && language === "fr" ? "s" : ""}
                 </span>
               )}
             </CardTitle>
-            <p className="text-sm text-gray-500">Ajoutez un rappel (ex: Appeler fournisseur), cochez « Fait » ou supprimez.</p>
+            <p className="text-sm text-gray-500">{t("addReminderHint", language)}</p>
           </CardHeader>
           <CardContent className="space-y-3">
             <form
@@ -365,7 +374,7 @@ export default function DashboardPage() {
               <Input
                 value={newReminder}
                 onChange={(e) => setNewReminder(e.target.value)}
-                placeholder="Ex: Appeler fournisseur..."
+                placeholder={t("reminderPlaceholder", language)}
                 className="min-h-[48px] flex-1"
               />
               <Button type="submit" size="icon" className="min-h-[48px] min-w-[48px]" disabled={!newReminder.trim()}>
@@ -413,7 +422,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CalendarClock className="h-5 w-5 text-brand-blue-500" />
-              À venir aujourd&apos;hui
+              {t("upcomingToday", language)}
               {todayAppointments.length > 0 && (
                 <span className="ml-2 rounded-full bg-brand-blue-100 px-2 py-0.5 text-sm font-medium text-brand-blue-600">
                   {todayAppointments.length} rendez-vous
@@ -421,7 +430,7 @@ export default function DashboardPage() {
               )}
             </CardTitle>
             <p className="text-sm text-gray-500">
-              Vos rendez-vous du jour (Devis, Chantier, Réunion). Cliquez pour ouvrir le calendrier.
+              {t("appointmentsHint", language)}
             </p>
           </CardHeader>
           <CardContent>
@@ -439,7 +448,7 @@ export default function DashboardPage() {
                       <span
                         className={`shrink-0 rounded border px-2 py-0.5 text-xs font-medium ${APPOINTMENT_TYPE_COLORS[a.type]}`}
                       >
-                        {a.type === "devis" ? "Devis" : a.type === "chantier" ? "Chantier" : "Réunion"}
+                        {a.type === "devis" ? "{t("appointmentDevis", language)}" : a.type === "chantier" ? "{t("appointmentChantier", language)}" : "{t("appointmentReunion", language)}"}
                       </span>
                       <span className="font-medium text-gray-900">{a.title}</span>
                       <span className="text-sm text-gray-500">{formatTime(a.start_at)} – {formatTime(a.end_at)}</span>
@@ -457,7 +466,7 @@ export default function DashboardPage() {
               </ul>
             )}
             <Link href="/calendar" className="mt-3 inline-flex items-center gap-1 text-sm text-brand-blue-600 hover:underline">
-              Voir le calendrier
+              {t("viewCalendar", language)}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </CardContent>
@@ -477,16 +486,16 @@ export default function DashboardPage() {
             <Card className="overflow-hidden transition-all duration-300 hover:shadow-brand-glow">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>Rentabilité par mois</CardTitle>
+                  <CardTitle>{t("profitabilityByMonth", language)}</CardTitle>
                   <p className="text-sm text-gray-500 mt-1">
-                    CA encaissé (paiements) et frais matériaux par mois
+                    {t("revenueAndMaterials", language)}
                   </p>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setDashboardView("all")}
-                  aria-label="Fermer la vue détaillée"
+                  aria-label={t("closeDetail", language)}
                 >
                   <X className="h-5 w-5" />
                 </Button>
@@ -502,14 +511,14 @@ export default function DashboardPage() {
                     <BarChart data={stats.chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
                       <XAxis dataKey="month" className="text-xs" interval={0} />
-                      <YAxis className="text-xs" tickFormatter={(v) => `${v / 1000}k €`} />
+                      <YAxis className="text-xs" tickFormatter={(v) => `${(convertCurrency(v, currency) / 1000).toFixed(0)}k ${getCurrencySymbol(currency)}`} />
                       <Tooltip
-                        formatter={(value: number) => [formatCurrency(value, currency), ""]}
+                        formatter={(value: number) => [formatConvertedCurrency(value, currency), ""]}
                         contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
                       />
                       <Legend />
-                      <Bar dataKey="ca" name="CA Encaissé" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="cout" name="Frais Matériaux" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="ca" name={t("revenue", language)} fill="#22c55e" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="cout" name={t("materials", language)} fill="#ef4444" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </motion.div>
@@ -531,13 +540,13 @@ export default function DashboardPage() {
                 <CardTitle className="text-lg flex items-center gap-2">
                   <FolderKanban className="h-5 w-5 text-brand-blue-500" />
                   {dashboardView === "impayes"
-                    ? "Chantiers non soldés"
-                    : "Tous les projets"}
+                    ? "{t("projectsUnpaid", language)}"
+                    : "{t("allProjects", language)}"}
                 </CardTitle>
                 <p className="text-sm text-gray-500">
                   {dashboardView === "impayes"
-                    ? `${listProjects.length} projet(s) avec un restant à régler`
-                    : `${listProjects.length} projet(s)`}
+                    ? `${listProjects.length} {t("projectsWithRest", language)}`
+                    : `${listProjects.length} {t("projectCount", language)}`}
                 </p>
               </CardHeader>
               <CardContent className="p-0">
@@ -549,7 +558,7 @@ export default function DashboardPage() {
                         animate={{ opacity: 1 }}
                         className="px-4 py-8 text-center text-gray-500"
                       >
-                        Aucun projet à afficher
+                        {t("noProjectsToShow", language)}
                       </motion.li>
                     ) : (
                       listProjects.map((project, i) => {
@@ -578,7 +587,7 @@ export default function DashboardPage() {
                               </div>
                               {isOverdue && (
                                 <span className="shrink-0 rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                                  En retard
+                                  {t("overdue", language)}
                                 </span>
                               )}
                             </div>
@@ -590,7 +599,7 @@ export default function DashboardPage() {
                                     : "text-emerald-600"
                                 }
                               >
-                                {formatCurrency(restant, currency)} dû
+                                {formatConvertedCurrency(restant, currency)} {t("due", language)}
                               </span>
                               <Link href={`/projets/${project.id}`}>
                                 <Button variant="ghost" size="sm" className="text-brand-blue-600">
@@ -617,12 +626,14 @@ export default function DashboardPage() {
           animate={{ opacity: 1 }}
           className="flex justify-center"
         >
-          <Card className="overflow-hidden transition-all duration-300 hover:shadow-brand-glow max-w-2xl w-full">
+          <Card
+            className="overflow-hidden transition-all duration-300 hover:shadow-brand-glow max-w-2xl w-full cursor-pointer"
+            onClick={() => setChartModalOpen(true)}
+          >
             <CardHeader>
-              <CardTitle>Graphique de rentabilité</CardTitle>
-              <p className="text-sm text-gray-500">
-                CA encaissé (vert) et frais matériaux (rouge) par mois
-              </p>
+              <CardTitle>{t("profitabilityChart", language)}</CardTitle>
+              <p className="text-sm text-gray-500">{t("revenueGreenMaterialsRed", language)}</p>
+              <p className="text-xs text-brand-blue-600">{t("clickChartForDetails", language)}</p>
             </CardHeader>
             <CardContent>
               <div className="h-[280px] min-h-[240px] w-full overflow-hidden">
@@ -630,14 +641,14 @@ export default function DashboardPage() {
                   <BarChart data={stats.chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
                     <XAxis dataKey="month" className="text-xs" interval={0} />
-                    <YAxis className="text-xs" tickFormatter={(v) => `${v / 1000}k €`} />
+                    <YAxis className="text-xs" tickFormatter={(v) => `${(convertCurrency(v, currency) / 1000).toFixed(0)}k ${getCurrencySymbol(currency)}`} />
                     <Tooltip
-                      formatter={(value: number) => [formatCurrency(value, currency), ""]}
+                      formatter={(value: number) => [formatConvertedCurrency(value, currency), ""]}
                       contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
                     />
                     <Legend />
-                    <Bar dataKey="ca" name="CA Encaissé" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="cout" name="Frais Matériaux" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="ca" name={t("revenue", language)} fill="#22c55e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="cout" name={t("materials", language)} fill="#ef4444" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -645,6 +656,59 @@ export default function DashboardPage() {
           </Card>
         </motion.div>
       )}
+
+      <Dialog open={chartModalOpen} onOpenChange={setChartModalOpen}>
+        <DialogContent className={cn("max-w-4xl max-h-[90vh] overflow-y-auto")}>
+          <DialogHeader>
+            <DialogTitle>{t("chartDetailFullscreen", language)}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            <div className="h-[360px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
+                  <XAxis dataKey="month" className="text-xs" interval={0} />
+                  <YAxis className="text-xs" tickFormatter={(v) => `${(convertCurrency(v, currency) / 1000).toFixed(0)}k ${getCurrencySymbol(currency)}`} />
+                  <Tooltip formatter={(value: number) => [formatConvertedCurrency(value, currency), ""]} contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }} />
+                  <Legend />
+                  <Bar dataKey="ca" name={t("revenue", language)} fill="#22c55e" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="cout" name={t("materials", language)} fill="#ef4444" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">{t("revenueByMonth", language)}</h4>
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-3 py-2 text-left text-gray-600">{t("month", language)}</th>
+                      <th className="px-3 py-2 text-right text-gray-600">{t("revenue", language)}</th>
+                      <th className="px-3 py-2 text-right text-gray-600">{t("materials", language)}</th>
+                      <th className="px-3 py-2 text-right text-gray-600">{t("vsPrevMonth", language)}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.chartData.map((row, i) => {
+                      const prev = stats.chartData[i - 1];
+                      const prevCa = prev?.ca ?? 0;
+                      const diff = prevCa ? ((row.ca - prevCa) / prevCa) * 100 : 0;
+                      return (
+                        <tr key={row.month} className="border-b border-gray-100">
+                          <td className="px-3 py-2 font-medium">{row.month}</td>
+                          <td className="px-3 py-2 text-right text-emerald-600">{formatConvertedCurrency(row.ca, currency)}</td>
+                          <td className="px-3 py-2 text-right text-red-600">{formatConvertedCurrency(row.cout, currency)}</td>
+                          <td className="px-3 py-2 text-right">{i === 0 ? "—" : `${diff >= 0 ? "+" : ""}${diff.toFixed(0)} %`}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

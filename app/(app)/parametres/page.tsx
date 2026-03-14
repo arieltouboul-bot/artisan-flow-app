@@ -43,17 +43,11 @@ export default function ParametresPage() {
       setCompanyName(profile.company_name ?? "");
       setSiret(profile.siret ?? "");
       setAddress(profile.address ?? "");
-      setCurrency((profile.currency as Currency) ?? "EUR");
+      setCurrency((profile.preferred_currency ?? profile.currency) as Currency ?? "EUR");
+      const lang = profile.preferred_language;
+      if (lang === "fr" || lang === "en") setLanguage(lang);
     }
-  }, [profile]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem("af_language");
-    if (stored === "fr" || stored === "en") {
-      setLanguage(stored);
-    }
-  }, [setLanguage]);
+  }, [profile, setLanguage]);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -131,17 +125,15 @@ export default function ParametresPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-brand-blue-500" />
-            Profil entreprise
+            {t("companyProfile", language)}
           </CardTitle>
-          <p className="text-sm text-gray-500">
-            Nom, SIRET, adresse et logo pour vos devis et documents
-          </p>
+          <p className="text-sm text-gray-500">{t("companyProfileHint", language)}</p>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleSaveCompany} className="space-y-4">
             <div>
               <label htmlFor="company_name" className="text-sm font-medium text-gray-700 mb-1 block">
-                Nom de l&apos;entreprise
+                {t("companyNameLabel", language)}
               </label>
               <Input
                 id="company_name"
@@ -220,7 +212,7 @@ export default function ParametresPage() {
             )}
             <Button type="submit" disabled={saveLoading}>
               {saveLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Enregistrer le profil
+              {t("saveProfile", language)}
             </Button>
           </form>
         </CardContent>
@@ -242,14 +234,20 @@ export default function ParametresPage() {
             <div className="flex rounded-lg border border-gray-200 bg-white p-0.5">
               <button
                 type="button"
-                onClick={() => setLanguage("fr")}
+                onClick={() => {
+                  setLanguage("fr");
+                  upsertProfile({ preferred_language: "fr" });
+                }}
                 className={`rounded-md px-3 py-2 text-sm font-medium min-h-[40px] ${language === "fr" ? "bg-brand-blue-500 text-white" : "text-gray-600 hover:bg-gray-100"}`}
               >
                 🇫🇷 {t("french", language)}
               </button>
               <button
                 type="button"
-                onClick={() => setLanguage("en")}
+                onClick={() => {
+                  setLanguage("en");
+                  upsertProfile({ preferred_language: "en" });
+                }}
                 className={`rounded-md px-3 py-2 text-sm font-medium min-h-[40px] ${language === "en" ? "bg-brand-blue-500 text-white" : "text-gray-600 hover:bg-gray-100"}`}
               >
                 🇬🇧 {t("english", language)}
@@ -268,7 +266,7 @@ export default function ParametresPage() {
               onChange={(e) => {
                 const c = e.target.value as Currency;
                 setCurrency(c);
-                upsertProfile({ currency: c });
+                upsertProfile({ preferred_currency: c });
               }}
               className="min-h-[40px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
             >
@@ -285,7 +283,7 @@ export default function ParametresPage() {
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50/50 p-4">
-            <p className="text-sm font-medium text-gray-500">Identifiant</p>
+            <p className="text-sm font-medium text-gray-500">{t("identifier", language)}</p>
             <p className="font-mono text-sm text-gray-600 truncate max-w-full" title={user?.id}>
               {user?.id ?? "—"}
             </p>
