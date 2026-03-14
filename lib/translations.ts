@@ -106,6 +106,26 @@ export const translations: Record<string, { fr: string; en: string }> = {
   notLoggedIn: { fr: "Non connecté.", en: "Not logged in." },
   scannedInvoice: { fr: "Facture scannée", en: "Scanned invoice" },
 
+  // Factures (central deposit)
+  invoices: { fr: "Factures", en: "Invoices" },
+  invoicesSubtitle: { fr: "Centre de gestion des factures et dépenses", en: "Invoice and expense management center" },
+  invoiceDateCol: { fr: "Date", en: "Date" },
+  invoiceVendorCol: { fr: "Fournisseur", en: "Vendor" },
+  invoiceProjectCol: { fr: "Projet lié", en: "Linked project" },
+  invoiceAmountHtCol: { fr: "Montant HT", en: "Amount (excl. tax)" },
+  invoiceTvaCol: { fr: "TVA", en: "VAT" },
+  invoiceAmountTtcCol: { fr: "Montant TTC", en: "Amount (incl. tax)" },
+  openInvoiceImage: { fr: "Ouvrir l'image", en: "Open image" },
+  editAmounts: { fr: "Modifier les montants", en: "Edit amounts" },
+  exportCSV: { fr: "Export CSV", en: "Export CSV" },
+  noInvoices: { fr: "Aucune facture enregistrée.", en: "No invoices recorded." },
+  filterByProject: { fr: "Filtrer par projet", en: "Filter by project" },
+  filterByCurrency: { fr: "Filtrer par devise", en: "Filter by currency" },
+  allProjectsFilter: { fr: "Tous les projets", en: "All projects" },
+  allCurrenciesFilter: { fr: "Toutes les devises", en: "All currencies" },
+  imageNotAvailable: { fr: "Image non disponible", en: "Image not available" },
+  saveChanges: { fr: "Enregistrer les modifications", en: "Save changes" },
+
   // Currency
   currency: { fr: "Devise", en: "Currency" },
   euro: { fr: "Euro (€)", en: "Euro (€)" },

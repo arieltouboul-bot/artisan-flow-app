@@ -21,6 +21,7 @@ import {
   HelpCircle,
   X,
   Package,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/translations";
@@ -41,6 +42,7 @@ const navItems = [
   { href: "/devis/nouveau", key: "newQuote", icon: FileText },
   { href: "/clients", key: "clients", icon: Users },
   { href: "/materiel", key: "material", icon: Package },
+  { href: "/factures", key: "invoices", icon: Receipt },
   { href: "/employees", key: "team", icon: UsersRound },
   { href: "/parametres", key: "settings", icon: Settings },
 ];

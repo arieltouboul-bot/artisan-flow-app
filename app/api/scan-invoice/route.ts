@@ -7,7 +7,29 @@ export interface ScanInvoiceResult {
   tva: number;
   amount_ttc: number;
   items: string[];
+  currency: string;
 }
+
+const SYSTEM_PROMPT = `You are an ultra-precise invoice OCR assistant. You MUST analyze invoices in three languages: French (Français), English, and Hebrew (עברית).
+
+## Tax intelligence
+- Identify tax by country:
+  - France / EU: TVA (Taxe sur la Valeur Ajoutée). Standard rate 20%. If tax amount is not written, compute it: HT × 0.20 or TTC - TTC/1.20.
+  - International / UK: VAT (Value Added Tax). If rate or amount is missing, use 20% or compute from TTC.
+  - Israel: Ma'am / מע"מ. Standard rate 17%. If tax amount is not written, compute: HT × 0.17 or TTC - TTC/1.17.
+- Always output both amount_ht (excl. tax) and tva (tax amount in same currency). If only TTC is visible, derive HT and tva using the detected or standard rate for the country.
+
+## Strict extraction rules
+- vendor: Company name or brand (from header/logo). String. Empty string if not found.
+- currency: Detect symbol from the document (€ → EUR, $ → USD, ₪ → ILS, £ → GBP). Return ISO 4217 code only: EUR, USD, ILS, or GBP. Default EUR if unclear.
+- date: Any date on the invoice. Convert to YYYY-MM-DD only. Use the invoice date or issue date.
+- amount_ht: Total amount excluding tax. Number. 0 if missing.
+- tva: Tax amount in the same currency. Number. Compute if not written (see tax rules above). 0 if no tax.
+- amount_ttc: Total amount including tax. Number. 0 if missing.
+- items: Array of strings. List product/line item descriptions. Empty array [] if none.
+
+## Output format
+Reply with a single valid JSON object. No markdown, no code fence, no explanation before or after. Only the raw JSON with exactly these keys: vendor, date, amount_ht, tva, amount_ttc, items, currency.`;
 
 function normalizeDate(s: string): string {
   const trimmed = String(s ?? "").trim();
@@ -21,6 +43,13 @@ function normalizeDate(s: string): string {
     return `${y}-${month}-${day}`;
   }
   return new Date().toISOString().slice(0, 10);
+}
+
+const CURRENCY_WHITELIST = ["EUR", "USD", "ILS", "GBP"] as const;
+function normalizeCurrency(s: string): string {
+  const code = String(s ?? "").trim().toUpperCase();
+  if (CURRENCY_WHITELIST.includes(code as (typeof CURRENCY_WHITELIST)[number])) return code;
+  return "EUR";
 }
 
 export async function POST(request: NextRequest) {
@@ -50,15 +79,11 @@ export async function POST(request: NextRequest) {
         model: "gpt-4o",
         max_tokens: 1024,
         messages: [
-          {
-            role: "system",
-            content:
-              "You are an invoice OCR assistant. Analyze the invoice image and extract structured data. Reply ONLY with a valid JSON object (no markdown, no code block) with exactly these keys: vendor (string, store/supplier name), date (string, format YYYY-MM-DD), amount_ht (number, total excluding tax), tva (number, VAT amount in same currency), amount_ttc (number, total including tax), items (array of strings, list of product/line descriptions). Use 0 for missing numbers. Use empty string for missing vendor. Use empty array for items if none found.",
-          },
+          { role: "system", content: SYSTEM_PROMPT },
           {
             role: "user",
             content: [
-              { type: "text", text: "Extract invoice data from this image and return the JSON object only." },
+              { type: "text", text: "Extract invoice data from this image. Return only one JSON object, no other text." },
               { type: "image_url", image_url: { url: image.startsWith("data:") ? image : `data:image/jpeg;base64,${image}` } },
             ],
           },
@@ -87,6 +112,7 @@ export async function POST(request: NextRequest) {
     const items = Array.isArray(parsed.items)
       ? (parsed.items as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean)
       : [];
+    const currency = normalizeCurrency(String(parsed.currency ?? "EUR"));
 
     const result: ScanInvoiceResult = {
       vendor,
@@ -95,6 +121,7 @@ export async function POST(request: NextRequest) {
       tva: Number.isFinite(tva) ? tva : 0,
       amount_ttc: Number.isFinite(amount_ttc) ? amount_ttc : 0,
       items,
+      currency,
     };
     return NextResponse.json(result);
   } catch (e) {
