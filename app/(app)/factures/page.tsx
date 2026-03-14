@@ -87,7 +87,7 @@ export default function FacturesPage() {
     setEditId(null);
   };
 
-  const exportCSV = () => {
+  const handleExportCSV = () => {
     const headers = [
       t("invoiceDateCol", language),
       t("invoiceVendorCol", language),
@@ -110,13 +110,15 @@ export default function FacturesPage() {
       ];
     });
     const BOM = "\uFEFF";
-    const csv = BOM + [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
+    const csv = BOM + [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `factures_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
@@ -162,7 +164,7 @@ export default function FacturesPage() {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-            <Button variant="outline" size="sm" onClick={exportCSV} className={cn("min-h-[44px]")} disabled={filtered.length === 0}>
+            <Button variant="outline" size="sm" onClick={handleExportCSV} className={cn("min-h-[44px]")} disabled={filtered.length === 0}>
               <Download className="h-4 w-4 mr-2" />
               {t("exportCSV", language)}
             </Button>

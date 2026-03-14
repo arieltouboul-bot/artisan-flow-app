@@ -21,9 +21,8 @@ import { t } from "@/lib/translations";
 import { formatConvertedCurrency, cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { createClient } from "@/lib/supabase/client";
-import { Package, Plus, Trash2, Loader2, Truck, Calendar, ExternalLink, Sparkles, Scan } from "lucide-react";
-import type { ScanInvoiceResult } from "@/app/api/scan-invoice/route";
-import { parseInvoiceText } from "@/lib/invoice-ocr";
+import { Package, Plus, Trash2, Loader2, Truck, Calendar, ExternalLink, Sparkles, Scan, Camera, Upload } from "lucide-react";
+import { parseInvoiceText, type ScanInvoiceResult } from "@/lib/invoice-ocr";
 
 const VAT_OPTIONS = [0, 5.5, 10, 20];
 const GOOGLE_MAPS_SEARCH_URL = "https://www.google.com/maps/search/magasin+de+bricolage+materiaux+hardware+store/";
@@ -35,6 +34,7 @@ export default function MaterielPage() {
   const { items, loading, error, addItem, deleteItem } = useInventory();
   const { suppliers, loading: suppliersLoading, error: suppliersError, addSupplier, deleteSupplier, refetch: refetchSuppliers } = useSuppliers();
   const { projects } = useProjects();
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [addOpen, setAddOpen] = useState(false);
@@ -62,10 +62,8 @@ export default function MaterielPage() {
 
   const [scanOpen, setScanOpen] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
-  const [scanImproveLoading, setScanImproveLoading] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanInvoiceResult | null>(null);
-  const [scanImageDataUrl, setScanImageDataUrl] = useState<string | null>(null);
   const [scanVendor, setScanVendor] = useState("");
   const [scanDate, setScanDate] = useState("");
   const [scanAmountHt, setScanAmountHt] = useState("");
@@ -141,14 +139,11 @@ export default function MaterielPage() {
   const openScanInvoice = () => {
     setScanError(null);
     setScanResult(null);
-    setScanImageDataUrl(null);
     setScanLoading(false);
-    setScanImproveLoading(false);
     setSaveExpenseError(null);
     setSaveExpenseSuccess(false);
     setScanProjectId("");
     setScanOpen(true);
-    setTimeout(() => fileInputRef.current?.click(), 150);
   };
 
   const applyScanResult = (result: ScanInvoiceResult) => {
@@ -159,6 +154,43 @@ export default function MaterielPage() {
     setScanTva(String(result.tva));
     setScanAmountTtc(String(result.amount_ttc));
     setScanItemsText(result.items.join("\n"));
+  };
+
+  /** Convert image file to grayscale blob for better Tesseract accuracy. */
+  const imageFileToGrayscaleBlob = (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+          const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          data[i] = data[i + 1] = data[i + 2] = Math.round(gray);
+        }
+        ctx.putImageData(imageData, 0, 0);
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : resolve(file)),
+          "image/jpeg",
+          0.92
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+      img.src = url;
+    });
   };
 
   const onScanFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,16 +204,9 @@ export default function MaterielPage() {
     setScanResult(null);
     setScanLoading(true);
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      setScanImageDataUrl(dataUrl);
-
+      const grayscaleBlob = await imageFileToGrayscaleBlob(file);
       const Tesseract = (await import("tesseract.js")).default;
-      const { data } = await Tesseract.recognize(file, "fra+eng");
+      const { data } = await Tesseract.recognize(grayscaleBlob, "fra+eng+heb");
       const parsed = parseInvoiceText(data.text);
       const result: ScanInvoiceResult = {
         vendor: parsed.vendor,
@@ -197,29 +222,6 @@ export default function MaterielPage() {
       setScanError(t("scanOcrError", language));
     }
     setScanLoading(false);
-  };
-
-  const handleImproveWithAI = async () => {
-    if (!scanImageDataUrl) return;
-    setScanError(null);
-    setScanImproveLoading(true);
-    try {
-      const res = await fetch("/api/scan-invoice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: scanImageDataUrl }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setScanError(data.error || t("scanInvoiceError", language));
-        setScanImproveLoading(false);
-        return;
-      }
-      applyScanResult(data as ScanInvoiceResult);
-    } catch {
-      setScanError(t("scanInvoiceError", language));
-    }
-    setScanImproveLoading(false);
   };
 
   const handleSaveScannedExpense = async (e: React.FormEvent) => {
@@ -351,15 +353,8 @@ export default function MaterielPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={onScanFileChange}
-                className="hidden"
-                aria-hidden
-              />
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={onScanFileChange} className="hidden" aria-hidden />
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={onScanFileChange} className="hidden" aria-hidden />
               {error && (
                 <div className={cn("rounded-lg bg-red-50 p-4 text-sm text-red-700 mb-4")}>
                   {error}
@@ -650,7 +645,7 @@ export default function MaterielPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Scan invoice — OCR local first, then optional "Améliorer avec l'IA" */}
+      {/* Scan invoice — 100% local OCR (Tesseract), no API */}
       <Dialog
         open={scanOpen}
         onOpenChange={(open) => {
@@ -658,7 +653,6 @@ export default function MaterielPage() {
           if (!open) {
             setScanError(null);
             setScanResult(null);
-            setScanImageDataUrl(null);
           }
         }}
       >
@@ -672,31 +666,11 @@ export default function MaterielPage() {
           {scanLoading ? (
             <div className={cn("flex items-center justify-center gap-2 py-12 text-gray-500")}>
               <Loader2 className="h-8 w-8 animate-spin" />
-              <span>{t("scanOcrLaunching", language)}</span>
-            </div>
-          ) : scanImproveLoading ? (
-            <div className={cn("flex items-center justify-center gap-2 py-8 text-gray-500")}>
-              <Loader2 className="h-6 w-6 animate-spin" />
-              <span>{t("scanImprovingWithAI", language)}</span>
+              <span>{t("scanOcrReading", language)}</span>
             </div>
           ) : scanResult ? (
             <form onSubmit={handleSaveScannedExpense} className="space-y-4">
               <p className={cn("text-sm text-gray-500")}>{t("verifyAndSave", language)}</p>
-              {scanImageDataUrl && (
-                <div className={cn("flex justify-end")}>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className={cn("text-brand-blue-600 hover:text-brand-blue-700 text-xs")}
-                    onClick={handleImproveWithAI}
-                    disabled={scanImproveLoading}
-                  >
-                    <Sparkles className="h-3.5 w-3 mr-1.5" />
-                    {t("scanImproveWithAI", language)}
-                  </Button>
-                </div>
-              )}
               <div>
                 <label className={cn("text-sm font-medium text-gray-700 mb-1 block")}>{t("invoiceVendor", language)}</label>
                 <Input value={scanVendor} onChange={(e) => setScanVendor(e.target.value)} className={cn("min-h-[44px]")} />
@@ -754,12 +728,18 @@ export default function MaterielPage() {
               </DialogFooter>
             </form>
           ) : (
-            <div className={cn("py-6 text-center")}>
-              <p className={cn("text-sm text-gray-600 mb-4")}>{t("takePhotoOrChooseFile", language)}</p>
-              <Button type="button" onClick={() => fileInputRef.current?.click()} className={cn("min-h-[44px]")}>
-                <Scan className="h-4 w-4 mr-2" />
-                {t("takePhotoOrChooseFile", language)}
-              </Button>
+            <div className={cn("py-6 space-y-4")}>
+              <p className={cn("text-sm text-gray-600 text-center")}>{t("scanChooseSource", language)}</p>
+              <div className={cn("flex flex-col sm:flex-row gap-3 justify-center")}>
+                <Button type="button" onClick={() => cameraInputRef.current?.click()} className={cn("min-h-[48px]")}>
+                  <Camera className="h-5 w-5 mr-2" />
+                  {t("takePhoto", language)}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className={cn("min-h-[48px]")}>
+                  <Upload className="h-5 w-5 mr-2" />
+                  {t("importFile", language)}
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

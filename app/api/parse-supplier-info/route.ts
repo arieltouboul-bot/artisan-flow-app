@@ -37,48 +37,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "text required" }, { status: 400 });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (apiKey) {
-    try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content:
-                "Tu extrais d'un texte copié depuis Google Maps les champs: nom du lieu, adresse postale, numéro de téléphone. Réponds UNIQUEMENT en JSON valide avec exactement les clés: name, address, phone. Utilise des chaînes vides si absent.",
-            },
-            {
-              role: "user",
-              content: text,
-            },
-          ],
-          response_format: { type: "json_object" },
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const raw = data.choices?.[0]?.message?.content;
-        if (raw) {
-          const parsed = JSON.parse(raw) as { name?: string; address?: string; phone?: string };
-          return NextResponse.json({
-            name: String(parsed.name ?? "").trim(),
-            address: String(parsed.address ?? "").trim(),
-            phone: String(parsed.phone ?? "").trim(),
-          });
-        }
-      }
-    } catch {
-      // Fall through to heuristic
-    }
-  }
-
   const result = parseWithHeuristic(text);
   return NextResponse.json(result);
 }

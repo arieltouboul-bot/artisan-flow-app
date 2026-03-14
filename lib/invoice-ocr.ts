@@ -1,9 +1,21 @@
 /**
  * Local invoice OCR: regex parsing of raw text (from Tesseract or other OCR).
  * Used client-side after Tesseract.js extracts text from image.
+ * 100% gratuit, aucune API externe.
  */
 
 export type InvoiceCurrency = "EUR" | "USD" | "ILS" | "GBP";
+
+/** Result type used by the scan UI (materiel + factures). */
+export interface ScanInvoiceResult {
+  vendor: string;
+  date: string;
+  amount_ht: number;
+  tva: number;
+  amount_ttc: number;
+  items: string[];
+  currency: string;
+}
 
 export interface ParsedInvoiceData {
   vendor: string;
@@ -65,11 +77,13 @@ export function parseInvoiceText(text: string): ParsedInvoiceData {
   else if (/₪|ILS|shekel|NIS/i.test(fullText)) result.currency = "ILS";
   else if (/£|GBP|pound/i.test(fullText)) result.currency = "GBP";
 
-  // —— Montant TTC : après TOTAL TTC, TTC, NET A PAYER, etc.
+  // —— Montant TTC : TOTAL, TTC, NET, סך הכל (Hebrew total)
   const ttcPatterns = [
-    /(?:TOTAL\s+TTC|TTC\s*TOTAL|NET\s+(?:À|A)\s+PAYER|TOTAL\s+À\s+PAYER|TOTAL\s+NET)[\s:]*([\d\s.,]+)\s*€?/i,
-    /(?:TTC|TOTAL)[\s:]*([\d\s.,]+)\s*€?/i,
-    /(?:montant\s+total|total\s+ttc)[\s:]*([\d\s.,]+)\s*€?/i,
+    /(?:TOTAL\s+TTC|TTC\s*TOTAL|NET\s+(?:À|A)\s+PAYER|TOTAL\s+À\s+PAYER|TOTAL\s+NET)[\s:]*([\d\s.,]+)\s*[€$₪£]?/i,
+    /(?:TTC|TOTAL)[\s:]*([\d\s.,]+)\s*[€$₪£]?/i,
+    /(?:montant\s+total|total\s+ttc)[\s:]*([\d\s.,]+)\s*[€$₪£]?/i,
+    /\u05E1\u05DA\u0020\u05D4\u05DB\u05DC[\s:]*([\d\s.,]+)/, // סך הכל
+    /(?:grand\s+total|total\s+amount)[\s:]*([\d\s.,]+)\s*[€$₪£]?/i,
   ];
   for (const re of ttcPatterns) {
     const m = fullText.match(re);
@@ -81,29 +95,47 @@ export function parseInvoiceText(text: string): ParsedInvoiceData {
       }
     }
   }
-  // Fallback: last number that looks like a total (e.g. line ending with €)
+  // Fallback: last number followed by currency symbol
   if (result.amount_ttc === 0) {
-    const lastEuro = fullText.match(/([\d\s.,]+)\s*€\s*$/);
-    if (lastEuro) {
-      const val = parseAmount(lastEuro[1]);
+    const lastWithSymbol = fullText.match(/([\d\s.,]+)\s*[€$₪£]\s*$/);
+    if (lastWithSymbol) {
+      const val = parseAmount(lastWithSymbol[1]);
       if (val != null && val > 0) result.amount_ttc = val;
     }
   }
 
-  // —— TVA : montant en € (ligne "TVA : 12,34 €") ou déduit depuis taux (20% TTC → HT = TTC/1.2, TVA = TTC - HT)
-  const tvaAmountRe = /TVA[\s:]*([\d\s.,]+)\s*€/gi;
-  const tvaAmountMatch = fullText.match(tvaAmountRe);
-  if (tvaAmountMatch) {
-    const lastTva = tvaAmountMatch[tvaAmountMatch.length - 1];
-    const val = parseAmount(lastTva.replace(/TVA[\s:]*/i, "").replace("€", ""));
-    if (val != null && val >= 0) result.tva = val;
+  // —— TVA / VAT / מע"מ (Ma'am Israel): amount or derive from rate
+  const tvaAmountPatterns = [
+    /TVA[\s:]*([\d\s.,]+)\s*[€$₪£]?/gi,
+    /VAT[\s:]*([\d\s.,]+)\s*[€$₪£]?/gi,
+    /\u05DE\u05E2[\u05F3"]?\u05DE[\s:]*([\d\s.,]+)/g, // Ma'am מע"מ
+  ];
+  for (const re of tvaAmountPatterns) {
+    const match = fullText.match(re);
+    if (match) {
+      const last = match[match.length - 1];
+      const val = parseAmount(last.replace(/TVA[\s:]*|VAT[\s:]*|\u05DE\u05E2[\u05F3"]?\u05DE[\s:]*/gi, "").replace(/[€$₪£]/g, ""));
+      if (val != null && val >= 0) {
+        result.tva = val;
+        break;
+      }
+    }
   }
   if (result.amount_ttc > 0 && result.tva === 0) {
-    const rateMatch = fullText.match(/(\d{1,2}(?:[.,]\d+)?)\s*%\s*TVA/);
-    if (rateMatch) {
-      const rate = parseFloat(rateMatch[1].replace(",", "."));
-      if (Number.isFinite(rate) && rate > 0 && rate < 30)
-        result.tva = result.amount_ttc - result.amount_ttc / (1 + rate / 100);
+    const ratePatterns = [/(\d{1,2}(?:[.,]\d+)?)\s*%\s*TVA/i, /(\d{1,2}(?:[.,]\d+)?)\s*%\s*VAT/i, /\u05DE\u05E2[\u05F3"]?\u05DE\s*(\d{1,2}(?:[.,]\d+)?)\s*%/];
+    for (const rateRe of ratePatterns) {
+      const rateMatch = fullText.match(rateRe);
+      if (rateMatch) {
+        const rate = parseFloat(rateMatch[1].replace(",", "."));
+        if (Number.isFinite(rate) && rate > 0 && rate < 30) {
+          result.tva = result.amount_ttc - result.amount_ttc / (1 + rate / 100);
+          break;
+        }
+      }
+    }
+    if (result.tva === 0 && result.currency) {
+      const defaultRate = result.currency === "ILS" ? 17 : result.currency === "GBP" ? 20 : 20;
+      result.tva = result.amount_ttc - result.amount_ttc / (1 + defaultRate / 100);
     }
   }
 
