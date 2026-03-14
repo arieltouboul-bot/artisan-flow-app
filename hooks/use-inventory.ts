@@ -11,6 +11,7 @@ export interface InventoryItem {
   stock_quantity: number;
   category: string;
   default_tva_rate: number;
+  supplier_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -24,6 +25,7 @@ function mapRow(row: Record<string, unknown>): InventoryItem {
     stock_quantity: Number(row.stock_quantity ?? 0),
     category: (row.category as string) ?? "",
     default_tva_rate: Number(row.default_tva_rate ?? 20),
+    supplier_id: (row.supplier_id as string | null) ?? null,
     created_at: row.created_at as string | undefined,
     updated_at: row.updated_at as string | undefined,
   };
@@ -68,12 +70,12 @@ export function useInventory() {
   }, [fetchItems]);
 
   const addItem = useCallback(
-    async (payload: { name: string; unit_price_ht: number; stock_quantity: number; category: string; default_tva_rate: number }) => {
+    async (payload: { name: string; unit_price_ht: number; stock_quantity: number; category: string; default_tva_rate: number; supplier_id?: string | null }) => {
       const supabase = createClient();
       if (!supabase) return { error: "Supabase non configuré" };
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { error: "Non connecté" };
-      const { error: insertError } = await supabase.from("inventory").insert({
+      const row: Record<string, unknown> = {
         user_id: user.id,
         name: payload.name.trim(),
         unit_price_ht: payload.unit_price_ht,
@@ -81,7 +83,9 @@ export function useInventory() {
         category: payload.category.trim() || "",
         default_tva_rate: payload.default_tva_rate ?? 20,
         updated_at: new Date().toISOString(),
-      });
+      };
+      if (payload.supplier_id != null && payload.supplier_id !== "") row.supplier_id = payload.supplier_id;
+      const { error: insertError } = await supabase.from("inventory").insert(row);
       if (insertError) return { error: insertError.message };
       await fetchItems();
       return {};
@@ -90,7 +94,7 @@ export function useInventory() {
   );
 
   const updateItem = useCallback(
-    async (id: string, payload: Partial<{ name: string; unit_price_ht: number; stock_quantity: number; category: string; default_tva_rate: number }>) => {
+    async (id: string, payload: Partial<{ name: string; unit_price_ht: number; stock_quantity: number; category: string; default_tva_rate: number; supplier_id?: string | null }>) => {
       const supabase = createClient();
       if (!supabase) return { error: "Supabase non configuré" };
       const { error: updateError } = await supabase
