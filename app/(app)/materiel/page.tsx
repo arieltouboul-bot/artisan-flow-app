@@ -190,6 +190,7 @@ export default function MaterielPage() {
         tva: parsed.tva,
         amount_ttc: parsed.amount_ttc,
         items: parsed.items,
+        currency: parsed.currency || displayCurrency || "EUR",
       };
       applyScanResult(result);
     } catch {

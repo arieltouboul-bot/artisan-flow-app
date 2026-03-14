@@ -3,6 +3,8 @@
  * Used client-side after Tesseract.js extracts text from image.
  */
 
+export type InvoiceCurrency = "EUR" | "USD" | "ILS" | "GBP";
+
 export interface ParsedInvoiceData {
   vendor: string;
   date: string;
@@ -10,6 +12,7 @@ export interface ParsedInvoiceData {
   tva: number;
   amount_ttc: number;
   items: string[];
+  currency?: InvoiceCurrency;
 }
 
 const EMPTY: ParsedInvoiceData = {
@@ -55,6 +58,12 @@ export function parseInvoiceText(text: string): ParsedInvoiceData {
 
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const fullText = text.replace(/\r?\n/g, " ");
+
+  // —— Currency: detect symbol in text (€, $, ₪, £)
+  if (/\€|EUR|euro/i.test(fullText)) result.currency = "EUR";
+  else if (/\$|USD|dollar/i.test(fullText)) result.currency = "USD";
+  else if (/₪|ILS|shekel|NIS/i.test(fullText)) result.currency = "ILS";
+  else if (/£|GBP|pound/i.test(fullText)) result.currency = "GBP";
 
   // —— Montant TTC : après TOTAL TTC, TTC, NET A PAYER, etc.
   const ttcPatterns = [
