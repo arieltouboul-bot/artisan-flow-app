@@ -410,7 +410,7 @@ export default function DashboardPage() {
                 </motion.li>
               ))}
               {reminders.length === 0 && (
-                <p className="text-sm text-gray-500 py-2">Aucun rappel. Ajoutez-en un ci-dessus.</p>
+                <p className="text-sm text-gray-500 py-2">{t("noReminders", language)}</p>
               )}
             </ul>
           </CardContent>
@@ -435,7 +435,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {todayAppointments.length === 0 ? (
-              <p className="text-sm text-gray-500 py-2">Aucun rendez-vous aujourd&apos;hui.</p>
+              <p className="text-sm text-gray-500 py-2">{t("noAppointmentsToday", language)}</p>
             ) : (
               <ul className="space-y-2">
                 {todayAppointments
@@ -448,7 +448,7 @@ export default function DashboardPage() {
                       <span
                         className={`shrink-0 rounded border px-2 py-0.5 text-xs font-medium ${APPOINTMENT_TYPE_COLORS[a.type]}`}
                       >
-                        {a.type === "devis" ? "{t("appointmentDevis", language)}" : a.type === "chantier" ? "{t("appointmentChantier", language)}" : "{t("appointmentReunion", language)}"}
+                        {a.type === "devis" ? t("appointmentDevis", language) : a.type === "chantier" ? t("appointmentChantier", language) : t("appointmentReunion", language)}
                       </span>
                       <span className="font-medium text-gray-900">{a.title}</span>
                       <span className="text-sm text-gray-500">{formatTime(a.start_at)} – {formatTime(a.end_at)}</span>
@@ -540,13 +540,13 @@ export default function DashboardPage() {
                 <CardTitle className="text-lg flex items-center gap-2">
                   <FolderKanban className="h-5 w-5 text-brand-blue-500" />
                   {dashboardView === "impayes"
-                    ? "{t("projectsUnpaid", language)}"
-                    : "{t("allProjects", language)}"}
+                    ? t("projectsUnpaid", language)
+                    : t("allProjects", language)}
                 </CardTitle>
                 <p className="text-sm text-gray-500">
                   {dashboardView === "impayes"
-                    ? `${listProjects.length} {t("projectsWithRest", language)}`
-                    : `${listProjects.length} {t("projectCount", language)}`}
+                    ? `${listProjects.length} ${t("projectsWithRest", language)}`
+                    : `${listProjects.length} ${t("projectCount", language)}`}
                 </p>
               </CardHeader>
               <CardContent className="p-0">
