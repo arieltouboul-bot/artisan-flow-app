@@ -25,7 +25,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { createClient } from "@/lib/supabase/client";
 import type { Client } from "@/types/database";
 import { clientMargeBrute, clientRestantDu } from "@/types/database";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, type Currency } from "@/lib/utils";
 import Link from "next/link";
 import {
   Search,
@@ -217,6 +217,7 @@ export default function ClientsPage() {
                           key={client.id}
                           client={client}
                           onDelete={() => setDeleteId(client.id)}
+                          currency={currency}
                         />
                       ))}
                     </AnimatePresence>
@@ -419,9 +420,11 @@ const rowVariants = {
 function ClientRow({
   client,
   onDelete,
+  currency,
 }: {
   client: Client;
   onDelete: () => void;
+  currency: Currency;
 }) {
   const mapsUrl = buildMapsUrl(client.address);
   const marge = clientMargeBrute(client);
@@ -484,7 +487,7 @@ function ClientRow({
         {formatCurrency(client.contract_amount ?? 0, currency)}
       </TableCell>
       <TableCell className={`text-right tabular-nums ${marge >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-        {formatCurrency(marge)}
+        {formatCurrency(marge, currency)}
       </TableCell>
       <TableCell
         className={`text-right tabular-nums font-medium ${
