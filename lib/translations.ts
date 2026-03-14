@@ -183,10 +183,153 @@ export const translations: Record<string, { fr: string; en: string }> = {
   appointmentDevis: { fr: "Devis", en: "Quote" },
   appointmentChantier: { fr: "Chantier", en: "Site" },
   appointmentReunion: { fr: "Réunion", en: "Meeting" },
+
+  // Buttons & actions
+  add: { fr: "Ajouter", en: "Add" },
+  edit: { fr: "Modifier", en: "Edit" },
+  delete: { fr: "Supprimer", en: "Delete" },
+  remove: { fr: "Retirer", en: "Remove" },
+  close: { fr: "Fermer", en: "Close" },
+  back: { fr: "Retour", en: "Back" },
+  next: { fr: "Suivant", en: "Next" },
+  previous: { fr: "Précédent", en: "Previous" },
+  confirm: { fr: "Confirmer", en: "Confirm" },
+  search: { fr: "Rechercher", en: "Search" },
+  filter: { fr: "Filtrer", en: "Filter" },
+  export: { fr: "Exporter", en: "Export" },
+  required: { fr: "Requis", en: "Required" },
+
+  // Project statuses
+  statusInPreparation: { fr: "En préparation", en: "In preparation" },
+  statusInProgress: { fr: "En cours", en: "In progress" },
+  statusUrgentLate: { fr: "Urgent / Retard", en: "Urgent / Late" },
+  statusCompleted: { fr: "Terminé", en: "Completed" },
+  statusAll: { fr: "Tous", en: "All" },
+  statusUnpaid: { fr: "Non soldés", en: "Unpaid" },
+
+  // Projects
+  newProject: { fr: "Nouveau projet", en: "New project" },
+  projectName: { fr: "Nom du projet", en: "Project name" },
+  projectAddress: { fr: "Adresse du chantier", en: "Site address" },
+  contractAmount: { fr: "Montant du contrat", en: "Contract amount" },
+  amountCollected: { fr: "Encaissé", en: "Collected" },
+  remainingBalance: { fr: "Reste à payer", en: "Remaining balance" },
+  totalPaid: { fr: "Déjà encaissé (Total Paid)", en: "Total paid" },
+  paymentProgress: { fr: "Progression du paiement", en: "Payment progress" },
+  startDate: { fr: "Date de début", en: "Start date" },
+  endDate: { fr: "Date de fin", en: "End date" },
+  notes: { fr: "Notes", en: "Notes" },
+  noProject: { fr: "Aucun projet", en: "No project" },
+  materialCosts: { fr: "Frais matériaux", en: "Material costs" },
+  financialTracking: { fr: "Suivi financier", en: "Financial tracking" },
+  grossMargin: { fr: "Marge brute", en: "Gross margin" },
+  vatToPay: { fr: "TVA à décaisser", en: "VAT to pay" },
+  vatCollectedDeductible: { fr: "TVA collectée − TVA récupérable", en: "VAT collected − VAT deductible" },
+  noExpenses: { fr: "Aucune dépense. Ajoutez-en pour suivre la marge et la TVA.", en: "No expenses. Add some to track margin and VAT." },
+  expenses: { fr: "Dépenses", en: "Expenses" },
+  transactions: { fr: "Paiements", en: "Transactions" },
+  addPayment: { fr: "Enregistrer un paiement", en: "Record payment" },
+  paymentDate: { fr: "Date du paiement", en: "Payment date" },
+  paymentAmount: { fr: "Montant", en: "Amount" },
+  paymentMethod: { fr: "Méthode", en: "Method" },
+  noTasks: { fr: "Aucune tâche", en: "No tasks" },
+  addTask: { fr: "Ajouter une tâche", en: "Add task" },
+  taskPlaceholder: { fr: "Ex: Commander les carreaux", en: "e.g. Order tiles" },
+  team: { fr: "Équipe", en: "Team" },
+  assign: { fr: "Assigner", en: "Assign" },
+  noPhotos: { fr: "Aucune photo", en: "No photos" },
+  addPhoto: { fr: "Ajouter une photo", en: "Add photo" },
+  deleteProject: { fr: "Supprimer le projet", en: "Delete project" },
+  deleteProjectConfirm: { fr: "Supprimer ce projet définitivement ?", en: "Delete this project permanently?" },
+  percentPaid: { fr: "% payé", en: "% paid" },
+
+  // Calendar
+  monthView: { fr: "Mois", en: "Month" },
+  weekView: { fr: "Semaine", en: "Week" },
+  dayView: { fr: "Jour", en: "Day" },
+  newAppointment: { fr: "Nouveau rendez-vous", en: "New appointment" },
+  appointmentTitle: { fr: "Titre", en: "Title" },
+  appointmentType: { fr: "Type", en: "Type" },
+  noAppointments: { fr: "Aucun rendez-vous", en: "No appointments" },
+  today: { fr: "Aujourd'hui", en: "Today" },
+
+  // Clients
+  newClient: { fr: "Nouveau client", en: "New client" },
+  noClients: { fr: "Aucun client trouvé", en: "No clients found" },
+  contract: { fr: "Contrat", en: "Contract" },
+  grossMarginLabel: { fr: "Marge brute", en: "Gross margin" },
+  balanceDue: { fr: "Restant dû", en: "Balance due" },
+  deleteClient: { fr: "Supprimer le client", en: "Delete client" },
+  deleteClientConfirm: { fr: "Supprimer ce client ?", en: "Delete this client?" },
+  nameRequired: { fr: "Le nom est obligatoire.", en: "Name is required." },
+  seeOnMaps: { fr: "Voir sur Google Maps", en: "View on Google Maps" },
+
+  // Employees
+  employees: { fr: "Employés", en: "Employees" },
+  addEmployee: { fr: "Ajouter un employé", en: "Add employee" },
+  firstName: { fr: "Prénom", en: "First name" },
+  lastName: { fr: "Nom", en: "Last name" },
+  role: { fr: "Rôle", en: "Role" },
+  noEmployees: { fr: "Aucun employé", en: "No employees" },
+
+  // Devis list
+  quotes: { fr: "Devis", en: "Quotes" },
+  noQuotes: { fr: "Aucun devis", en: "No quotes" },
+  createQuote: { fr: "Créer un devis", en: "Create quote" },
+
+  // Chart labels (for tooltips/legends)
+  revenues: { fr: "Revenus", en: "Revenue" },
+  expensesLabel: { fr: "Dépenses", en: "Expenses" },
+
+  // Assistant AI (bilingual responses)
+  assistantCannotConnect: { fr: "Impossible de se connecter à la base de données.", en: "Cannot connect to the database." },
+  assistantMustBeLoggedIn: { fr: "Tu dois être connecté pour que je puisse agir.", en: "You must be logged in for me to act." },
+  assistantNoClientFound: { fr: "Aucun client trouvé contenant « {name} ».", en: "No client found containing « {name} »." },
+  assistantClientOwes: { fr: "Le client **{name}** vous doit encore **{restant} €** sur un total de **{total} €**. (Déjà encaissé : {collected} €.)", en: "Client **{name}** still owes you **{restant} €** out of **{total} €** total. (Already collected: {collected} €.)" },
+  assistantNoProjectFound: { fr: "Aucun projet trouvé contenant « {name} ». Vérifie le nom.", en: "No project found containing « {name} ». Check the name." },
+  assistantPaymentFailed: { fr: "Impossible d'enregistrer le paiement : {msg}", en: "Could not record payment: {msg}" },
+  assistantPaymentRecorded: { fr: "J'ai enregistré un virement de {amount} € pour le projet « {name} » (date : {date}). Le graphique du dashboard se met à jour. Total encaissé : {total} €.", en: "I recorded a payment of {amount} € for project « {name} » (date: {date}). Dashboard chart will update. Total collected: {total} €." },
+  assistantAmountAdded: { fr: "J'ai ajouté {amount} € au projet « {name} ». Nouveau total encaissé : {total} €. Le graphique du dashboard se met à jour.", en: "I added {amount} € to project « {name} ». New total collected: {total} €. Dashboard chart will update." },
+  assistantReminderAdded: { fr: "J'ai ajouté le rappel : « {label} ».", en: "I added the reminder: « {label} »." },
+  assistantOpeningNewProject: { fr: "J'ouvre la page de création de projet.", en: "Opening the new project page." },
+  assistantOpeningTeam: { fr: "J'ouvre la page Équipe pour ajouter un employé.", en: "Opening the Team page to add an employee." },
+  assistantNoEmployeesAssigned: { fr: "Aucun employé n'est encore assigné à des projets. Assignez-en depuis les fiches projets.", en: "No employees are assigned to projects yet. Assign them from project pages." },
+  assistantNotEnoughChantiers: { fr: "Pas assez de chantiers le mois prochain pour créer un rappel automatique. Dis-moi le texte du rappel si tu veux que je l'ajoute.", en: "Not enough projects next month for an automatic reminder. Tell me the reminder text if you want me to add it." },
+  assistantNothingTomorrow: { fr: "Tu n'as rien de prévu demain.", en: "You have nothing scheduled for tomorrow." },
+  assistantAppointmentsTomorrow: { fr: "Demain tu as **{count}** rendez-vous :", en: "Tomorrow you have **{count}** appointment(s):" },
+  assistantAppointmentCreated: { fr: "C'est noté. J'ai créé le rendez-vous « {title} » le {date}{project}. Tu peux le voir sur le calendrier.", en: "Done. I created the appointment « {title} » on {date}{project}. You can see it on the calendar." },
+  assistantNoExpenses: { fr: "Aucune dépense matériaux enregistrée sur tes projets pour l'instant.", en: "No material expenses recorded on your projects yet." },
+  assistantError: { fr: "Erreur : {msg}", en: "Error: {msg}" },
+  assistantErrorGeneric: { fr: "une erreur est survenue", en: "an error occurred" },
+  assistantLinkedToProject: { fr: " (lié au projet)", en: " (linked to project)" },
+  assistantAmountCollected: { fr: "Montant encaissé", en: "Amount collected" },
+  assistantClientCreateError: { fr: "Impossible de créer le client « {name} ». {msg}", en: "Could not create client « {name} ». {msg}" },
+  assistantProjectNotCreated: { fr: "Projet non créé : {msg}.", en: "Project not created: {msg}." },
+  assistantProjectCreated: { fr: "J'ai créé le projet « {name} » pour {client} ({surface} m²). Contrat : {contract} €, coûts matériaux : {materials} € (estimation catalogue + MO + 10% consommables + 30% marge).{addr} Tu peux ouvrir la fiche projet pour ajuster.", en: "I created the project « {name} » for {client} ({surface} m²). Contract: {contract} €, material costs: {materials} € (catalog estimate + labor + 10% supplies + 30% margin).{addr} You can open the project page to adjust." },
+  assistantProjectCreatedAddr: { fr: " Adresse : {addr}.", en: " Address: {addr}." },
+  assistantTopEmployee: { fr: "D'après les projets assignés, l'employé avec le plus de CA associé est **{name}** ({count} projet(s), ~{ca} € encaissés sur ces chantiers).", en: "Based on assigned projects, the employee with the most associated revenue is **{name}** ({count} project(s), ~{ca} € collected on these projects)." },
+  assistantReminderNextMonth: { fr: "J'ai créé un rappel : « {label} ». Tu as {count} chantiers prévus le mois prochain.", en: "I created a reminder: « {label} ». You have {count} projects scheduled next month." },
+  assistantAppointmentError: { fr: "Impossible de créer le rendez-vous : {msg}", en: "Could not create appointment: {msg}" },
+  assistantExpensesByProject: { fr: "Répartition des coûts matériaux par projet (total {total} €) :", en: "Material cost breakdown by project (total {total} €):" },
+  assistantDefaultHelp: { fr: "Tu peux me demander : « Qu'est-ce que j'ai de prévu demain ? », « Prends-moi rendez-vous avec le client Leroy mardi à 14h », « Ajoute 1500€ au projet Leroy », « Combien me doit le client Martin ? », « Nouveau projet : Salle de bain 8m² pour Mme Martin », « Répartition des dépenses », ou « Note un rappel Commander carrelage ».", en: "You can ask me: « What do I have tomorrow? », « Book me an appointment with client Leroy on Tuesday at 2pm », « Add 1500€ to project Leroy », « How much does client Martin owe me? », « New project: 8m² bathroom for Mrs Martin », « Expense breakdown », or « Note a reminder: Order tiles ».", },
+  typeDevis: { fr: "Devis", en: "Quote" },
+  typeChantier: { fr: "Chantier", en: "Site" },
+  typeReunion: { fr: "Réunion", en: "Meeting" },
+  reminder: { fr: "Rappel", en: "Reminder" },
+  reminderCreated: { fr: "Rappel créé", en: "Reminder created" },
+  appointmentLabel: { fr: "Rendez-vous", en: "Appointment" },
+  creation: { fr: "Création", en: "Creation" },
 };
 
 export function t(key: string, lang: Language): string {
   const entry = translations[key];
   if (!entry) return key;
   return lang === "en" ? entry.en : entry.fr;
+}
+
+/** Replace placeholders {name} in the translated string. */
+export function tReplace(key: string, lang: Language, vars: Record<string, string | number>): string {
+  let s = t(key, lang);
+  for (const [k, v] of Object.entries(vars)) s = s.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
+  return s;
 }

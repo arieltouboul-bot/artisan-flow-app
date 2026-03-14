@@ -37,6 +37,8 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { AppointmentType } from "@/types/database";
+import { format } from "date-fns";
+import { fr, enUS } from "date-fns/locale";
 
 const APPOINTMENT_TYPE_COLORS: Record<AppointmentType, string> = {
   devis: "bg-blue-100 text-blue-800 border-blue-200",
@@ -102,6 +104,16 @@ export default function DashboardPage() {
 
   const progressValue =
     stats.caAnnuel > 0 ? Math.min(100, (stats.caMensuel / (stats.caAnnuel / 12)) * 100) : 0;
+
+  const dateLocale = language === "fr" ? fr : enUS;
+  const localizedChartData = useMemo(
+    () =>
+      stats.chartData.map((row, i) => ({
+        ...row,
+        month: format(new Date(selectedYear, i, 1), "MMM", { locale: dateLocale }),
+      })),
+    [stats.chartData, selectedYear, language, dateLocale]
+  );
 
   const listProjects = useMemo(() => {
     let list = dashboardView === "impayes" ? projectsImpayes : projects;
@@ -508,7 +520,7 @@ export default function DashboardPage() {
                   className="h-[320px] min-h-[240px] w-full overflow-hidden"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats.chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <BarChart data={localizedChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
                       <XAxis dataKey="month" className="text-xs" interval={0} />
                       <YAxis className="text-xs" tickFormatter={(v) => `${(convertCurrency(v, currency) / 1000).toFixed(0)}k ${getCurrencySymbol(currency)}`} />
@@ -517,8 +529,8 @@ export default function DashboardPage() {
                         contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
                       />
                       <Legend />
-                      <Bar dataKey="ca" name={t("revenue", language)} fill="#22c55e" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="cout" name={t("materials", language)} fill="#ef4444" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="ca" name={t("revenues", language)} fill="#22c55e" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="cout" name={t("expensesLabel", language)} fill="#ef4444" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </motion.div>
@@ -638,7 +650,7 @@ export default function DashboardPage() {
             <CardContent>
               <div className="h-[280px] min-h-[240px] w-full overflow-hidden">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats.chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <BarChart data={localizedChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
                     <XAxis dataKey="month" className="text-xs" interval={0} />
                     <YAxis className="text-xs" tickFormatter={(v) => `${(convertCurrency(v, currency) / 1000).toFixed(0)}k ${getCurrencySymbol(currency)}`} />
@@ -647,8 +659,8 @@ export default function DashboardPage() {
                       contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
                     />
                     <Legend />
-                    <Bar dataKey="ca" name={t("revenue", language)} fill="#22c55e" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="cout" name={t("materials", language)} fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="ca" name={t("revenues", language)} fill="#22c55e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="cout" name={t("expensesLabel", language)} fill="#ef4444" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -665,14 +677,14 @@ export default function DashboardPage() {
           <div className="space-y-6">
             <div className="h-[360px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <BarChart data={localizedChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
                   <XAxis dataKey="month" className="text-xs" interval={0} />
                   <YAxis className="text-xs" tickFormatter={(v) => `${(convertCurrency(v, currency) / 1000).toFixed(0)}k ${getCurrencySymbol(currency)}`} />
                   <Tooltip formatter={(value: number) => [formatConvertedCurrency(value, currency), ""]} contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }} />
                   <Legend />
-                  <Bar dataKey="ca" name={t("revenue", language)} fill="#22c55e" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="cout" name={t("materials", language)} fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="ca" name={t("revenues", language)} fill="#22c55e" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="cout" name={t("expensesLabel", language)} fill="#ef4444" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -689,8 +701,8 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {stats.chartData.map((row, i) => {
-                      const prev = stats.chartData[i - 1];
+                    {localizedChartData.map((row, i) => {
+                      const prev = localizedChartData[i - 1];
                       const prevCa = prev?.ca ?? 0;
                       const diff = prevCa ? ((row.ca - prevCa) / prevCa) * 100 : 0;
                       return (

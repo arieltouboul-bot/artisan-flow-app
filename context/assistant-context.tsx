@@ -10,6 +10,8 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useLanguage } from "@/context/language-context";
+import { t, tReplace } from "@/lib/translations";
 
 export type ModifiedEntity = {
   type: "project" | "client" | "employee" | "reminder";
@@ -68,6 +70,7 @@ function parsePaymentDate(text: string): string {
 }
 
 export function AssistantProvider({ children }: { children: ReactNode }) {
+  const { language } = useLanguage();
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [pageContext, setPageContextState] = useState<AssistantPageContext>({});
   const [isProcessing, setIsProcessing] = useState(false);
@@ -92,7 +95,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
       const supabase = createClient();
       if (!supabase) {
-        appendMessage("assistant", "Impossible de se connecter à la base de données.");
+        appendMessage("assistant", t("assistantCannotConnect", language));
         setIsProcessing(false);
         return;
       }
@@ -101,7 +104,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
-        appendMessage("assistant", "Tu dois être connecté pour que je puisse agir.");
+        appendMessage("assistant", t("assistantMustBeLoggedIn", language));
         setIsProcessing(false);
         return;
       }
@@ -125,7 +128,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
               (c: { name: string }) => c.name.toLowerCase().includes(clientName.toLowerCase())
             );
             if (!client) {
-              appendMessage("assistant", `Aucun client trouvé contenant « ${clientName} ».`);
+              appendMessage("assistant", tReplace("assistantNoClientFound", language, { name: clientName }));
               setIsProcessing(false);
               return;
             }
@@ -143,7 +146,12 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             const restant = Math.max(0, totalContract - totalCollected);
             appendMessage(
               "assistant",
-              `Le client **${client.name}** vous doit encore **${Math.round(restant)} €** sur un total de **${Math.round(totalContract)} €**. (Déjà encaissé : ${Math.round(totalCollected)} €.)`
+              tReplace("assistantClientOwes", language, {
+                name: client.name,
+                restant: Math.round(restant),
+                total: Math.round(totalContract),
+                collected: Math.round(totalCollected),
+              })
             );
             setIsProcessing(false);
             return;
@@ -165,7 +173,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
               (p: { name: string }) => p.name.toLowerCase().includes(projectName.toLowerCase())
             );
             if (!project) {
-              appendMessage("assistant", `Aucun projet trouvé contenant « ${projectName} ». Vérifie le nom.`);
+              appendMessage("assistant", tReplace("assistantNoProjectFound", language, { name: projectName }));
               setIsProcessing(false);
               return;
             }
@@ -177,7 +185,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
               payment_method: "virement",
             });
             if (insertErr) {
-              appendMessage("assistant", `Impossible d'enregistrer le paiement : ${insertErr.message}`);
+              appendMessage("assistant", tReplace("assistantPaymentFailed", language, { msg: insertErr.message }));
               setIsProcessing(false);
               return;
             }
@@ -198,10 +206,10 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             }
             appendMessage(
               "assistant",
-              `J'ai enregistré un virement de ${amount} € pour le projet « ${project.name} » (date : ${paymentDate}). Le graphique du dashboard se met à jour. Total encaissé : ${newTotal} €.`,
+              tReplace("assistantPaymentRecorded", language, { amount, name: project.name, date: paymentDate, total: newTotal }),
               {
                 modifiedEntities: [
-                  { type: "project", id: project.id, name: project.name, fields: ["Montant encaissé"], link: `/projets/${project.id}` },
+                  { type: "project", id: project.id, name: project.name, fields: [t("assistantAmountCollected", language)], link: `/projets/${project.id}` },
                 ],
               }
             );
@@ -225,7 +233,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
               (p: { name: string }) => p.name.toLowerCase().includes(projectName.toLowerCase())
             );
             if (!project) {
-              appendMessage("assistant", `Aucun projet trouvé contenant « ${projectName} ». Vérifie le nom.`);
+              appendMessage("assistant", tReplace("assistantNoProjectFound", language, { name: projectName }));
               setIsProcessing(false);
               return;
             }
@@ -237,7 +245,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
               payment_method: "virement",
             });
             if (insertErr) {
-              appendMessage("assistant", `Impossible d'enregistrer le paiement : ${insertErr.message}`);
+              appendMessage("assistant", tReplace("assistantPaymentFailed", language, { msg: insertErr.message }));
               setIsProcessing(false);
               return;
             }
@@ -258,10 +266,10 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             }
             appendMessage(
               "assistant",
-              `J'ai ajouté ${amount} € au projet « ${project.name} ». Nouveau total encaissé : ${newTotal} €. Le graphique du dashboard se met à jour.`,
+              tReplace("assistantAmountAdded", language, { amount, name: project.name, total: newTotal }),
               {
                 modifiedEntities: [
-                  { type: "project", id: project.id, name: project.name, fields: ["Montant encaissé"], link: `/projets/${project.id}` },
+                  { type: "project", id: project.id, name: project.name, fields: [t("assistantAmountCollected", language)], link: `/projets/${project.id}` },
                 ],
               }
             );
@@ -316,7 +324,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
               .select("id")
               .single();
             if (insertClientErr || !newClient) {
-              appendMessage("assistant", `Impossible de créer le client « ${clientName} ». ${insertClientErr?.message ?? ""}`);
+              appendMessage("assistant", tReplace("assistantClientCreateError", language, { name: clientName, msg: insertClientErr?.message ?? "" }));
               setIsProcessing(false);
               return;
             }
@@ -401,18 +409,18 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             .single();
 
           if (insertProjErr || !newProject) {
-            appendMessage("assistant", `Projet non créé : ${insertProjErr?.message ?? "erreur"}.`);
+            appendMessage("assistant", tReplace("assistantProjectNotCreated", language, { msg: insertProjErr?.message ?? t("assistantErrorGeneric", language) }));
             setIsProcessing(false);
             return;
           }
 
-          const addrInfo = projectAddress ? ` Adresse : ${projectAddress}.` : "";
+          const addrInfo = projectAddress ? tReplace("assistantProjectCreatedAddr", language, { addr: projectAddress }) : "";
           appendMessage(
             "assistant",
-            `J'ai créé le projet « ${name} » pour ${clientName} (${surface} m²). Contrat : ${contractAmount} €, coûts matériaux : ${materialCost} € (estimation catalogue + MO + 10% consommables + 30% marge).${addrInfo} Tu peux ouvrir la fiche projet pour ajuster.`,
+            tReplace("assistantProjectCreated", language, { name, client: clientName, surface, contract: contractAmount, materials: materialCost, addr: addrInfo }),
             {
               modifiedEntities: [
-                { type: "project", id: newProject.id, name, fields: ["Création"], link: `/projets/${newProject.id}` },
+                { type: "project", id: newProject.id, name, fields: [t("creation", language)], link: `/projets/${newProject.id}` },
               ],
             }
           );
@@ -531,12 +539,12 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             .filter((x: { count: number }) => x.count > 0)
             .sort((a: { ca: number }, b: { ca: number }) => b.ca - a.ca);
           if (list.length === 0) {
-            appendMessage("assistant", "Aucun employé n'est encore assigné à des projets. Assignez-en depuis les fiches projets.");
+            appendMessage("assistant", t("assistantNoEmployeesAssigned", language));
           } else {
             const top = list[0];
             appendMessage(
               "assistant",
-              `D'après les projets assignés, l'employé avec le plus de CA associé est **${top.name}** (${top.count} projet(s), ~${Math.round(top.ca)} € encaissés sur ces chantiers).`
+              tReplace("assistantTopEmployee", language, { name: top.name, count: top.count, ca: Math.round(top.ca) })
             );
           }
           setIsProcessing(false);
@@ -562,13 +570,13 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             await supabase.from("reminders").insert({ user_id: user.id, label, completed: false });
             appendMessage(
               "assistant",
-              `J'ai créé un rappel : « ${label} ». Tu as ${inNextMonth.length} chantiers prévus le mois prochain.`,
+              tReplace("assistantReminderNextMonth", language, { label, count: inNextMonth.length }),
               {
-                modifiedEntities: [{ type: "reminder", id: "", name: label, fields: ["Rappel créé"], link: "/dashboard" }],
+                modifiedEntities: [{ type: "reminder", id: "", name: label, fields: [t("reminderCreated", language)], link: "/dashboard" }],
               }
             );
           } else {
-            appendMessage("assistant", "Pas assez de chantiers le mois prochain pour créer un rappel automatique. Dis-moi le texte du rappel si tu veux que je l'ajoute.");
+            appendMessage("assistant", t("assistantNotEnoughChantiers", language));
           }
           setIsProcessing(false);
           return;
@@ -578,8 +586,8 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         if (lower.startsWith("note un rappel") || (lower.includes("rappel") && !lower.includes("marge"))) {
           const label = text.replace(/^(note un rappel( de)?|ajoute un rappel[: ]*)/i, "").trim() || text;
           await supabase.from("reminders").insert({ user_id: user.id, label: label.trim(), completed: false });
-          appendMessage("assistant", `J'ai ajouté le rappel : « ${label} ».`, {
-            modifiedEntities: [{ type: "reminder", id: "", name: label, fields: ["Rappel"], link: "/dashboard" }],
+          appendMessage("assistant", tReplace("assistantReminderAdded", language, { label }), {
+            modifiedEntities: [{ type: "reminder", id: "", name: label, fields: [t("reminder", language)], link: "/dashboard" }],
           });
           setIsProcessing(false);
           return;
@@ -587,7 +595,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
         // ——— Crée un projet / Nouveau projet (simple)
         if (lower.startsWith("crée un projet") || lower.startsWith("cree un projet") || lower.includes("nouveau projet")) {
-          appendMessage("assistant", "J'ouvre la page de création de projet.");
+          appendMessage("assistant", t("assistantOpeningNewProject", language));
           router.push("/projets/nouveau");
           setIsProcessing(false);
           return;
@@ -595,7 +603,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
         // ——— Ajoute un employé
         if (lower.startsWith("ajoute un employé") || lower.startsWith("ajoute un employe")) {
-          appendMessage("assistant", "J'ouvre la page Équipe pour ajouter un employé.");
+          appendMessage("assistant", t("assistantOpeningTeam", language));
           router.push("/employees");
           setIsProcessing(false);
           return;
@@ -617,14 +625,15 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             .lte("start_at", tomorrowEnd.toISOString())
             .order("start_at", { ascending: true });
           const list = (rows ?? []) as unknown as { title: string; start_at: string; end_at: string; type: string; project?: { id: string; name: string } | null }[];
-          const typeLabel = (t: string) => (t === "devis" ? "Devis" : t === "chantier" ? "Chantier" : "Réunion");
+          const typeLabel = (type: string) => (type === "devis" ? t("typeDevis", language) : type === "chantier" ? t("typeChantier", language) : t("typeReunion", language));
           if (list.length === 0) {
-            appendMessage("assistant", "Tu n'as rien de prévu demain.");
+            appendMessage("assistant", t("assistantNothingTomorrow", language));
           } else {
+            const locale = language === "fr" ? "fr-FR" : "en-GB";
             const lines = list.map(
-              (a) => `• **${a.title}** – ${new Date(a.start_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} – ${typeLabel(a.type)}${a.project ? ` (projet : ${a.project.name})` : ""}`
+              (a) => `• **${a.title}** – ${new Date(a.start_at).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })} – ${typeLabel(a.type)}${a.project ? ` (projet : ${a.project.name})` : ""}`
             );
-            appendMessage("assistant", `Demain tu as **${list.length}** rendez-vous :\n\n${lines.join("\n")}`);
+            appendMessage("assistant", tReplace("assistantAppointmentsTomorrow", language, { count: list.length }) + "\n\n" + lines.join("\n"));
           }
           setIsProcessing(false);
           return;
@@ -668,11 +677,13 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             updated_at: new Date().toISOString(),
           });
           if (insertErr) {
-            appendMessage("assistant", `Impossible de créer le rendez-vous : ${insertErr.message}`);
+            appendMessage("assistant", tReplace("assistantAppointmentError", language, { msg: insertErr.message }));
           } else {
-            const dateStr = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
-            appendMessage("assistant", `C'est noté. J'ai créé le rendez-vous « ${title} » le ${dateStr}${projectId ? " (lié au projet)" : ""}. Tu peux le voir sur le calendrier.`, {
-              modifiedEntities: [{ type: "reminder", id: "", name: title, fields: ["Rendez-vous"], link: "/calendar" }],
+            const locale = language === "fr" ? "fr-FR" : "en-GB";
+            const dateStr = d.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+            const projectSuffix = projectId ? t("assistantLinkedToProject", language) : "";
+            appendMessage("assistant", tReplace("assistantAppointmentCreated", language, { title, date: dateStr, project: projectSuffix }), {
+              modifiedEntities: [{ type: "reminder", id: "", name: title, fields: [t("appointmentLabel", language)], link: "/calendar" }],
             });
           }
           setIsProcessing(false);
@@ -688,7 +699,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           const withCosts = (projects ?? []).filter((p: { material_costs: number }) => (p.material_costs ?? 0) > 0);
           const total = withCosts.reduce((s: number, p: { material_costs: number }) => s + (p.material_costs ?? 0), 0);
           if (total === 0) {
-            appendMessage("assistant", "Aucune dépense matériaux enregistrée sur tes projets pour l'instant.");
+            appendMessage("assistant", t("assistantNoExpenses", language));
           } else {
             const chartData: ChartDataPoint[] = withCosts
               .slice(0, 8)
@@ -698,11 +709,11 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
               }));
             if (withCosts.length > 8) {
               const rest = withCosts.slice(8).reduce((s: number, p: { material_costs: number }) => s + (p.material_costs ?? 0), 0);
-              chartData.push({ name: "Autres", value: Math.round(rest) });
+              chartData.push({ name: language === "fr" ? "Autres" : "Others", value: Math.round(rest) });
             }
             appendMessage(
               "assistant",
-              `Répartition des coûts matériaux par projet (total ${Math.round(total)} €) :`,
+              tReplace("assistantExpensesByProject", language, { total: Math.round(total) }),
               { chartData }
             );
           }
@@ -711,17 +722,14 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         }
 
         // Réponse par défaut
-        appendMessage(
-          "assistant",
-          "Tu peux me demander : « Qu'est-ce que j'ai de prévu demain ? », « Prends-moi rendez-vous avec le client Leroy mardi à 14h », « Ajoute 1500€ au projet Leroy », « Combien me doit le client Martin ? », « Nouveau projet : Salle de bain 8m² pour Mme Martin », « Répartition des dépenses », ou « Note un rappel Commander carrelage »."
-        );
+        appendMessage("assistant", t("assistantDefaultHelp", language));
       } catch (err) {
-        appendMessage("assistant", `Erreur : ${err instanceof Error ? err.message : "une erreur est survenue"}.`);
+        appendMessage("assistant", tReplace("assistantError", language, { msg: err instanceof Error ? err.message : t("assistantErrorGeneric", language) }));
       } finally {
         setIsProcessing(false);
       }
     },
-    [appendMessage, pageContext, router]
+    [appendMessage, pageContext, router, language]
   );
 
   const value = useMemo<AssistantContextValue>(
