@@ -513,7 +513,7 @@ export default function ProjetDetailPage() {
                 <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                   <span className="text-sm font-medium text-gray-700">Reste à payer (Remaining Balance)</span>
                   <span className={`text-xl font-bold ${restant > 0 ? "text-amber-600" : "text-emerald-600"}`}>
-                    {formatConvertedCurrency(restant)}
+                    {formatConvertedCurrency(restant, currency)}
                   </span>
                 </div>
                 <div className="pt-2">
@@ -605,7 +605,7 @@ export default function ProjetDetailPage() {
                 <div>
                   <p className="text-sm text-gray-500">Marge (contrat − coûts matériaux saisis)</p>
                   <p className={`text-lg font-bold ${(parseNum(contractAmount) - parseNum(materialCosts)) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                    {formatConvertedCurrency(parseNum(contractAmount) - parseNum(materialCosts))}
+                    {formatConvertedCurrency(parseNum(contractAmount) - parseNum(materialCosts), currency)}
                   </p>
                 </div>
               </div>
