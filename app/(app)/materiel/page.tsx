@@ -156,9 +156,9 @@ export default function MaterielPage() {
     setScanItemsText(result.items.join("\n"));
   };
 
-  /** Convert image file to grayscale blob for better Tesseract accuracy. */
-  const imageFileToGrayscaleBlob = (file: File): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
+  /** Grayscale + binarization (contrast) for better Tesseract accuracy. */
+  const imageFileToProcessedBlob = (file: File): Promise<Blob> => {
+    return new Promise((resolve) => {
       const img = new Image();
       const url = URL.createObjectURL(file);
       img.onload = () => {
@@ -174,9 +174,11 @@ export default function MaterielPage() {
         ctx.drawImage(img, 0, 0);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
+        const threshold = 128;
         for (let i = 0; i < data.length; i += 4) {
           const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-          data[i] = data[i + 1] = data[i + 2] = Math.round(gray);
+          const bin = gray >= threshold ? 255 : 0;
+          data[i] = data[i + 1] = data[i + 2] = bin;
         }
         ctx.putImageData(imageData, 0, 0);
         canvas.toBlob(
@@ -204,9 +206,10 @@ export default function MaterielPage() {
     setScanResult(null);
     setScanLoading(true);
     try {
-      const grayscaleBlob = await imageFileToGrayscaleBlob(file);
+      const processedBlob = await imageFileToProcessedBlob(file);
       const Tesseract = (await import("tesseract.js")).default;
-      const { data } = await Tesseract.recognize(grayscaleBlob, "fra+eng+heb");
+      const tesseractLang = language === "he" ? "heb+eng" : language === "fr" ? "fra+eng" : "eng+fra";
+      const { data } = await Tesseract.recognize(processedBlob, tesseractLang);
       const parsed = parseInvoiceText(data.text);
       const result: ScanInvoiceResult = {
         vendor: parsed.vendor,

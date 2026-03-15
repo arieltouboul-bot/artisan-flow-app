@@ -36,7 +36,36 @@ const EMPTY: ParsedInvoiceData = {
   items: [],
 };
 
-/** Parse a numeric amount from string (handles 1 234,56 or 1234.56 or 1234,56) */
+/**
+ * Clean OCR output: remove control chars, weird symbols, and nonsensical mixed scripts.
+ * Keeps digits, Latin letters, basic punctuation, and Hebrew for invoice parsing.
+ */
+export function cleanExtractedText(text: string): string {
+  if (!text || typeof text !== "string") return "";
+  return (
+    text
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, " ")
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .replace(/[^\w\s\u0590-\u05FF.,;:\/\-€$₪£%°'"\n\r]/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/\n\s+/g, "\n")
+      .trim()
+  );
+}
+
+/**
+ * Parse amount: only accept numbers with at most 2 decimal places.
+ * Rejects phone/SIRET (e.g. 123.45678 or 123456789).
+ */
+function parseAmountStrict(s: string): number | null {
+  const cleaned = s.replace(/\s/g, "").replace(",", ".");
+  const match = cleaned.match(/^\d{1,9}(?:\.\d{1,2})?$/);
+  if (!match) return null;
+  const n = parseFloat(match[0]);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+/** Legacy: accepts any number (used for dates, rates). */
 function parseAmount(s: string): number | null {
   const cleaned = s.replace(/\s/g, "").replace(",", ".");
   const match = cleaned.match(/[\d.]+/);
@@ -66,10 +95,11 @@ function normalizeDate(s: string): string {
  */
 export function parseInvoiceText(text: string): ParsedInvoiceData {
   const result = { ...EMPTY };
-  if (!text || !text.trim()) return result;
+  const raw = cleanExtractedText(text);
+  if (!raw) return result;
 
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  const fullText = text.replace(/\r?\n/g, " ");
+  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const fullText = raw.replace(/\r?\n/g, " ");
 
   // —— Currency: detect symbol in text (€, $, ₪, £)
   if (/\€|EUR|euro/i.test(fullText)) result.currency = "EUR";
@@ -85,21 +115,19 @@ export function parseInvoiceText(text: string): ParsedInvoiceData {
     /\u05E1\u05DA\u0020\u05D4\u05DB\u05DC[\s:]*([\d\s.,]+)/, // סך הכל
     /(?:grand\s+total|total\s+amount)[\s:]*([\d\s.,]+)\s*[€$₪£]?/i,
   ];
+  const candidates: number[] = [];
   for (const re of ttcPatterns) {
     const m = fullText.match(re);
     if (m) {
-      const val = parseAmount(m[1]);
-      if (val != null && val > 0) {
-        result.amount_ttc = val;
-        break;
-      }
+      const val = parseAmountStrict(m[1].trim());
+      if (val != null && val > 0 && val < 1e9) candidates.push(val);
     }
   }
-  // Fallback: last number followed by currency symbol
+  if (candidates.length > 0) result.amount_ttc = Math.max(...candidates);
   if (result.amount_ttc === 0) {
-    const lastWithSymbol = fullText.match(/([\d\s.,]+)\s*[€$₪£]\s*$/);
+    const lastWithSymbol = fullText.match(/([\d\s.,]{1,20})\s*[€$₪£]\s*$/);
     if (lastWithSymbol) {
-      const val = parseAmount(lastWithSymbol[1]);
+      const val = parseAmountStrict(lastWithSymbol[1].trim());
       if (val != null && val > 0) result.amount_ttc = val;
     }
   }
@@ -114,7 +142,7 @@ export function parseInvoiceText(text: string): ParsedInvoiceData {
     const match = fullText.match(re);
     if (match) {
       const last = match[match.length - 1];
-      const val = parseAmount(last.replace(/TVA[\s:]*|VAT[\s:]*|\u05DE\u05E2[\u05F3"]?\u05DE[\s:]*/gi, "").replace(/[€$₪£]/g, ""));
+      const val = parseAmountStrict(last.replace(/TVA[\s:]*|VAT[\s:]*|\u05DE\u05E2[\u05F3"]?\u05DE[\s:]*/gi, "").replace(/[€$₪£]/g, "").trim());
       if (val != null && val >= 0) {
         result.tva = val;
         break;
@@ -143,10 +171,10 @@ export function parseInvoiceText(text: string): ParsedInvoiceData {
   if (result.amount_ttc > 0 && result.tva >= 0) {
     result.amount_ht = Math.round((result.amount_ttc - result.tva) * 100) / 100;
   }
-  const htRe = /(?:HT|TOTAL\s+HT|MONTANT\s+HT)[\s:]*([\d\s.,]+)\s*€?/i;
+  const htRe = /(?:HT|TOTAL\s+HT|MONTANT\s+HT)[\s:]*([\d\s.,]+)\s*[€$₪£]?/i;
   const htMatch = fullText.match(htRe);
   if (htMatch) {
-    const val = parseAmount(htMatch[1]);
+    const val = parseAmountStrict(htMatch[1].trim());
     if (val != null && val > 0) result.amount_ht = val;
   }
 

@@ -88,38 +88,35 @@ export default function FacturesPage() {
   };
 
   const handleExportCSV = () => {
-    const headers = [
+    const BOM = "\uFEFF";
+    const headerLine = [
       t("invoiceDateCol", language),
       t("invoiceVendorCol", language),
       t("invoiceProjectCol", language),
       t("invoiceAmountHtCol", language),
       t("invoiceTvaCol", language),
       t("invoiceAmountTtcCol", language),
-    ];
-    const rows = filtered.map((e) => {
+    ].join(";");
+    const lines: string[] = [BOM + headerLine];
+    for (const e of filtered) {
       const tvaAmount = e.amount_ht * (e.tva_rate / 100);
       const ttc = e.amount_ht + tvaAmount;
-      const vendor = e.description.split(" — ")[0] || e.description;
-      return [
-        e.date,
-        vendor,
-        e.project_name ?? "",
-        String(e.amount_ht),
-        String(tvaAmount.toFixed(2)),
-        String(ttc.toFixed(2)),
-      ];
-    });
-    const BOM = "\uFEFF";
-    const csv = BOM + [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\r\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `factures_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      const vendor = (e.description.split(" — ")[0] || e.description).replace(/;/g, ",").replace(/\r?\n/g, " ");
+      lines.push(
+        [e.date, vendor, e.project_name ?? "", String(e.amount_ht), String(tvaAmount.toFixed(2)), String(ttc.toFixed(2))].join(";")
+      );
+    }
+    const csvContent = lines.join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `factures_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   };
 
   return (
