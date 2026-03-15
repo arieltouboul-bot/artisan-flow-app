@@ -119,6 +119,7 @@ export const translations: Record<string, { fr: string; en: string }> = {
   openInvoiceImage: { fr: "Ouvrir l'image", en: "Open image" },
   editAmounts: { fr: "Modifier les montants", en: "Edit amounts" },
   exportCSV: { fr: "Export CSV", en: "Export CSV" },
+  exportPDFForAccountant: { fr: "Générer un PDF pour le comptable", en: "Generate PDF for accountant" },
   noInvoices: { fr: "Aucune facture enregistrée.", en: "No invoices recorded." },
   filterByProject: { fr: "Filtrer par projet", en: "Filter by project" },
   filterByCurrency: { fr: "Filtrer par devise", en: "Filter by currency" },

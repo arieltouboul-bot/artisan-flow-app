@@ -26,6 +26,7 @@ import {
   Pencil,
 } from "lucide-react";
 import type { Currency } from "@/lib/utils";
+import { getFacturesPDFBlob } from "@/components/factures/factures-pdf";
 
 export default function FacturesPage() {
   const { language } = useLanguage();
@@ -43,6 +44,7 @@ export default function FacturesPage() {
   const [editDate, setEditDate] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const filtered = useMemo(() => {
     let list = expenses;
@@ -112,14 +114,53 @@ export default function FacturesPage() {
     }
     const csvContent = "\uFEFF" + rows.map((r) => r.join(";")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
     link.setAttribute("download", `export_factures_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportPDF = async () => {
+    if (filtered.length === 0) return;
+    setPdfLoading(true);
+    try {
+      const rows = filtered.map((e) => {
+        const tvaAmount = e.amount_ht * (e.tva_rate / 100);
+        const ttc = e.amount_ht + tvaAmount;
+        const vendor = (e.description.split(" — ")[0] || e.description).trim();
+        return {
+          date: e.date,
+          vendor,
+          projectName: e.project_name ?? "",
+          amountHt: e.amount_ht,
+          tvaAmount,
+          ttc,
+        };
+      });
+      const headers = {
+        date: t("invoiceDateCol", language),
+        vendor: t("invoiceVendorCol", language),
+        project: t("invoiceProjectCol", language),
+        amountHt: t("invoiceAmountHtCol", language),
+        tva: t("invoiceTvaCol", language),
+        amountTtc: t("invoiceAmountTtcCol", language),
+      };
+      const blob = await getFacturesPDFBlob(rows, headers);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `factures_comptable_${new Date().toISOString().slice(0, 10)}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   return (
@@ -167,6 +208,10 @@ export default function FacturesPage() {
             <Button variant="outline" size="sm" onClick={handleExportCSV} className={cn("min-h-[44px]")} disabled={filtered.length === 0}>
               <Download className="h-4 w-4 mr-2" />
               {t("exportCSV", language)}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportPDF} className={cn("min-h-[44px]")} disabled={filtered.length === 0 || pdfLoading}>
+              {pdfLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+              {t("exportPDFForAccountant", language)}
             </Button>
           </div>
         </CardHeader>
