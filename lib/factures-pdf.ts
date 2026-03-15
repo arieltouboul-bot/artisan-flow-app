@@ -26,7 +26,8 @@ const fmt = (n: number) =>
 
 export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blob> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pageWidth = doc.getPageWidth();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   let y = 20;
 
   // Company name
@@ -90,7 +91,7 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
 
   doc.setFontSize(7);
   doc.setTextColor(120, 120, 120);
-  doc.text("ArtisanFlow — Liste des factures / dépenses — À remettre au comptable", pageWidth / 2, doc.getPageHeight() - 12, { align: "center" });
+  doc.text("ArtisanFlow — Liste des factures / dépenses — À remettre au comptable", pageWidth / 2, pageHeight - 12, { align: "center" });
 
   return doc.output("blob");
 }
