@@ -32,6 +32,7 @@ export default function EmployeesPage() {
   const [editLastName, setEditLastName] = useState("");
   const [editRole, setEditRole] = useState("");
   const [editLoading, setEditLoading] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();

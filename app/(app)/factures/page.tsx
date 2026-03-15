@@ -217,7 +217,7 @@ export default function FacturesPage() {
               type="button"
               className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50"
               disabled={filtered.length === 0}
-              onClick={(e) => { e.preventDefault(); handleExportCSV(); }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleExportCSV(); }}
             >
               {t("exportCSV", language)}
             </button>
@@ -225,7 +225,7 @@ export default function FacturesPage() {
               type="button"
               className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50"
               disabled={filtered.length === 0 || pdfLoading}
-              onClick={(e) => { e.preventDefault(); handleExportPDF(); }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleExportPDF(); }}
             >
               {pdfLoading ? "…" : t("exportPDFForAccountant", language)}
             </button>

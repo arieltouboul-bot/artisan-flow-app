@@ -112,7 +112,7 @@ export default function DashboardPage() {
         ...row,
         month: format(new Date(selectedYear, i, 1), "MMM", { locale: dateLocale }),
       })),
-    [stats.chartData, selectedYear, language, dateLocale]
+    [stats.chartData, selectedYear, dateLocale]
   );
 
   const listProjects = useMemo(() => {

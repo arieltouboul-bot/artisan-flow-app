@@ -41,7 +41,7 @@ export function RowActionsMenu({ isOpen, onOpenChange, onEdit, onDelete, classNa
       </button>
       {isOpen && (
         <div
-          className="absolute right-0 top-full z-10 mt-1 min-w-[140px] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+          className="absolute right-0 top-full z-[50] mt-1 min-w-[140px] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
           role="menu"
         >
           <button

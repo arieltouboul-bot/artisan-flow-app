@@ -63,6 +63,7 @@ export default function MaterielPage() {
 
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
   const [editSupplier, setEditSupplier] = useState<Supplier | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const [scanOpen, setScanOpen] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
