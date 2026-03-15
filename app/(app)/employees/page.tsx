@@ -47,8 +47,7 @@ export default function EmployeesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    const msg = language === "fr" ? "Supprimer cet employé ? Il sera retiré de tous les chantiers." : "Delete this employee? They will be removed from all projects.";
-    if (!window.confirm(msg)) return;
+    if (!window.confirm(t("confirmDeleteEmployee", language))) return;
     setDeleteLoading(true);
     const result = await deleteEmployee(id);
     setDeleteLoading(false);
@@ -144,7 +143,7 @@ export default function EmployeesPage() {
                           variant="ghost"
                           size="icon"
                           className="text-red-600 hover:bg-red-50 min-h-[44px] min-w-[44px]"
-                          onClick={() => setDeleteId(emp.id)}
+                          onClick={() => handleDelete(emp.id)}
                           aria-label={t("delete", language)}
                         >
                           <Trash2 className="h-5 w-5" />

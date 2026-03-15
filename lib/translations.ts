@@ -238,6 +238,7 @@ export const translations: Record<string, { fr: string; en: string }> = {
   add: { fr: "Ajouter", en: "Add" },
   edit: { fr: "Modifier", en: "Edit" },
   delete: { fr: "Supprimer", en: "Delete" },
+  confirmDeleteEmployee: { fr: "Supprimer cet employé ? Il sera retiré de tous les chantiers.", en: "Delete this employee? They will be removed from all projects." },
   remove: { fr: "Retirer", en: "Remove" },
   close: { fr: "Fermer", en: "Close" },
   back: { fr: "Retour", en: "Back" },
