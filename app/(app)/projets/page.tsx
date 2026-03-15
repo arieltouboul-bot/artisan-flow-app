@@ -45,6 +45,7 @@ export type ProjetFilter = ProjectStatus | "all" | "unpaid";
 function ProjetsContent() {
   const searchParams = useSearchParams();
   const filterParam = searchParams.get("filter");
+  const { language } = useLanguage();
   const [filter, setFilter] = useState<ProjetFilter>("all");
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
