@@ -55,10 +55,15 @@ export function cleanExtractedText(text: string): string {
 
 /**
  * Parse amount: only accept numbers with at most 2 decimal places.
- * Rejects phone/SIRET (e.g. 123.45678 or 123456789).
+ * Rejects phone/SIRET. Normalizes European format: 1.234,56€ → 1234.56 (remove thousand dots, comma → dot).
  */
 function parseAmountStrict(s: string): number | null {
-  const cleaned = s.replace(/\s/g, "").replace(",", ".");
+  let cleaned = s.replace(/\s/g, "").replace(/[€$₪£]/g, "").trim();
+  if (/,\d{1,2}$/.test(cleaned)) {
+    cleaned = cleaned.replace(/\./g, "").replace(",", ".");
+  } else {
+    cleaned = cleaned.replace(",", ".");
+  }
   const match = cleaned.match(/^\d{1,9}(?:\.\d{1,2})?$/);
   if (!match) return null;
   const n = parseFloat(match[0]);

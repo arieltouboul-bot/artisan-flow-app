@@ -208,7 +208,7 @@ export default function MaterielPage() {
     try {
       const processedBlob = await imageFileToProcessedBlob(file);
       const Tesseract = (await import("tesseract.js")).default;
-      const tesseractLang = language === "he" ? "heb+eng" : language === "fr" ? "fra+eng" : "eng+fra";
+      const tesseractLang = (language as string).startsWith("he") ? "heb+eng" : (language as string).startsWith("fr") ? "fra+eng" : "eng";
       const { data } = await Tesseract.recognize(processedBlob, tesseractLang);
       const parsed = parseInvoiceText(data.text);
       const result: ScanInvoiceResult = {

@@ -88,35 +88,38 @@ export default function FacturesPage() {
   };
 
   const handleExportCSV = () => {
-    const BOM = "\uFEFF";
-    const headerLine = [
+    const headerRow = [
       t("invoiceDateCol", language),
       t("invoiceVendorCol", language),
       t("invoiceProjectCol", language),
       t("invoiceAmountHtCol", language),
       t("invoiceTvaCol", language),
       t("invoiceAmountTtcCol", language),
-    ].join(";");
-    const lines: string[] = [BOM + headerLine];
+    ];
+    const rows: string[][] = [headerRow];
     for (const e of filtered) {
       const tvaAmount = e.amount_ht * (e.tva_rate / 100);
       const ttc = e.amount_ht + tvaAmount;
       const vendor = (e.description.split(" — ")[0] || e.description).replace(/;/g, ",").replace(/\r?\n/g, " ");
-      lines.push(
-        [e.date, vendor, e.project_name ?? "", String(e.amount_ht), String(tvaAmount.toFixed(2)), String(ttc.toFixed(2))].join(";")
-      );
+      rows.push([
+        e.date,
+        vendor,
+        e.project_name ?? "",
+        String(e.amount_ht),
+        String(tvaAmount.toFixed(2)),
+        String(ttc.toFixed(2)),
+      ]);
     }
-    const csvContent = lines.join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
-    const url = window.URL.createObjectURL(blob);
+    const csvContent = "\uFEFF" + rows.map((r) => r.join(";")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `factures_${new Date().toISOString().slice(0, 10)}.csv`);
-    link.style.display = "none";
+    link.setAttribute("href", url);
+    link.setAttribute("download", `export_factures_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+    URL.revokeObjectURL(url);
   };
 
   return (
