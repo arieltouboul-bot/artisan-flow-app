@@ -115,14 +115,13 @@ export default function FacturesPage() {
         String(ttc.toFixed(2)),
       ]);
     }
-    const csvContent = rows.map((r) => r.join(";")).join("\n");
-    const encodedUri = encodeURI("data:text/csv;charset=utf-8,\uFEFF" + csvContent);
-    window.location.href = encodedUri;
+    const csvContent = "\uFEFF" + rows.map((r) => r.join(";")).join("\n");
+    window.location.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
   };
 
   const handleExportPDF = async () => {
     if (filtered.length === 0) return;
-    alert("Génération PDF lancée");
+    alert("Génération PDF...");
     setPdfLoading(true);
     try {
       const rows = filtered.map((e) => {
@@ -208,10 +207,10 @@ export default function FacturesPage() {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-            <button type="button" onClick={handleExportCSV} className="z-50 cursor-pointer bg-blue-600 text-white px-4 py-2 rounded min-h-[44px] disabled:opacity-50" disabled={filtered.length === 0}>
+            <button type="button" onClick={handleExportCSV} style={{ zIndex: 9999 }} className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50" disabled={filtered.length === 0}>
               {t("exportCSV", language)}
             </button>
-            <button type="button" onClick={handleExportPDF} className="z-50 cursor-pointer bg-blue-600 text-white px-4 py-2 rounded min-h-[44px] disabled:opacity-50" disabled={filtered.length === 0 || pdfLoading}>
+            <button type="button" onClick={handleExportPDF} style={{ zIndex: 9999 }} className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50" disabled={filtered.length === 0 || pdfLoading}>
               {pdfLoading ? "…" : t("exportPDFForAccountant", language)}
             </button>
           </div>
@@ -252,31 +251,29 @@ export default function FacturesPage() {
                         <td className={cn("py-3 pr-2")}>{formatConvertedCurrency(tvaAmount, currency)}</td>
                         <td className={cn("py-3 pr-2 font-medium")}>{formatConvertedCurrency(ttc, currency)}</td>
                         <td className={cn("py-3 flex gap-1")}>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className={cn("h-8 w-8 text-brand-blue-600")}
-                            onClick={() => openEdit(e.id)}
-                            aria-label={t("editAmounts", language)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
                           <button
                             type="button"
+                            className="z-50 p-2 bg-blue-600 text-white rounded cursor-pointer text-sm"
+                            onClick={() => openEdit(e.id)}
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            type="button"
+                            style={{ zIndex: 9999 }}
+                            className="p-2 bg-red-600 text-white rounded cursor-pointer text-sm"
                             onClick={async () => {
                               if (!confirm("Supprimer?")) return;
                               const supabase = createClient();
                               if (!supabase) return;
                               const { data: { user } } = await supabase.auth.getUser();
                               if (!user) return;
-                              await supabase.from("expenses").delete().eq("id", e.id).eq("user_id", user.id);
-                              location.reload();
+                              const { error } = await supabase.from("expenses").delete().eq("id", e.id).eq("user_id", user.id);
+                              if (error) alert("Erreur: " + error.message);
+                              else location.reload();
                             }}
-                            className="h-8 w-8 text-red-600 hover:bg-red-50 rounded cursor-pointer"
-                            aria-label={t("delete", language)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            Supprimer
                           </button>
                         </td>
                       </tr>

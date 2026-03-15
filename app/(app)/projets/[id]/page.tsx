@@ -61,8 +61,9 @@ const statusVariant: Record<ProjectStatus, "gray" | "default" | "destructive" | 
 export default function ProjetDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const id = params.id as string;
-  const { project, loading: projectLoading, error: projectError, refetch: refetchProject } = useProject(id);
+  const id = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : String(params?.id ?? "");
+  if (typeof window !== "undefined") console.log("ID du projet:", id, "params.id:", params?.id);
+  const { project, loading: projectLoading, error: projectError, refetch: refetchProject } = useProject(id || null);
   const { tasks, loading: tasksLoading, addTask, toggleTask, deleteTask } = useProjectTasks(id);
   const { transactions, loading: transactionsLoading, addTransaction } = useProjectTransactions(id);
   const { expenses, loading: expensesLoading, addExpense, deleteExpense, totalHT: expensesTotalHT, totalTvaRecuperable } = useProjectExpenses(id);
@@ -75,8 +76,6 @@ export default function ProjetDetailPage() {
   const [newTaskLabel, setNewTaskLabel] = useState("");
   const [notes, setNotes] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
   const [photos, setPhotos] = useState<{ id: string; url: string; name?: string }[]>([]);
   const [address, setAddress] = useState("");
   const [contractAmount, setContractAmount] = useState("");
@@ -120,17 +119,6 @@ export default function ProjetDetailPage() {
     setNotesSaving(true);
     await supabase.from("projects").update({ notes: notes || null, updated_at: new Date().toISOString() }).eq("id", id);
     setNotesSaving(false);
-  };
-
-  const handleDeleteProject = async () => {
-    if (!supabase || !id) return;
-    setDeleteLoading(true);
-    await supabase.from("project_tasks").delete().eq("project_id", id);
-    const { error } = await supabase.from("projects").delete().eq("id", id);
-    setDeleteLoading(false);
-    if (error) return;
-    setDeleteConfirmOpen(false);
-    router.push("/projets");
   };
 
   const handleAddTask = (e: React.FormEvent) => {
@@ -275,20 +263,34 @@ export default function ProjetDetailPage() {
               {statusLabels[currentProject.status]}
             </Badge>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDeleteConfirmOpen(true)}
-            className="min-h-[48px] min-w-[48px] text-red-600 hover:bg-red-50"
-            aria-label="Supprimer le projet"
+          <button
+            type="button"
+            className="z-50 p-2 bg-red-600 text-white rounded cursor-pointer text-sm"
+            onClick={async () => {
+              if (!confirm("Supprimer?")) return;
+              if (!supabase || !id) return;
+              try { await supabase.from("project_tasks").delete().eq("project_id", id); } catch { /* ignore */ }
+              const { error } = await supabase.from("projects").delete().eq("id", id);
+              if (error) alert("Erreur: " + error.message);
+              else location.reload();
+            }}
           >
-            <Trash2 className="h-5 w-5" />
-          </Button>
+            Supprimer
+          </button>
         </div>
       </div>
 
       {projectError && (
         <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{projectError}</div>
+      )}
+
+      {!projectLoading && !currentProject && (
+        <Card className="p-8 text-center">
+          <p className="text-gray-600 mb-4">Projet introuvable.</p>
+          <Link href="/projets">
+            <Button className="z-50 bg-blue-600 text-white">Retour aux projets</Button>
+          </Link>
+        </Card>
       )}
 
       {currentProject && (
@@ -698,25 +700,6 @@ export default function ProjetDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Supprimer ce projet ?</DialogTitle>
-            <p className="text-sm text-gray-500">
-              Toutes les tâches et données du projet seront supprimées. Cette action est irréversible.
-            </p>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} disabled={deleteLoading}>
-              Annuler
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteProject} disabled={deleteLoading}>
-              {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Supprimer le projet</>}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={paymentOpen} onOpenChange={(open) => { setPaymentOpen(open); setPaymentError(null); }}>
         <DialogContent>

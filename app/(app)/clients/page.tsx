@@ -81,6 +81,7 @@ export default function ClientsPage() {
   const currency = displayCurrency;
 
   const openEdit = (c: Client) => {
+    alert("Ouverture de l'édition");
     setEditId(c.id);
     setEditName(c.name);
     setEditEmail(c.email ?? "");
@@ -152,12 +153,8 @@ export default function ClientsPage() {
     const supabase = createClient();
     if (!supabase) return;
     const { error } = await supabase.from("clients").delete().eq("id", id);
-    if (error) {
-      console.error("Clients delete failed:", error);
-      setSubmitError(error.message);
-      return;
-    }
-    location.reload();
+    if (error) alert("Erreur: " + error.message);
+    else location.reload();
   };
 
   const margeBruteForm = (() => {
@@ -577,26 +574,8 @@ function ClientRow({
       </TableCell>
       <TableCell>
         <div className="flex gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onEdit}
-            className="min-h-[44px] min-w-[44px] text-brand-blue-600 hover:bg-brand-blue-50"
-            aria-label="Modifier le client"
-          >
-            <Pencil className="h-5 w-5" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onDelete}
-            className="min-h-[44px] min-w-[44px] text-red-600 hover:bg-red-50 hover:text-red-700"
-            aria-label="Supprimer le client"
-          >
-            <Trash2 className="h-5 w-5" />
-          </Button>
+          <button type="button" className="z-50 p-2 bg-blue-600 text-white rounded cursor-pointer text-sm" onClick={onEdit}>Modifier</button>
+          <button type="button" className="z-50 p-2 bg-red-600 text-white rounded cursor-pointer text-sm" onClick={onDelete}>Supprimer</button>
         </div>
       </TableCell>
     </motion.tr>

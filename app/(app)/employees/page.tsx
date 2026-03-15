@@ -50,12 +50,9 @@ export default function EmployeesPage() {
     if (!confirm("Supprimer?")) return;
     const supabase = createClient();
     if (!supabase) return;
-    const { error: err } = await supabase.from("employees").delete().eq("id", id);
-    if (err) {
-      console.error("Employees delete failed:", err);
-      return;
-    }
-    location.reload();
+    const { error } = await supabase.from("employees").delete().eq("id", id);
+    if (error) alert("Erreur: " + error.message);
+    else location.reload();
   };
 
   return (
@@ -129,29 +126,26 @@ export default function EmployeesPage() {
                         <p className="text-sm text-gray-500">{emp.role || "—"}</p>
                       </div>
                       <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-brand-blue-600 hover:bg-brand-blue-50 min-h-[44px] min-w-[44px]"
+                        <button
+                          type="button"
+                          className="z-50 p-2 bg-blue-600 text-white rounded cursor-pointer text-sm"
                           onClick={() => {
+                            alert("Ouverture de l'édition");
                             setEditId(emp.id);
                             setEditFirstName(emp.first_name);
                             setEditLastName(emp.last_name);
                             setEditRole(emp.role ?? "");
                           }}
-                          aria-label={t("edit", language)}
                         >
-                          <Pencil className="h-5 w-5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-red-600 hover:bg-red-50 min-h-[44px] min-w-[44px]"
+                          Modifier
+                        </button>
+                        <button
+                          type="button"
+                          className="z-50 p-2 bg-red-600 text-white rounded cursor-pointer text-sm"
                           onClick={() => handleDelete(emp.id)}
-                          aria-label={t("delete", language)}
                         >
-                          <Trash2 className="h-5 w-5" />
-                        </Button>
+                          Supprimer
+                        </button>
                       </div>
                     </motion.div>
                   ))

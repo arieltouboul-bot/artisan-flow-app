@@ -406,32 +406,26 @@ export default function MaterielPage() {
                             {item.supplier_id ? suppliers.find((s) => s.id === item.supplier_id)?.name ?? "—" : "—"}
                           </td>
                           <td className="py-3 flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-brand-blue-600 hover:bg-brand-blue-50"
-                              onClick={() => setEditItem(item)}
-                              aria-label={t("edit", language)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
                             <button
                               type="button"
+                              className="z-50 p-2 bg-blue-600 text-white rounded cursor-pointer text-sm"
+                              onClick={() => { alert("Ouverture de l'édition"); setEditItem(item); }}
+                            >
+                              Modifier
+                            </button>
+                            <button
+                              type="button"
+                              className="z-50 p-2 bg-red-600 text-white rounded cursor-pointer text-sm"
                               onClick={async () => {
                                 if (!confirm("Supprimer?")) return;
                                 const supabase = createClient();
                                 if (!supabase) return;
                                 const { error } = await supabase.from("inventory").delete().eq("id", item.id);
-                                if (error) {
-                                  console.error("Inventory delete failed:", error);
-                                  return;
-                                }
-                                location.reload();
+                                if (error) alert("Erreur: " + error.message);
+                                else location.reload();
                               }}
-                              className="h-8 w-8 text-red-600 hover:bg-red-50 rounded cursor-pointer"
-                              aria-label={t("delete", language)}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              Supprimer
                             </button>
                           </td>
                         </tr>
@@ -516,32 +510,26 @@ export default function MaterielPage() {
                           <td className="py-3 pr-2 text-gray-600">{s.phone || "—"}</td>
                           <td className="py-3 pr-2 text-gray-600 max-w-[200px] truncate">{s.address || "—"}</td>
                           <td className="py-3 flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-brand-blue-600 hover:bg-brand-blue-50"
-                              onClick={() => setEditSupplier(s)}
-                              aria-label={t("edit", language)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
                             <button
                               type="button"
+                              className="z-50 p-2 bg-blue-600 text-white rounded cursor-pointer text-sm"
+                              onClick={() => { alert("Ouverture de l'édition"); setEditSupplier(s); }}
+                            >
+                              Modifier
+                            </button>
+                            <button
+                              type="button"
+                              className="z-50 p-2 bg-red-600 text-white rounded cursor-pointer text-sm"
                               onClick={async () => {
                                 if (!confirm("Supprimer?")) return;
                                 const supabase = createClient();
                                 if (!supabase) return;
                                 const { error } = await supabase.from("suppliers").delete().eq("id", s.id);
-                                if (error) {
-                                  console.error("Suppliers delete failed:", error);
-                                  return;
-                                }
-                                location.reload();
+                                if (error) alert("Erreur: " + error.message);
+                                else location.reload();
                               }}
-                              className="h-8 w-8 text-red-600 hover:bg-red-50 rounded cursor-pointer"
-                              aria-label={t("deleteSupplier", language)}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              Supprimer
                             </button>
                           </td>
                         </tr>

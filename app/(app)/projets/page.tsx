@@ -74,24 +74,6 @@ function ProjetsContent() {
     return list;
   }, [projects, filter, search]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer?")) return;
-    const supabase = createClient();
-    if (!supabase) return;
-    try {
-      await supabase.from("project_tasks").delete().eq("project_id", id);
-    } catch {
-      // Ignore
-    }
-    const { error: delError } = await supabase.from("projects").delete().eq("id", id);
-    if (delError) {
-      console.error("Projets delete failed:", delError);
-      setDeleteError(delError.message);
-      return;
-    }
-    location.reload();
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -224,21 +206,22 @@ function ProjetsContent() {
                             {t("edit", language)}
                           </Button>
                         </Link>
-                        <Button
+                        <button
                           type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="min-h-[44px] min-w-[44px] text-red-600 hover:bg-red-50"
+                          className="z-50 p-2 bg-red-600 text-white rounded cursor-pointer text-sm"
                           onClick={async (e) => {
                             e.preventDefault();
-                            const msg = language === "fr" ? "Supprimer ce projet ? Les tâches seront aussi supprimées." : "Delete this project? Tasks will also be deleted.";
-                            if (!window.confirm(msg)) return;
-                            await handleDelete(project.id);
+                            if (!confirm("Supprimer?")) return;
+                            const supabase = createClient();
+                            if (!supabase) return;
+                            try { await supabase.from("project_tasks").delete().eq("project_id", project.id); } catch { /* ignore */ }
+                            const { error } = await supabase.from("projects").delete().eq("id", project.id);
+                            if (error) { setDeleteError(error.message); alert("Erreur: " + error.message); }
+                            else location.reload();
                           }}
-                          aria-label={t("delete", language)}
                         >
-                          <Trash2 className="h-5 w-5" />
-                        </Button>
+                          Supprimer
+                        </button>
                       </div>
                     </motion.div>
                     );
