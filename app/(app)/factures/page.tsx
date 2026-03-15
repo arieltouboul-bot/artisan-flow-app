@@ -26,11 +26,11 @@ import {
   Pencil,
 } from "lucide-react";
 import type { Currency } from "@/lib/utils";
-import { getFacturesPDFBlob } from "@/components/factures/factures-pdf";
+import { generateFacturesPDF } from "@/lib/factures-pdf";
 
 export default function FacturesPage() {
   const { language } = useLanguage();
-  const { displayCurrency } = useProfile();
+  const { displayCurrency, profile } = useProfile();
   const currency = displayCurrency;
   const { expenses, loading, refetch, updateExpense } = useAllExpenses();
   const { projects } = useProjects();
@@ -115,9 +115,10 @@ export default function FacturesPage() {
     const csvContent = "\uFEFF" + rows.map((r) => r.join(";")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `export_factures_${new Date().toISOString().slice(0, 10)}.csv`);
+    const link = document.createElement("a") as HTMLAnchorElement;
+    link.href = url;
+    link.download = `export_factures_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.style.display = "none";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -149,11 +150,17 @@ export default function FacturesPage() {
         tva: t("invoiceTvaCol", language),
         amountTtc: t("invoiceAmountTtcCol", language),
       };
-      const blob = await getFacturesPDFBlob(rows, headers);
+      const blob = await generateFacturesPDF({
+        rows,
+        headers,
+        companyName: profile?.company_name ?? null,
+        logoUrl: profile?.logo_url ?? null,
+      });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `factures_comptable_${new Date().toISOString().slice(0, 10)}.pdf`);
+      const link = document.createElement("a") as HTMLAnchorElement;
+      link.href = url;
+      link.download = `factures_comptable_${new Date().toISOString().slice(0, 10)}.pdf`;
+      link.style.display = "none";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

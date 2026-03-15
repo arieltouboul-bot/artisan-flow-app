@@ -13,10 +13,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useEmployees } from "@/hooks/use-employees";
-import { Users, Plus, Trash2, Loader2 } from "lucide-react";
+import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
+import { Users, Plus, Trash2, Pencil, Loader2 } from "lucide-react";
 
 export default function EmployeesPage() {
-  const { employees, loading, error, addEmployee, deleteEmployee } = useEmployees();
+  const { language } = useLanguage();
+  const { employees, loading, error, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
   const [addOpen, setAddOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -24,6 +27,11 @@ export default function EmployeesPage() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editRole, setEditRole] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,15 +124,31 @@ export default function EmployeesPage() {
                         </p>
                         <p className="text-sm text-gray-500">{emp.role || "—"}</p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-600 hover:bg-red-50 min-h-[44px] min-w-[44px]"
-                        onClick={() => setDeleteId(emp.id)}
-                        aria-label="Supprimer"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-brand-blue-600 hover:bg-brand-blue-50 min-h-[44px] min-w-[44px]"
+                          onClick={() => {
+                            setEditId(emp.id);
+                            setEditFirstName(emp.first_name);
+                            setEditLastName(emp.last_name);
+                            setEditRole(emp.role ?? "");
+                          }}
+                          aria-label={t("edit", language)}
+                        >
+                          <Pencil className="h-5 w-5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-600 hover:bg-red-50 min-h-[44px] min-w-[44px]"
+                          onClick={() => setDeleteId(emp.id)}
+                          aria-label={t("delete", language)}
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </Button>
+                      </div>
                     </motion.div>
                   ))
                 )}
@@ -181,24 +205,62 @@ export default function EmployeesPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!editId} onOpenChange={(open) => !open && setEditId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("edit", language)} — {employees.find((e) => e.id === editId)?.first_name} {employees.find((e) => e.id === editId)?.last_name}</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!editId) return;
+              setEditLoading(true);
+              const result = await updateEmployee(editId, {
+                first_name: editFirstName.trim(),
+                last_name: editLastName.trim(),
+                role: editRole.trim(),
+              });
+              setEditLoading(false);
+              if (!result.error) setEditId(null);
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{language === "fr" ? "Prénom" : "First name"}</label>
+              <Input value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} className="min-h-[44px]" required />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{language === "fr" ? "Nom" : "Last name"}</label>
+              <Input value={editLastName} onChange={(e) => setEditLastName(e.target.value)} className="min-h-[44px]" required />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{language === "fr" ? "Rôle" : "Role"}</label>
+              <Input value={editRole} onChange={(e) => setEditRole(e.target.value)} placeholder={language === "fr" ? "Ex: Chef de chantier..." : "e.g. Site manager..."} className="min-h-[44px]" />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditId(null)} disabled={editLoading}>{t("cancel", language)}</Button>
+              <Button type="submit" disabled={editLoading}>{editLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Supprimer cet employé ?</DialogTitle>
+            <DialogTitle>{language === "fr" ? "Supprimer cet employé ?" : "Delete this employee?"}</DialogTitle>
             <p className="text-sm text-gray-500">
-              Il sera retiré de tous les chantiers auxquels il est assigné.
+              {language === "fr" ? "Il sera retiré de tous les chantiers auxquels il est assigné." : "They will be removed from all projects they are assigned to."}
             </p>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteId(null)} disabled={deleteLoading}>
-              Annuler
-            </Button>
+            <Button variant="outline" onClick={() => setDeleteId(null)} disabled={deleteLoading}>{t("cancel", language)}</Button>
             <Button
               variant="destructive"
               onClick={() => deleteId && handleDelete(deleteId)}
               disabled={deleteLoading}
             >
-              {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Supprimer"}
+              {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("delete", language)}
             </Button>
           </DialogFooter>
         </DialogContent>

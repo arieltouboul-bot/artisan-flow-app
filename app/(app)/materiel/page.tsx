@@ -21,7 +21,9 @@ import { t } from "@/lib/translations";
 import { formatConvertedCurrency, cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { createClient } from "@/lib/supabase/client";
-import { Package, Plus, Trash2, Loader2, Truck, Calendar, ExternalLink, Sparkles, Scan, Camera, Upload } from "lucide-react";
+import { Package, Plus, Trash2, Pencil, Loader2, Truck, Calendar, ExternalLink, Sparkles, Scan, Camera, Upload } from "lucide-react";
+import type { InventoryItem } from "@/hooks/use-inventory";
+import type { Supplier } from "@/hooks/use-suppliers";
 import { parseInvoiceText, type ScanInvoiceResult } from "@/lib/invoice-ocr";
 
 const VAT_OPTIONS = [0, 5.5, 10, 20];
@@ -31,8 +33,8 @@ export default function MaterielPage() {
   const { language } = useLanguage();
   const { displayCurrency } = useProfile();
   const currency = displayCurrency;
-  const { items, loading, error, addItem, deleteItem } = useInventory();
-  const { suppliers, loading: suppliersLoading, error: suppliersError, addSupplier, deleteSupplier, refetch: refetchSuppliers } = useSuppliers();
+  const { items, loading, error, addItem, updateItem, deleteItem } = useInventory();
+  const { suppliers, loading: suppliersLoading, error: suppliersError, addSupplier, updateSupplier, deleteSupplier, refetch: refetchSuppliers } = useSuppliers();
   const { projects } = useProjects();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +61,8 @@ export default function MaterielPage() {
   const [extractError, setExtractError] = useState<string | null>(null);
 
   const [deleteSupplierId, setDeleteSupplierId] = useState<string | null>(null);
+  const [editItem, setEditItem] = useState<InventoryItem | null>(null);
+  const [editSupplier, setEditSupplier] = useState<Supplier | null>(null);
 
   const [scanOpen, setScanOpen] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
@@ -400,13 +404,22 @@ export default function MaterielPage() {
                           <td className="py-3 pr-2 text-gray-600">
                             {item.supplier_id ? suppliers.find((s) => s.id === item.supplier_id)?.name ?? "—" : "—"}
                           </td>
-                          <td className="py-3">
+                          <td className="py-3 flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-brand-blue-600 hover:bg-brand-blue-50"
+                              onClick={() => setEditItem(item)}
+                              aria-label={t("edit", language)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-red-600 hover:bg-red-50"
                               onClick={() => deleteItem(item.id)}
-                              aria-label="Supprimer"
+                              aria-label={t("delete", language)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -492,7 +505,16 @@ export default function MaterielPage() {
                           <td className="py-3 pr-2 font-medium">{s.name}</td>
                           <td className="py-3 pr-2 text-gray-600">{s.phone || "—"}</td>
                           <td className="py-3 pr-2 text-gray-600 max-w-[200px] truncate">{s.address || "—"}</td>
-                          <td className="py-3">
+                          <td className="py-3 flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-brand-blue-600 hover:bg-brand-blue-50"
+                              onClick={() => setEditSupplier(s)}
+                              aria-label={t("edit", language)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -513,6 +535,115 @@ export default function MaterielPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit article dialog */}
+      <Dialog open={!!editItem} onOpenChange={(open) => !open && setEditItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("edit", language)} — {editItem?.name}</DialogTitle>
+          </DialogHeader>
+          {editItem && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!editItem) return;
+                const name = (e.currentTarget.querySelector("[name=editName]") as HTMLInputElement)?.value?.trim() ?? editItem.name;
+                const price = parseFloat((e.currentTarget.querySelector("[name=editPrice]") as HTMLInputElement)?.value?.replace(",", ".") ?? String(editItem.unit_price_ht));
+                const stock = Number((e.currentTarget.querySelector("[name=editStock]") as HTMLInputElement)?.value ?? editItem.stock_quantity);
+                const category = (e.currentTarget.querySelector("[name=editCategory]") as HTMLInputElement)?.value?.trim() ?? editItem.category;
+                const tva = Number((e.currentTarget.querySelector("[name=editTva]") as HTMLSelectElement)?.value ?? editItem.default_tva_rate);
+                const supplierId = (e.currentTarget.querySelector("[name=editSupplierId]") as HTMLSelectElement)?.value || null;
+                await updateItem(editItem.id, { name, unit_price_ht: price, stock_quantity: stock, category, default_tva_rate: tva, supplier_id: supplierId });
+                setEditItem(null);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("name", language)}</label>
+                <Input name="editName" defaultValue={editItem.name} className="min-h-[44px]" required />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("category", language)}</label>
+                <Input name="editCategory" defaultValue={editItem.category} className="min-h-[44px]" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("unitPriceHT", language)}</label>
+                <Input name="editPrice" type="number" step="0.01" min="0" defaultValue={editItem.unit_price_ht} className="min-h-[44px]" required />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("defaultVAT", language)} %</label>
+                <select name="editTva" defaultValue={editItem.default_tva_rate} className={cn("w-full min-h-[44px] rounded-lg border border-gray-200 px-3 py-2 bg-white")}>
+                  {VAT_OPTIONS.map((v) => (
+                    <option key={v} value={v}>{v} %</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("stock", language)}</label>
+                <Input name="editStock" type="number" min="0" defaultValue={editItem.stock_quantity} className="min-h-[44px]" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("selectSupplier", language)}</label>
+                <select name="editSupplierId" defaultValue={editItem.supplier_id ?? ""} className={cn("w-full min-h-[44px] rounded-lg border border-gray-200 px-3 py-2 bg-white")}>
+                  <option value="">—</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditItem(null)}>{t("cancel", language)}</Button>
+                <Button type="submit">{t("save", language)}</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit supplier dialog */}
+      <Dialog open={!!editSupplier} onOpenChange={(open) => !open && setEditSupplier(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("edit", language)} — {editSupplier?.name}</DialogTitle>
+          </DialogHeader>
+          {editSupplier && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!editSupplier) return;
+                const name = (e.currentTarget.querySelector("[name=editSupName]") as HTMLInputElement)?.value?.trim() ?? editSupplier.name;
+                const phone = (e.currentTarget.querySelector("[name=editSupPhone]") as HTMLInputElement)?.value?.trim() ?? editSupplier.phone;
+                const address = (e.currentTarget.querySelector("[name=editSupAddress]") as HTMLInputElement)?.value?.trim() ?? editSupplier.address;
+                const category = (e.currentTarget.querySelector("[name=editSupCategory]") as HTMLInputElement)?.value?.trim() ?? editSupplier.category;
+                await updateSupplier(editSupplier.id, { name, phone, address, category });
+                setEditSupplier(null);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("name", language)}</label>
+                <Input name="editSupName" defaultValue={editSupplier.name} className="min-h-[44px]" required />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("phone", language)}</label>
+                <Input name="editSupPhone" defaultValue={editSupplier.phone} className="min-h-[44px]" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("address", language)}</label>
+                <Input name="editSupAddress" defaultValue={editSupplier.address} className="min-h-[44px]" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("category", language)}</label>
+                <Input name="editSupCategory" defaultValue={editSupplier.category} className="min-h-[44px]" />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditSupplier(null)}>{t("cancel", language)}</Button>
+                <Button type="submit">{t("save", language)}</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Add article dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>

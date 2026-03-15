@@ -63,6 +63,38 @@ export function useClients() {
     };
   }, [fetchClients]);
 
-  return { clients, loading, error, refetch: fetchClients };
+  const updateClient = useCallback(
+    async (
+      id: string,
+      payload: Partial<{
+        name: string;
+        email: string | null;
+        phone: string | null;
+        address: string | null;
+        contract_amount: number;
+        material_costs: number;
+        amount_collected: number;
+      }>
+    ) => {
+      const supabase = createClient();
+      if (!supabase) return { error: "Supabase non configuré" };
+      const toUpdate: Record<string, unknown> = {};
+      if (payload.name !== undefined) toUpdate.name = payload.name.trim();
+      if (payload.email !== undefined) toUpdate.email = payload.email?.trim() || null;
+      if (payload.phone !== undefined) toUpdate.phone = payload.phone?.trim() || null;
+      if (payload.address !== undefined) toUpdate.address = payload.address?.trim() || null;
+      if (payload.contract_amount !== undefined) toUpdate.contract_amount = payload.contract_amount;
+      if (payload.material_costs !== undefined) toUpdate.material_costs = payload.material_costs;
+      if (payload.amount_collected !== undefined) toUpdate.amount_collected = payload.amount_collected;
+      if (Object.keys(toUpdate).length === 0) return {};
+      const { error: updateError } = await supabase.from("clients").update(toUpdate).eq("id", id);
+      if (updateError) return { error: updateError.message };
+      await fetchClients();
+      return {};
+    },
+    [fetchClients]
+  );
+
+  return { clients, loading, error, refetch: fetchClients, updateClient };
 }
 

@@ -81,6 +81,23 @@ export function useEmployees() {
     [fetchEmployees]
   );
 
+  const updateEmployee = useCallback(
+    async (id: string, payload: { first_name?: string; last_name?: string; role?: string }) => {
+      const supabase = createClient();
+      if (!supabase) return { error: new Error("Supabase non configuré") };
+      const toUpdate: Record<string, unknown> = {};
+      if (payload.first_name !== undefined) toUpdate.first_name = payload.first_name.trim();
+      if (payload.last_name !== undefined) toUpdate.last_name = payload.last_name.trim();
+      if (payload.role !== undefined) toUpdate.role = payload.role.trim();
+      if (Object.keys(toUpdate).length === 0) return {};
+      const { error: updateError } = await supabase.from("employees").update(toUpdate).eq("id", id);
+      if (updateError) return { error: updateError };
+      await fetchEmployees();
+      return {};
+    },
+    [fetchEmployees]
+  );
+
   const deleteEmployee = useCallback(
     async (id: string) => {
       const supabase = createClient();
@@ -93,5 +110,5 @@ export function useEmployees() {
     [fetchEmployees]
   );
 
-  return { employees, loading, error, refetch: fetchEmployees, addEmployee, deleteEmployee };
+  return { employees, loading, error, refetch: fetchEmployees, addEmployee, updateEmployee, deleteEmployee };
 }

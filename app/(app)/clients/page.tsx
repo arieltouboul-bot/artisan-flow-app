@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/dialog";
 import { useClients } from "@/hooks/use-clients";
 import { useProfile } from "@/hooks/use-profile";
+import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
 import { createClient } from "@/lib/supabase/client";
 import type { Client } from "@/types/database";
 import { clientMargeBrute, clientRestantDu } from "@/types/database";
@@ -37,6 +39,7 @@ import {
   UserPlus,
   Loader2,
   Trash2,
+  Pencil,
 } from "lucide-react";
 
 function buildMapsUrl(address: string | null): string | null {
@@ -63,10 +66,33 @@ export default function ClientsPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editContract, setEditContract] = useState("");
+  const [editCosts, setEditCosts] = useState("");
+  const [editCollected, setEditCollected] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
-  const { clients, loading, error, refetch } = useClients();
+  const { clients, loading, error, refetch, updateClient } = useClients();
   const { displayCurrency } = useProfile();
+  const { language } = useLanguage();
   const currency = displayCurrency;
+
+  const openEdit = (c: Client) => {
+    setEditId(c.id);
+    setEditName(c.name);
+    setEditEmail(c.email ?? "");
+    setEditPhone(c.phone ?? "");
+    setEditAddress(c.address ?? "");
+    setEditContract(String(c.contract_amount ?? 0));
+    setEditCosts(String(c.material_costs ?? 0));
+    setEditCollected(String(c.amount_collected ?? 0));
+    setEditError(null);
+  };
 
   const filtered = clients.filter((c) => {
     const q = search.toLowerCase().trim();
@@ -216,6 +242,7 @@ export default function ClientsPage() {
                         <ClientRow
                           key={client.id}
                           client={client}
+                          onEdit={() => openEdit(client)}
                           onDelete={() => setDeleteId(client.id)}
                           currency={currency}
                         />
@@ -377,32 +404,89 @@ export default function ClientsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Dialog Éditer client */}
+      <Dialog open={!!editId} onOpenChange={(open) => !open && setEditId(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t("edit", language)} — {clients.find((c) => c.id === editId)?.name}</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!editId) return;
+              setEditError(null);
+              setEditLoading(true);
+              const err = await updateClient(editId, {
+                name: editName.trim(),
+                email: editEmail.trim() || null,
+                phone: editPhone.trim() || null,
+                address: editAddress.trim() || null,
+                contract_amount: parseNum(editContract) ?? 0,
+                material_costs: parseNum(editCosts) ?? 0,
+                amount_collected: parseNum(editCollected) ?? 0,
+              });
+              setEditLoading(false);
+              if (err?.error) setEditError(err.error);
+              else setEditId(null);
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("name", language)}</label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="min-h-[44px]" required />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("emailLabel", language)}</label>
+              <Input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="min-h-[44px]" />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("phone", language)}</label>
+              <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="min-h-[44px]" />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("address", language)}</label>
+              <Input value={editAddress} onChange={(e) => setEditAddress(e.target.value)} className="min-h-[44px]" />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Contrat</label>
+                <Input value={editContract} onChange={(e) => setEditContract(e.target.value)} className="min-h-[44px]" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Coûts mat.</label>
+                <Input value={editCosts} onChange={(e) => setEditCosts(e.target.value)} className="min-h-[44px]" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Encaissé</label>
+                <Input value={editCollected} onChange={(e) => setEditCollected(e.target.value)} className="min-h-[44px]" />
+              </div>
+            </div>
+            {editError && <p className="text-sm text-red-600">{editError}</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditId(null)} disabled={editLoading}>{t("cancel", language)}</Button>
+              <Button type="submit" disabled={editLoading}>{editLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog Confirmer suppression */}
       <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Supprimer ce client ?</DialogTitle>
+            <DialogTitle>{language === "fr" ? "Supprimer ce client ?" : "Delete this client?"}</DialogTitle>
             <p className="text-sm text-gray-500">
-              Cette action est irréversible. Toutes les données du client seront supprimées.
+              {language === "fr" ? "Cette action est irréversible. Toutes les données du client seront supprimées." : "This action cannot be undone. All client data will be deleted."}
             </p>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteId(null)} disabled={deleteLoading}>
-              Annuler
-            </Button>
+            <Button variant="outline" onClick={() => setDeleteId(null)} disabled={deleteLoading}>{t("cancel", language)}</Button>
             <Button
               variant="destructive"
               onClick={() => deleteId && handleDelete(deleteId)}
               disabled={deleteLoading}
             >
-              {deleteLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Supprimer
-                </>
-              )}
+              {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-2" /> {t("delete", language)}</>}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -419,10 +503,12 @@ const rowVariants = {
 
 function ClientRow({
   client,
+  onEdit,
   onDelete,
   currency,
 }: {
   client: Client;
+  onEdit: () => void;
   onDelete: () => void;
   currency: Currency;
 }) {
@@ -512,16 +598,28 @@ function ClientRow({
         )}
       </TableCell>
       <TableCell>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={onDelete}
-          className="min-h-[44px] min-w-[44px] text-red-600 hover:bg-red-50 hover:text-red-700"
-          aria-label="Supprimer le client"
-        >
-          <Trash2 className="h-5 w-5" />
-        </Button>
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onEdit}
+            className="min-h-[44px] min-w-[44px] text-brand-blue-600 hover:bg-brand-blue-50"
+            aria-label="Modifier le client"
+          >
+            <Pencil className="h-5 w-5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onDelete}
+            className="min-h-[44px] min-w-[44px] text-red-600 hover:bg-red-50 hover:text-red-700"
+            aria-label="Supprimer le client"
+          >
+            <Trash2 className="h-5 w-5" />
+          </Button>
+        </div>
       </TableCell>
     </motion.tr>
   );

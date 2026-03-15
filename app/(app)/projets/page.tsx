@@ -21,8 +21,10 @@ import {
 import { formatDate, formatConvertedCurrency } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import type { ProjectStatus } from "@/types/database";
-import { Search, FolderKanban, ChevronRight, Loader2, Plus, Trash2 } from "lucide-react";
+import { Search, FolderKanban, ChevronRight, Loader2, Plus, Trash2, Pencil } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
 
 const statusLabels: Record<ProjectStatus, string> = {
   en_preparation: "En préparation",
@@ -220,14 +222,17 @@ function ProjetsContent() {
                             : "—"}
                         </span>
                         <Link href={`/projets/${project.id}`}>
-                          <ChevronRight className="h-5 w-5 text-gray-400" />
+                          <Button variant="outline" size="sm" className="min-h-[44px] gap-1">
+                            <Pencil className="h-4 w-4" />
+                            {t("edit", language)}
+                          </Button>
                         </Link>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="min-h-[44px] min-w-[44px] text-red-600 hover:bg-red-50"
                           onClick={(e) => { e.preventDefault(); setDeleteId(project.id); }}
-                          aria-label="Supprimer le projet"
+                          aria-label={t("delete", language)}
                         >
                           <Trash2 className="h-5 w-5" />
                         </Button>
@@ -245,21 +250,19 @@ function ProjetsContent() {
       <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Supprimer ce projet ?</DialogTitle>
+            <DialogTitle>{language === "fr" ? "Supprimer ce projet ?" : "Delete this project?"}</DialogTitle>
             <p className="text-sm text-gray-500">
-              Les tâches du projet seront aussi supprimées. Cette action est irréversible.
+              {language === "fr" ? "Les tâches du projet seront aussi supprimées. Cette action est irréversible." : "Project tasks will also be deleted. This action cannot be undone."}
             </p>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteId(null)} disabled={deleteLoading}>
-              Annuler
-            </Button>
+            <Button variant="outline" onClick={() => setDeleteId(null)} disabled={deleteLoading}>{t("cancel", language)}</Button>
             <Button
               variant="destructive"
               onClick={() => deleteId && handleDelete(deleteId)}
               disabled={deleteLoading}
             >
-              {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-2" /> Supprimer</>}
+              {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-2" /> {t("delete", language)}</>}
             </Button>
           </DialogFooter>
         </DialogContent>

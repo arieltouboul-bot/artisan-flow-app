@@ -83,6 +83,24 @@ export function useSuppliers() {
     [fetchSuppliers]
   );
 
+  const updateSupplier = useCallback(
+    async (id: string, payload: { name?: string; phone?: string; address?: string; category?: string }) => {
+      const supabase = createClient();
+      if (!supabase) return { error: "Supabase non configuré" };
+      const toUpdate: Record<string, unknown> = {};
+      if (payload.name !== undefined) toUpdate.name = payload.name.trim();
+      if (payload.phone !== undefined) toUpdate.phone = payload.phone.trim();
+      if (payload.address !== undefined) toUpdate.address = payload.address.trim();
+      if (payload.category !== undefined) toUpdate.category = payload.category.trim();
+      if (Object.keys(toUpdate).length === 0) return {};
+      const { error: updateError } = await supabase.from("suppliers").update(toUpdate).eq("id", id);
+      if (updateError) return { error: updateError.message };
+      await fetchSuppliers();
+      return {};
+    },
+    [fetchSuppliers]
+  );
+
   const deleteSupplier = useCallback(
     async (id: string) => {
       const supabase = createClient();
@@ -93,5 +111,5 @@ export function useSuppliers() {
     [fetchSuppliers]
   );
 
-  return { suppliers, loading, error, addSupplier, deleteSupplier, refetch: fetchSuppliers };
+  return { suppliers, loading, error, addSupplier, updateSupplier, deleteSupplier, refetch: fetchSuppliers };
 }
