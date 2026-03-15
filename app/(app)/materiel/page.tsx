@@ -415,20 +415,24 @@ export default function MaterielPage() {
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button
+                            <button
                               type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-600 hover:bg-red-50"
                               onClick={async () => {
-                                const msg = language === "fr" ? "Supprimer cet article du catalogue ?" : "Delete this item from the catalogue?";
-                                if (!window.confirm(msg)) return;
-                                await deleteItem(item.id);
+                                if (!confirm("Supprimer?")) return;
+                                const supabase = createClient();
+                                if (!supabase) return;
+                                const { error } = await supabase.from("inventory").delete().eq("id", item.id);
+                                if (error) {
+                                  console.error("Inventory delete failed:", error);
+                                  return;
+                                }
+                                location.reload();
                               }}
+                              className="h-8 w-8 text-red-600 hover:bg-red-50 rounded cursor-pointer"
                               aria-label={t("delete", language)}
                             >
                               <Trash2 className="h-4 w-4" />
-                            </Button>
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -521,21 +525,24 @@ export default function MaterielPage() {
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button
+                            <button
                               type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-600 hover:bg-red-50"
                               onClick={async () => {
-                                const msg = language === "fr" ? "Supprimer ce fournisseur de votre liste ?" : "Remove this supplier from your list?";
-                                if (!window.confirm(msg)) return;
-                                await deleteSupplier(s.id);
-                                refetchSuppliers();
+                                if (!confirm("Supprimer?")) return;
+                                const supabase = createClient();
+                                if (!supabase) return;
+                                const { error } = await supabase.from("suppliers").delete().eq("id", s.id);
+                                if (error) {
+                                  console.error("Suppliers delete failed:", error);
+                                  return;
+                                }
+                                location.reload();
                               }}
+                              className="h-8 w-8 text-red-600 hover:bg-red-50 rounded cursor-pointer"
                               aria-label={t("deleteSupplier", language)}
                             >
                               <Trash2 className="h-4 w-4" />
-                            </Button>
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -565,8 +572,10 @@ export default function MaterielPage() {
                 const category = (e.currentTarget.querySelector("[name=editCategory]") as HTMLInputElement)?.value?.trim() ?? editItem.category;
                 const tva = Number((e.currentTarget.querySelector("[name=editTva]") as HTMLSelectElement)?.value ?? editItem.default_tva_rate);
                 const supplierId = (e.currentTarget.querySelector("[name=editSupplierId]") as HTMLSelectElement)?.value || null;
-                await updateItem(editItem.id, { name, unit_price_ht: price, stock_quantity: stock, category, default_tva_rate: tva, supplier_id: supplierId });
-                setEditItem(null);
+                const err = await updateItem(editItem.id, { name, unit_price_ht: price, stock_quantity: stock, category, default_tva_rate: tva, supplier_id: supplierId });
+                if (err?.error) {
+                  console.error("Inventory updateItem failed:", err.error);
+                } else setEditItem(null);
               }}
               className="space-y-4"
             >
@@ -627,8 +636,10 @@ export default function MaterielPage() {
                 const phone = (e.currentTarget.querySelector("[name=editSupPhone]") as HTMLInputElement)?.value?.trim() ?? editSupplier.phone;
                 const address = (e.currentTarget.querySelector("[name=editSupAddress]") as HTMLInputElement)?.value?.trim() ?? editSupplier.address;
                 const category = (e.currentTarget.querySelector("[name=editSupCategory]") as HTMLInputElement)?.value?.trim() ?? editSupplier.category;
-                await updateSupplier(editSupplier.id, { name, phone, address, category });
-                setEditSupplier(null);
+                const err = await updateSupplier(editSupplier.id, { name, phone, address, category });
+                if (err?.error) {
+                  console.error("Suppliers updateSupplier failed:", err.error);
+                } else setEditSupplier(null);
               }}
               className="space-y-4"
             >

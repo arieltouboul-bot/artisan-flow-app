@@ -48,11 +48,10 @@ function ProjetsContent() {
   const { language } = useLanguage();
   const [filter, setFilter] = useState<ProjetFilter>("all");
   const [search, setSearch] = useState("");
-  const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const { displayCurrency } = useProfile();
   const currency = displayCurrency;
-  const { projects, loading, error, refetch } = useProjects();
+  const { projects, loading, error } = useProjects();
 
   useEffect(() => {
     if (filterParam === "unpaid") setFilter("unpaid");
@@ -75,27 +74,22 @@ function ProjetsContent() {
     return list;
   }, [projects, filter, search]);
 
-  const handleDelete = async (id: string): Promise<boolean> => {
+  const handleDelete = async (id: string) => {
+    if (!confirm("Supprimer?")) return;
     const supabase = createClient();
-    if (!supabase) return false;
-    setDeleteLoading(true);
+    if (!supabase) return;
     try {
-      try {
-        await supabase.from("project_tasks").delete().eq("project_id", id);
-      } catch {
-        // Ignore: table may not exist or RLS may block
-      }
-      const { error: delError } = await supabase.from("projects").delete().eq("id", id);
-      if (delError) {
-        setDeleteError(delError.message);
-        return false;
-      }
-      setDeleteError(null);
-      await refetch();
-      return true;
-    } finally {
-      setDeleteLoading(false);
+      await supabase.from("project_tasks").delete().eq("project_id", id);
+    } catch {
+      // Ignore
     }
+    const { error: delError } = await supabase.from("projects").delete().eq("id", id);
+    if (delError) {
+      console.error("Projets delete failed:", delError);
+      setDeleteError(delError.message);
+      return;
+    }
+    location.reload();
   };
 
   return (

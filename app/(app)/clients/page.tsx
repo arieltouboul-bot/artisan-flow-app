@@ -64,7 +64,6 @@ export default function ClientsPage() {
   const [formCollected, setFormCollected] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
@@ -149,18 +148,16 @@ export default function ClientsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    const msg = language === "fr" ? "Supprimer ce client ? Cette action est irréversible." : "Delete this client? This action cannot be undone.";
-    if (!window.confirm(msg)) return;
+    if (!confirm("Supprimer?")) return;
     const supabase = createClient();
     if (!supabase) return;
-    setDeleteLoading(true);
-    const { error: deleteError } = await supabase.from("clients").delete().eq("id", id);
-    setDeleteLoading(false);
-    if (deleteError) {
-      setSubmitError(deleteError.message);
+    const { error } = await supabase.from("clients").delete().eq("id", id);
+    if (error) {
+      console.error("Clients delete failed:", error);
+      setSubmitError(error.message);
       return;
     }
-    await refetch();
+    location.reload();
   };
 
   const margeBruteForm = (() => {
@@ -426,8 +423,10 @@ export default function ClientsPage() {
                 amount_collected: parseNum(editCollected) ?? 0,
               });
               setEditLoading(false);
-              if (err?.error) setEditError(err.error);
-              else setEditId(null);
+              if (err?.error) {
+                console.error("Clients updateClient failed:", err.error);
+                setEditError(err.error);
+              } else setEditId(null);
             }}
             className="space-y-4"
           >

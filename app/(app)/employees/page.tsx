@@ -15,17 +15,17 @@ import {
 import { useEmployees } from "@/hooks/use-employees";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
+import { createClient } from "@/lib/supabase/client";
 import { Users, Plus, Trash2, Pencil, Loader2 } from "lucide-react";
 
 export default function EmployeesPage() {
   const { language } = useLanguage();
-  const { employees, loading, error, addEmployee, updateEmployee, deleteEmployee, refetch } = useEmployees();
+  const { employees, loading, error, addEmployee, updateEmployee } = useEmployees();
   const [addOpen, setAddOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [role, setRole] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editFirstName, setEditFirstName] = useState("");
   const [editLastName, setEditLastName] = useState("");
@@ -47,11 +47,15 @@ export default function EmployeesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm(t("confirmDeleteEmployee", language))) return;
-    setDeleteLoading(true);
-    const result = await deleteEmployee(id);
-    setDeleteLoading(false);
-    if (!result.error) await refetch();
+    if (!confirm("Supprimer?")) return;
+    const supabase = createClient();
+    if (!supabase) return;
+    const { error: err } = await supabase.from("employees").delete().eq("id", id);
+    if (err) {
+      console.error("Employees delete failed:", err);
+      return;
+    }
+    location.reload();
   };
 
   return (
@@ -221,7 +225,9 @@ export default function EmployeesPage() {
                 role: editRole.trim(),
               });
               setEditLoading(false);
-              if (!result.error) setEditId(null);
+              if (result.error) {
+                console.error("Employees updateEmployee failed:", result.error);
+              } else setEditId(null);
             }}
             className="space-y-4"
           >

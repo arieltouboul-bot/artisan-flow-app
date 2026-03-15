@@ -28,12 +28,13 @@ import {
 } from "lucide-react";
 import type { Currency } from "@/lib/utils";
 import { generateFacturesPDF } from "@/lib/factures-pdf";
+import { createClient } from "@/lib/supabase/client";
 
 export default function FacturesPage() {
   const { language } = useLanguage();
   const { displayCurrency, profile } = useProfile();
   const currency = displayCurrency;
-  const { expenses, loading, refetch, updateExpense, deleteExpense } = useAllExpenses();
+  const { expenses, loading, refetch, updateExpense } = useAllExpenses();
   const { projects } = useProjects();
 
   const [filterProjectId, setFilterProjectId] = useState<string>("");
@@ -84,6 +85,7 @@ export default function FacturesPage() {
     });
     setEditSaving(false);
     if (error) {
+      console.error("Factures updateExpense failed:", error);
       setEditError(error);
       return;
     }
@@ -91,7 +93,6 @@ export default function FacturesPage() {
   };
 
   const handleExportCSV = () => {
-    console.log("CLIC CSV");
     const headerRow = [
       t("invoiceDateCol", language),
       t("invoiceVendorCol", language),
@@ -114,20 +115,14 @@ export default function FacturesPage() {
         String(ttc.toFixed(2)),
       ]);
     }
-    const csvContent = "\uFEFF" + rows.map((r) => r.join(";")).join("\n");
-    const uri = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
-    const a = document.createElement("a");
-    a.href = uri;
-    a.download = `export_factures_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    const csvContent = rows.map((r) => r.join(";")).join("\n");
+    const encodedUri = encodeURI("data:text/csv;charset=utf-8,\uFEFF" + csvContent);
+    window.location.href = encodedUri;
   };
 
   const handleExportPDF = async () => {
-    console.log("CLIC PDF");
     if (filtered.length === 0) return;
+    alert("Génération PDF lancée");
     setPdfLoading(true);
     try {
       const rows = filtered.map((e) => {
@@ -213,14 +208,12 @@ export default function FacturesPage() {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-            <Button type="button" variant="outline" size="sm" onClick={handleExportCSV} className={cn("min-h-[44px] relative z-50")} disabled={filtered.length === 0}>
-              <Download className="h-4 w-4 mr-2" />
+            <button type="button" onClick={handleExportCSV} className="z-50 cursor-pointer bg-blue-600 text-white px-4 py-2 rounded min-h-[44px] disabled:opacity-50" disabled={filtered.length === 0}>
               {t("exportCSV", language)}
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={handleExportPDF} className={cn("min-h-[44px] relative z-50")} disabled={filtered.length === 0 || pdfLoading}>
-              {pdfLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-              {t("exportPDFForAccountant", language)}
-            </Button>
+            </button>
+            <button type="button" onClick={handleExportPDF} className="z-50 cursor-pointer bg-blue-600 text-white px-4 py-2 rounded min-h-[44px] disabled:opacity-50" disabled={filtered.length === 0 || pdfLoading}>
+              {pdfLoading ? "…" : t("exportPDFForAccountant", language)}
+            </button>
           </div>
         </CardHeader>
         <CardContent>
@@ -269,20 +262,22 @@ export default function FacturesPage() {
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button
+                          <button
                             type="button"
-                            variant="ghost"
-                            size="icon"
-                            className={cn("h-8 w-8 text-red-600 hover:bg-red-50")}
                             onClick={async () => {
-                              const msg = language === "fr" ? "Supprimer cette facture / dépense ?" : "Delete this invoice / expense?";
-                              if (!window.confirm(msg)) return;
-                              await deleteExpense(e.id);
+                              if (!confirm("Supprimer?")) return;
+                              const supabase = createClient();
+                              if (!supabase) return;
+                              const { data: { user } } = await supabase.auth.getUser();
+                              if (!user) return;
+                              await supabase.from("expenses").delete().eq("id", e.id).eq("user_id", user.id);
+                              location.reload();
                             }}
+                            className="h-8 w-8 text-red-600 hover:bg-red-50 rounded cursor-pointer"
                             aria-label={t("delete", language)}
                           >
                             <Trash2 className="h-4 w-4" />
-                          </Button>
+                          </button>
                         </td>
                       </tr>
                     );
