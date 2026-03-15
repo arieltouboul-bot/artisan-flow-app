@@ -243,7 +243,7 @@ export default function ClientsPage() {
                           key={client.id}
                           client={client}
                           onEdit={() => openEdit(client)}
-                          onDelete={() => setDeleteId(client.id)}
+                          onDelete={() => handleDelete(client.id)}
                           currency={currency}
                         />
                       ))}
