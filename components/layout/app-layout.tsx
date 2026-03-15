@@ -69,7 +69,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar : translate-x-0 si ouvert, -translate-x-full si caché (mobile) ; toujours visible sur PC */}
       <div
         className={cn(
-          "fixed left-0 top-0 z-50 h-full md:z-40",
+          "fixed left-0 top-0 z-[100] h-full md:z-[100]",
           isMobile && !isSidebarOpen && "pointer-events-none"
         )}
       >

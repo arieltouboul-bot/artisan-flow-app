@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProjects } from "@/hooks/use-projects";
 import { projectRestantDu } from "@/types/database";
@@ -43,12 +43,14 @@ const statusVariant: Record<ProjectStatus, "gray" | "default" | "destructive" | 
 export type ProjetFilter = ProjectStatus | "all" | "unpaid";
 
 function ProjetsContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const filterParam = searchParams.get("filter");
   const { language } = useLanguage();
   const [filter, setFilter] = useState<ProjetFilter>("all");
   const [search, setSearch] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const { displayCurrency } = useProfile();
   const currency = displayCurrency;
   const { projects, loading, error } = useProjects();
@@ -169,7 +171,7 @@ function ProjetsContent() {
                       transition={{ delay: i * 0.03 }}
                       className="flex flex-col gap-4 px-4 py-4 transition-colors hover:bg-brand-blue-50/50 group sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-6"
                     >
-                      <Link href={`/projets/${project.id}`} className="flex min-w-0 flex-1 items-center gap-4">
+                      <Link href={`/projets/${String(project.id)}`} className="flex min-w-0 flex-1 items-center gap-4">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-blue-100 text-brand-blue-600">
                           <FolderKanban className="h-6 w-6" />
                         </div>
@@ -200,17 +202,11 @@ function ProjetsContent() {
                             ? formatDate(project.start_date)
                             : "—"}
                         </span>
-                        <Link href={`/projets/${project.id}`}>
-                          <Button variant="outline" size="sm" className="min-h-[44px] gap-1">
-                            <Pencil className="h-4 w-4" />
-                            {t("edit", language)}
-                          </Button>
-                        </Link>
-                        <button
-                          type="button"
-                          className="z-50 p-2 bg-red-600 text-white rounded cursor-pointer text-sm"
-                          onClick={async (e) => {
-                            e.preventDefault();
+                        <RowActionsMenu
+                          isOpen={openMenuId === project.id}
+                          onOpenChange={(open) => setOpenMenuId(open ? project.id : null)}
+                          onEdit={() => router.push(`/projets/${String(project.id)}`)}
+                          onDelete={async () => {
                             if (!confirm("Supprimer?")) return;
                             const supabase = createClient();
                             if (!supabase) return;
@@ -219,9 +215,7 @@ function ProjetsContent() {
                             if (error) { setDeleteError(error.message); alert("Erreur: " + error.message); }
                             else location.reload();
                           }}
-                        >
-                          Supprimer
-                        </button>
+                        />
                       </div>
                     </motion.div>
                     );

@@ -18,14 +18,8 @@ import { useProjects } from "@/hooks/use-projects";
 import { t } from "@/lib/translations";
 import { formatDate, formatConvertedCurrency, cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
-import {
-  FileText,
-  Loader2,
-  Download,
-  ImageIcon,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import type { Currency } from "@/lib/utils";
 import { generateFacturesPDF } from "@/lib/factures-pdf";
 import { createClient } from "@/lib/supabase/client";
@@ -47,6 +41,7 @@ export default function FacturesPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     let list = expenses;
@@ -116,12 +111,20 @@ export default function FacturesPage() {
       ]);
     }
     const csvContent = "\uFEFF" + rows.map((r) => r.join(";")).join("\n");
-    window.location.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `factures_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
   };
 
   const handleExportPDF = async () => {
     if (filtered.length === 0) return;
-    alert("Génération PDF...");
     setPdfLoading(true);
     try {
       const rows = filtered.map((e) => {
@@ -160,6 +163,9 @@ export default function FacturesPage() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      alert("Erreur PDF: " + msg);
     } finally {
       setPdfLoading(false);
     }
@@ -207,10 +213,20 @@ export default function FacturesPage() {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-            <button type="button" onClick={handleExportCSV} style={{ zIndex: 9999 }} className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50" disabled={filtered.length === 0}>
+            <button
+              type="button"
+              className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50"
+              disabled={filtered.length === 0}
+              onClick={(e) => { e.preventDefault(); handleExportCSV(); }}
+            >
               {t("exportCSV", language)}
             </button>
-            <button type="button" onClick={handleExportPDF} style={{ zIndex: 9999 }} className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50" disabled={filtered.length === 0 || pdfLoading}>
+            <button
+              type="button"
+              className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50"
+              disabled={filtered.length === 0 || pdfLoading}
+              onClick={(e) => { e.preventDefault(); handleExportPDF(); }}
+            >
               {pdfLoading ? "…" : t("exportPDFForAccountant", language)}
             </button>
           </div>
@@ -250,19 +266,12 @@ export default function FacturesPage() {
                         <td className={cn("py-3 pr-2")}>{formatConvertedCurrency(e.amount_ht, currency)}</td>
                         <td className={cn("py-3 pr-2")}>{formatConvertedCurrency(tvaAmount, currency)}</td>
                         <td className={cn("py-3 pr-2 font-medium")}>{formatConvertedCurrency(ttc, currency)}</td>
-                        <td className={cn("py-3 flex gap-1")}>
-                          <button
-                            type="button"
-                            className="z-50 p-2 bg-blue-600 text-white rounded cursor-pointer text-sm"
-                            onClick={() => openEdit(e.id)}
-                          >
-                            Modifier
-                          </button>
-                          <button
-                            type="button"
-                            style={{ zIndex: 9999 }}
-                            className="p-2 bg-red-600 text-white rounded cursor-pointer text-sm"
-                            onClick={async () => {
+                        <td className={cn("py-3")}>
+                          <RowActionsMenu
+                            isOpen={openMenuId === e.id}
+                            onOpenChange={(open) => setOpenMenuId(open ? e.id : null)}
+                            onEdit={() => openEdit(e.id)}
+                            onDelete={async () => {
                               if (!confirm("Supprimer?")) return;
                               const supabase = createClient();
                               if (!supabase) return;
@@ -272,9 +281,7 @@ export default function FacturesPage() {
                               if (error) alert("Erreur: " + error.message);
                               else location.reload();
                             }}
-                          >
-                            Supprimer
-                          </button>
+                          />
                         </td>
                       </tr>
                     );

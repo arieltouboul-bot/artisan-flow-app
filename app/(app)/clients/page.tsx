@@ -29,18 +29,8 @@ import type { Client } from "@/types/database";
 import { clientMargeBrute, clientRestantDu } from "@/types/database";
 import { formatConvertedCurrency, type Currency } from "@/lib/utils";
 import Link from "next/link";
-import {
-  Search,
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  ExternalLink,
-  UserPlus,
-  Loader2,
-  Trash2,
-  Pencil,
-} from "lucide-react";
+import { Search, User, Mail, Phone, MapPin, ExternalLink, UserPlus, Loader2 } from "lucide-react";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 
 function buildMapsUrl(address: string | null): string | null {
   if (!address || !address.trim()) return null;
@@ -74,6 +64,7 @@ export default function ClientsPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const { clients, loading, error, refetch, updateClient } = useClients();
   const { displayCurrency } = useProfile();
@@ -239,6 +230,8 @@ export default function ClientsPage() {
                           onEdit={() => openEdit(client)}
                           onDelete={() => handleDelete(client.id)}
                           currency={currency}
+                          openMenuId={openMenuId}
+                          setOpenMenuId={setOpenMenuId}
                         />
                       ))}
                     </AnimatePresence>
@@ -481,11 +474,15 @@ function ClientRow({
   onEdit,
   onDelete,
   currency,
+  openMenuId,
+  setOpenMenuId,
 }: {
   client: Client;
   onEdit: () => void;
   onDelete: () => void;
   currency: Currency;
+  openMenuId: string | null;
+  setOpenMenuId: (id: string | null) => void;
 }) {
   const mapsUrl = buildMapsUrl(client.address);
   const marge = clientMargeBrute(client);
@@ -573,10 +570,12 @@ function ClientRow({
         )}
       </TableCell>
       <TableCell>
-        <div className="flex gap-1">
-          <button type="button" className="z-50 p-2 bg-blue-600 text-white rounded cursor-pointer text-sm" onClick={onEdit}>Modifier</button>
-          <button type="button" className="z-50 p-2 bg-red-600 text-white rounded cursor-pointer text-sm" onClick={onDelete}>Supprimer</button>
-        </div>
+        <RowActionsMenu
+          isOpen={openMenuId === client.id}
+          onOpenChange={(open) => setOpenMenuId(open ? client.id : null)}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
       </TableCell>
     </motion.tr>
   );

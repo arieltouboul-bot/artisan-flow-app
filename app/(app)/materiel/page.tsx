@@ -21,7 +21,8 @@ import { t } from "@/lib/translations";
 import { formatConvertedCurrency, cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { createClient } from "@/lib/supabase/client";
-import { Package, Plus, Trash2, Pencil, Loader2, Truck, Calendar, ExternalLink, Sparkles, Scan, Camera, Upload } from "lucide-react";
+import { Package, Plus, Loader2, Truck, Calendar, ExternalLink, Sparkles, Scan, Camera, Upload } from "lucide-react";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import type { InventoryItem } from "@/hooks/use-inventory";
 import type { Supplier } from "@/hooks/use-suppliers";
 import { parseInvoiceText, type ScanInvoiceResult } from "@/lib/invoice-ocr";
@@ -405,18 +406,12 @@ export default function MaterielPage() {
                           <td className="py-3 pr-2 text-gray-600">
                             {item.supplier_id ? suppliers.find((s) => s.id === item.supplier_id)?.name ?? "—" : "—"}
                           </td>
-                          <td className="py-3 flex gap-1">
-                            <button
-                              type="button"
-                              className="z-50 p-2 bg-blue-600 text-white rounded cursor-pointer text-sm"
-                              onClick={() => { alert("Ouverture de l'édition"); setEditItem(item); }}
-                            >
-                              Modifier
-                            </button>
-                            <button
-                              type="button"
-                              className="z-50 p-2 bg-red-600 text-white rounded cursor-pointer text-sm"
-                              onClick={async () => {
+                          <td className="py-3">
+                            <RowActionsMenu
+                              isOpen={openMenuId === `item-${item.id}`}
+                              onOpenChange={(open) => setOpenMenuId(open ? `item-${item.id}` : null)}
+                              onEdit={() => setEditItem(item)}
+                              onDelete={async () => {
                                 if (!confirm("Supprimer?")) return;
                                 const supabase = createClient();
                                 if (!supabase) return;
@@ -424,9 +419,7 @@ export default function MaterielPage() {
                                 if (error) alert("Erreur: " + error.message);
                                 else location.reload();
                               }}
-                            >
-                              Supprimer
-                            </button>
+                            />
                           </td>
                         </tr>
                       ))}
@@ -509,18 +502,12 @@ export default function MaterielPage() {
                           <td className="py-3 pr-2 font-medium">{s.name}</td>
                           <td className="py-3 pr-2 text-gray-600">{s.phone || "—"}</td>
                           <td className="py-3 pr-2 text-gray-600 max-w-[200px] truncate">{s.address || "—"}</td>
-                          <td className="py-3 flex gap-1">
-                            <button
-                              type="button"
-                              className="z-50 p-2 bg-blue-600 text-white rounded cursor-pointer text-sm"
-                              onClick={() => { alert("Ouverture de l'édition"); setEditSupplier(s); }}
-                            >
-                              Modifier
-                            </button>
-                            <button
-                              type="button"
-                              className="z-50 p-2 bg-red-600 text-white rounded cursor-pointer text-sm"
-                              onClick={async () => {
+                          <td className="py-3">
+                            <RowActionsMenu
+                              isOpen={openMenuId === `supplier-${s.id}`}
+                              onOpenChange={(open) => setOpenMenuId(open ? `supplier-${s.id}` : null)}
+                              onEdit={() => setEditSupplier(s)}
+                              onDelete={async () => {
                                 if (!confirm("Supprimer?")) return;
                                 const supabase = createClient();
                                 if (!supabase) return;
@@ -528,9 +515,7 @@ export default function MaterielPage() {
                                 if (error) alert("Erreur: " + error.message);
                                 else location.reload();
                               }}
-                            >
-                              Supprimer
-                            </button>
+                            />
                           </td>
                         </tr>
                       ))}

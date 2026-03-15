@@ -16,7 +16,8 @@ import { useEmployees } from "@/hooks/use-employees";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import { createClient } from "@/lib/supabase/client";
-import { Users, Plus, Trash2, Pencil, Loader2 } from "lucide-react";
+import { Users, Plus, Loader2 } from "lucide-react";
+import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 
 export default function EmployeesPage() {
   const { language } = useLanguage();
@@ -125,27 +126,18 @@ export default function EmployeesPage() {
                         </p>
                         <p className="text-sm text-gray-500">{emp.role || "—"}</p>
                       </div>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          className="z-50 p-2 bg-blue-600 text-white rounded cursor-pointer text-sm"
-                          onClick={() => {
-                            alert("Ouverture de l'édition");
+                      <div>
+                        <RowActionsMenu
+                          isOpen={openMenuId === emp.id}
+                          onOpenChange={(open) => setOpenMenuId(open ? emp.id : null)}
+                          onEdit={() => {
                             setEditId(emp.id);
                             setEditFirstName(emp.first_name);
                             setEditLastName(emp.last_name);
                             setEditRole(emp.role ?? "");
                           }}
-                        >
-                          Modifier
-                        </button>
-                        <button
-                          type="button"
-                          className="z-50 p-2 bg-red-600 text-white rounded cursor-pointer text-sm"
-                          onClick={() => handleDelete(emp.id)}
-                        >
-                          Supprimer
-                        </button>
+                          onDelete={() => handleDelete(emp.id)}
+                        />
                       </div>
                     </motion.div>
                   ))

@@ -13,7 +13,7 @@ export function Navbar({ isSidebarOpen, setIsSidebarOpen }: NavbarProps) {
     <header
       className={cn(
         "fixed left-0 right-0 top-0 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden",
-        isSidebarOpen ? "z-[60]" : "z-30"
+        isSidebarOpen ? "z-[95]" : "z-[90]"
       )}
     >
       <button
