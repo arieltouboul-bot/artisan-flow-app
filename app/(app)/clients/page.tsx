@@ -27,7 +27,7 @@ import { t } from "@/lib/translations";
 import { createClient } from "@/lib/supabase/client";
 import type { Client } from "@/types/database";
 import { clientMargeBrute, clientRestantDu } from "@/types/database";
-import { formatConvertedCurrency, type Currency } from "@/lib/utils";
+import { formatConvertedCurrency, cn, type Currency } from "@/lib/utils";
 import Link from "next/link";
 import { Search, User, Mail, Phone, MapPin, ExternalLink, UserPlus, Loader2 } from "lucide-react";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
@@ -65,6 +65,7 @@ export default function ClientsPage() {
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { clients, loading, error, refetch, updateClient } = useClients();
   const { displayCurrency } = useProfile();
@@ -72,7 +73,6 @@ export default function ClientsPage() {
   const currency = displayCurrency;
 
   const openEdit = (c: Client) => {
-    alert("Ouverture de l'édition");
     setEditId(c.id);
     setEditName(c.name);
     setEditEmail(c.email ?? "");
@@ -141,10 +141,11 @@ export default function ClientsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Supprimer?")) return;
+    setDeletingId(id);
     const supabase = createClient();
-    if (!supabase) return;
+    if (!supabase) { setDeletingId(null); return; }
     const { error } = await supabase.from("clients").delete().eq("id", id);
-    if (error) alert("Erreur: " + error.message);
+    if (error) { setDeletingId(null); alert("Erreur: " + error.message); }
     else location.reload();
   };
 
@@ -186,7 +187,7 @@ export default function ClientsPage() {
         </div>
       )}
 
-      <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
+      <Card className="overflow-visible transition-shadow hover:shadow-brand-glow">
         <CardHeader>
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -206,7 +207,7 @@ export default function ClientsPage() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto overflow-y-visible">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -232,6 +233,7 @@ export default function ClientsPage() {
                           currency={currency}
                           openMenuId={openMenuId}
                           setOpenMenuId={setOpenMenuId}
+                          isDeleting={deletingId === client.id}
                         />
                       ))}
                     </AnimatePresence>
@@ -476,6 +478,7 @@ function ClientRow({
   currency,
   openMenuId,
   setOpenMenuId,
+  isDeleting = false,
 }: {
   client: Client;
   onEdit: () => void;
@@ -483,6 +486,7 @@ function ClientRow({
   currency: Currency;
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
+  isDeleting?: boolean;
 }) {
   const mapsUrl = buildMapsUrl(client.address);
   const marge = clientMargeBrute(client);
@@ -497,7 +501,7 @@ function ClientRow({
       initial="hidden"
       animate="show"
       exit="exit"
-      className="border-b border-gray-100 hover:bg-brand-blue-50/50 transition-colors"
+      className={cn("border-b border-gray-100 hover:bg-brand-blue-50/50 transition-colors", isDeleting && "opacity-60 pointer-events-none")}
     >
       <TableCell>
         <Link href={`/clients/${client.id}`} className="flex items-center gap-2 font-medium text-gray-900 hover:text-brand-blue-600">
@@ -569,12 +573,13 @@ function ClientRow({
           <span className="text-gray-300">—</span>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className="overflow-visible">
         <RowActionsMenu
           isOpen={openMenuId === client.id}
           onOpenChange={(open) => setOpenMenuId(open ? client.id : null)}
           onEdit={onEdit}
           onDelete={onDelete}
+          isDeleting={isDeleting}
         />
       </TableCell>
     </motion.tr>

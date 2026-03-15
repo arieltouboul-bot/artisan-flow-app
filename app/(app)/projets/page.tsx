@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { formatDate, formatConvertedCurrency } from "@/lib/utils";
+import { formatDate, formatConvertedCurrency, cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import type { ProjectStatus } from "@/types/database";
 import { Search, FolderKanban, ChevronRight, Loader2, Plus, MoreVertical } from "lucide-react";
@@ -31,9 +31,10 @@ type RowActionsMenuProps = {
   onOpenChange: (open: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
+  isDeleting?: boolean;
 };
 
-function RowActionsMenu({ isOpen, onOpenChange, onEdit, onDelete }: RowActionsMenuProps) {
+function RowActionsMenu({ isOpen, onOpenChange, onEdit, onDelete, isDeleting = false }: RowActionsMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!isOpen) return;
@@ -47,15 +48,16 @@ function RowActionsMenu({ isOpen, onOpenChange, onEdit, onDelete }: RowActionsMe
     <div ref={ref} className="relative inline-block">
       <button
         type="button"
-        className="inline-flex h-8 w-8 items-center justify-center rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none"
+        className={cn("inline-flex h-8 w-8 items-center justify-center rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none", isDeleting && "opacity-60 pointer-events-none")}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenChange(!isOpen); }}
         aria-label="Actions"
         aria-expanded={isOpen}
+        disabled={isDeleting}
       >
-        <MoreVertical className="h-4 w-4" />
+        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
       </button>
-      {isOpen && (
-        <div className="absolute right-0 top-full z-[50] mt-1 min-w-[140px] rounded-md border border-gray-200 bg-white py-1 shadow-lg" role="menu">
+      {isOpen && !isDeleting && (
+        <div className="absolute right-0 top-full z-[100] mt-1 min-w-[140px] rounded-md border border-gray-200 bg-white py-1 shadow-lg" role="menu">
           <button type="button" className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50" onClick={() => { onOpenChange(false); onEdit(); }}>Modifier</button>
           <button type="button" className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50" onClick={() => { onOpenChange(false); onDelete(); }}>Supprimer</button>
         </div>
@@ -89,6 +91,7 @@ function ProjetsContent() {
   const [search, setSearch] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { displayCurrency } = useProfile();
   const currency = displayCurrency;
   const { projects, loading, error } = useProjects();
@@ -143,7 +146,7 @@ function ProjetsContent() {
         </div>
       )}
 
-      <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
+      <Card className="overflow-visible transition-shadow hover:shadow-brand-glow">
         <CardHeader className="pb-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative flex-1">
@@ -179,7 +182,7 @@ function ProjetsContent() {
               <p>Chargement des projets...</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-200 overflow-visible">
               <AnimatePresence mode="popLayout">
                 {filtered.length === 0 ? (
                   <motion.div
@@ -207,7 +210,7 @@ function ProjetsContent() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -8 }}
                       transition={{ delay: i * 0.03 }}
-                      className="flex flex-col gap-4 px-4 py-4 transition-colors hover:bg-brand-blue-50/50 group sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-6"
+                      className={cn("flex flex-col gap-4 px-4 py-4 transition-colors hover:bg-brand-blue-50/50 group sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-6", deletingId === project.id && "opacity-60 pointer-events-none")}
                     >
                       <Link href={`/projets/${String(project.id)}`} className="flex min-w-0 flex-1 items-center gap-4">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-blue-100 text-brand-blue-600">
@@ -228,7 +231,7 @@ function ProjetsContent() {
                           </div>
                         </div>
                       </Link>
-                      <div className="flex flex-wrap items-center gap-3 sm:flex-nowrap">
+                      <div className="flex flex-wrap items-center gap-3 sm:flex-nowrap overflow-visible">
                         {isOverdue && (
                           <Badge variant="destructive" className="shrink-0">En retard</Badge>
                         )}
@@ -246,13 +249,15 @@ function ProjetsContent() {
                           onEdit={() => router.push(`/projets/${String(project.id)}`)}
                           onDelete={async () => {
                             if (!confirm("Supprimer?")) return;
+                            setDeletingId(project.id);
                             const supabase = createClient();
-                            if (!supabase) return;
+                            if (!supabase) { setDeletingId(null); return; }
                             try { await supabase.from("project_tasks").delete().eq("project_id", project.id); } catch { /* ignore */ }
                             const { error } = await supabase.from("projects").delete().eq("id", project.id);
-                            if (error) { setDeleteError(error.message); alert("Erreur: " + error.message); }
+                            if (error) { setDeletingId(null); setDeleteError(error.message); alert("Erreur: " + error.message); }
                             else location.reload();
                           }}
+                          isDeleting={deletingId === project.id}
                         />
                       </div>
                     </motion.div>

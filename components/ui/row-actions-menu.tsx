@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type RowActionsMenuProps = {
@@ -9,10 +9,11 @@ type RowActionsMenuProps = {
   onOpenChange: (open: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
+  isDeleting?: boolean;
   className?: string;
 };
 
-export function RowActionsMenu({ isOpen, onOpenChange, onEdit, onDelete, className }: RowActionsMenuProps) {
+export function RowActionsMenu({ isOpen, onOpenChange, onEdit, onDelete, isDeleting = false, className }: RowActionsMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,7 +29,10 @@ export function RowActionsMenu({ isOpen, onOpenChange, onEdit, onDelete, classNa
     <div ref={ref} className={cn("relative inline-block", className)}>
       <button
         type="button"
-        className="inline-flex h-8 w-8 items-center justify-center rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none"
+        className={cn(
+          "inline-flex h-8 w-8 items-center justify-center rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none",
+          isDeleting && "opacity-60 pointer-events-none"
+        )}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -36,12 +40,13 @@ export function RowActionsMenu({ isOpen, onOpenChange, onEdit, onDelete, classNa
         }}
         aria-label="Actions"
         aria-expanded={isOpen}
+        disabled={isDeleting}
       >
-        <MoreVertical className="h-4 w-4" />
+        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
       </button>
-      {isOpen && (
+      {isOpen && !isDeleting && (
         <div
-          className="absolute right-0 top-full z-[50] mt-1 min-w-[140px] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+          className="absolute right-0 top-full z-[100] mt-1 min-w-[140px] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
           role="menu"
         >
           <button
@@ -56,7 +61,7 @@ export function RowActionsMenu({ isOpen, onOpenChange, onEdit, onDelete, classNa
           </button>
           <button
             type="button"
-            className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+            className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
             onClick={() => {
               onOpenChange(false);
               onDelete();

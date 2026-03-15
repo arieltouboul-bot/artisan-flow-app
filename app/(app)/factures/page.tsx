@@ -42,6 +42,7 @@ export default function FacturesPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     let list = expenses;
@@ -164,8 +165,9 @@ export default function FacturesPage() {
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
+      console.error("Export PDF error", err);
       const msg = err instanceof Error ? err.message : String(err);
-      alert("Erreur PDF: " + msg);
+      alert("Erreur lors de la génération du PDF: " + msg);
     } finally {
       setPdfLoading(false);
     }
@@ -184,7 +186,7 @@ export default function FacturesPage() {
         <p className={cn("mt-1 text-gray-500")}>{t("invoicesSubtitle", language)}</p>
       </div>
 
-      <Card className={cn("overflow-hidden transition-shadow hover:shadow-brand-glow")}>
+      <Card className={cn("overflow-visible transition-shadow hover:shadow-brand-glow")}>
         <CardHeader className={cn("flex flex-row flex-wrap items-center justify-between gap-4")}>
           <CardTitle className={cn("flex items-center gap-2")}>
             <FileText className="h-5 w-5 text-brand-blue-500" />
@@ -213,22 +215,24 @@ export default function FacturesPage() {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-            <button
-              type="button"
-              className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50"
-              disabled={filtered.length === 0}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleExportCSV(); }}
-            >
-              {t("exportCSV", language)}
-            </button>
-            <button
-              type="button"
-              className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50"
-              disabled={filtered.length === 0 || pdfLoading}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleExportPDF(); }}
-            >
-              {pdfLoading ? "…" : t("exportPDFForAccountant", language)}
-            </button>
+            <div role="group" aria-label="Exports" onClick={(e) => e.stopPropagation()} className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50"
+                disabled={filtered.length === 0}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleExportCSV(); }}
+              >
+                {t("exportCSV", language)}
+              </button>
+              <button
+                type="button"
+                className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50"
+                disabled={filtered.length === 0 || pdfLoading}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleExportPDF(); }}
+              >
+                {pdfLoading ? "…" : t("exportPDFForAccountant", language)}
+              </button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -240,7 +244,7 @@ export default function FacturesPage() {
           ) : filtered.length === 0 ? (
             <p className={cn("py-12 text-center text-gray-500")}>{t("noInvoices", language)}</p>
           ) : (
-            <div className={cn("overflow-x-auto")}>
+            <div className={cn("overflow-x-auto overflow-y-visible")}>
               <table className={cn("w-full text-sm")}>
                 <thead>
                   <tr className={cn("border-b border-gray-200 text-left text-gray-500")}>
@@ -259,28 +263,30 @@ export default function FacturesPage() {
                     const ttc = e.amount_ht + tvaAmount;
                     const vendor = e.description.split(" — ")[0] || e.description;
                     return (
-                      <tr key={e.id} className={cn("border-b border-gray-100")}>
+                      <tr key={e.id} className={cn("border-b border-gray-100", deletingId === e.id && "opacity-60 pointer-events-none")}>
                         <td className={cn("py-3 pr-2")}>{formatDate(e.date)}</td>
                         <td className={cn("py-3 pr-2 font-medium")}>{vendor}</td>
                         <td className={cn("py-3 pr-2 text-gray-600")}>{e.project_name ?? "—"}</td>
                         <td className={cn("py-3 pr-2")}>{formatConvertedCurrency(e.amount_ht, currency)}</td>
                         <td className={cn("py-3 pr-2")}>{formatConvertedCurrency(tvaAmount, currency)}</td>
                         <td className={cn("py-3 pr-2 font-medium")}>{formatConvertedCurrency(ttc, currency)}</td>
-                        <td className={cn("py-3")}>
+                        <td className={cn("py-3 overflow-visible")}>
                           <RowActionsMenu
                             isOpen={openMenuId === e.id}
                             onOpenChange={(open) => setOpenMenuId(open ? e.id : null)}
                             onEdit={() => openEdit(e.id)}
                             onDelete={async () => {
                               if (!confirm("Supprimer?")) return;
+                              setDeletingId(e.id);
                               const supabase = createClient();
-                              if (!supabase) return;
+                              if (!supabase) { setDeletingId(null); return; }
                               const { data: { user } } = await supabase.auth.getUser();
-                              if (!user) return;
+                              if (!user) { setDeletingId(null); return; }
                               const { error } = await supabase.from("expenses").delete().eq("id", e.id).eq("user_id", user.id);
-                              if (error) alert("Erreur: " + error.message);
+                              if (error) { setDeletingId(null); alert("Erreur: " + error.message); }
                               else location.reload();
                             }}
+                            isDeleting={deletingId === e.id}
                           />
                         </td>
                       </tr>

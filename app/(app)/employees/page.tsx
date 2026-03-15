@@ -17,6 +17,7 @@ import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import { createClient } from "@/lib/supabase/client";
 import { Users, Plus, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 
 export default function EmployeesPage() {
@@ -33,6 +34,7 @@ export default function EmployeesPage() {
   const [editRole, setEditRole] = useState("");
   const [editLoading, setEditLoading] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,10 +52,11 @@ export default function EmployeesPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Supprimer?")) return;
+    setDeletingId(id);
     const supabase = createClient();
-    if (!supabase) return;
+    if (!supabase) { setDeletingId(null); return; }
     const { error } = await supabase.from("employees").delete().eq("id", id);
-    if (error) alert("Erreur: " + error.message);
+    if (error) { setDeletingId(null); alert("Erreur: " + error.message); }
     else location.reload();
   };
 
@@ -82,7 +85,7 @@ export default function EmployeesPage() {
         <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{error}</div>
       )}
 
-      <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
+      <Card className="overflow-visible transition-shadow hover:shadow-brand-glow">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-brand-blue-600" />
@@ -96,7 +99,7 @@ export default function EmployeesPage() {
               <p>Chargement...</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-200 overflow-x-auto overflow-y-visible">
               <AnimatePresence mode="popLayout">
                 {employees.length === 0 ? (
                   <motion.div
@@ -119,7 +122,7 @@ export default function EmployeesPage() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -8 }}
                       transition={{ delay: i * 0.03 }}
-                      className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 hover:bg-gray-50/50"
+                      className={cn("flex flex-wrap items-center justify-between gap-4 px-6 py-4 hover:bg-gray-50/50", deletingId === emp.id && "opacity-60 pointer-events-none")}
                     >
                       <div>
                         <p className="font-semibold text-gray-900">
@@ -127,7 +130,7 @@ export default function EmployeesPage() {
                         </p>
                         <p className="text-sm text-gray-500">{emp.role || "—"}</p>
                       </div>
-                      <div>
+                      <div className="overflow-visible">
                         <RowActionsMenu
                           isOpen={openMenuId === emp.id}
                           onOpenChange={(open) => setOpenMenuId(open ? emp.id : null)}
@@ -138,6 +141,7 @@ export default function EmployeesPage() {
                             setEditRole(emp.role ?? "");
                           }}
                           onDelete={() => handleDelete(emp.id)}
+                          isDeleting={deletingId === emp.id}
                         />
                       </div>
                     </motion.div>

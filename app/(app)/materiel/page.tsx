@@ -64,6 +64,7 @@ export default function MaterielPage() {
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
   const [editSupplier, setEditSupplier] = useState<Supplier | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [scanOpen, setScanOpen] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
@@ -342,7 +343,7 @@ export default function MaterielPage() {
         </TabsList>
 
         <TabsContent value="catalogue" className="space-y-4">
-          <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
+          <Card className="overflow-visible transition-shadow hover:shadow-brand-glow">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
@@ -383,7 +384,7 @@ export default function MaterielPage() {
               ) : items.length === 0 ? (
                 <p className="py-12 text-center text-gray-500">{t("noItems", language)}</p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overflow-y-visible">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-200 text-left text-gray-500">
@@ -398,7 +399,7 @@ export default function MaterielPage() {
                     </thead>
                     <tbody>
                       {items.map((item) => (
-                        <tr key={item.id} className="border-b border-gray-100">
+                        <tr key={item.id} className={cn("border-b border-gray-100", deletingId === `item-${item.id}` && "opacity-60 pointer-events-none")}>
                           <td className="py-3 pr-2 font-medium">{item.name}</td>
                           <td className="py-3 pr-2 text-gray-600">{item.category || "—"}</td>
                           <td className="py-3 pr-2">{formatConvertedCurrency(item.unit_price_ht, currency)}</td>
@@ -407,19 +408,21 @@ export default function MaterielPage() {
                           <td className="py-3 pr-2 text-gray-600">
                             {item.supplier_id ? suppliers.find((s) => s.id === item.supplier_id)?.name ?? "—" : "—"}
                           </td>
-                          <td className="py-3">
+                          <td className="py-3 overflow-visible">
                             <RowActionsMenu
                               isOpen={openMenuId === `item-${item.id}`}
                               onOpenChange={(open) => setOpenMenuId(open ? `item-${item.id}` : null)}
                               onEdit={() => setEditItem(item)}
                               onDelete={async () => {
                                 if (!confirm("Supprimer?")) return;
+                                setDeletingId(`item-${item.id}`);
                                 const supabase = createClient();
-                                if (!supabase) return;
+                                if (!supabase) { setDeletingId(null); return; }
                                 const { error } = await supabase.from("inventory").delete().eq("id", item.id);
-                                if (error) alert("Erreur: " + error.message);
+                                if (error) { setDeletingId(null); alert("Erreur: " + error.message); }
                                 else location.reload();
                               }}
+                              isDeleting={deletingId === `item-${item.id}`}
                             />
                           </td>
                         </tr>
@@ -433,7 +436,7 @@ export default function MaterielPage() {
         </TabsContent>
 
         <TabsContent value="rental" className="space-y-4">
-          <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
+          <Card className="overflow-visible transition-shadow hover:shadow-brand-glow">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-brand-blue-500" />
@@ -450,7 +453,7 @@ export default function MaterielPage() {
         </TabsContent>
 
         <TabsContent value="suppliers" className="space-y-4">
-          <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
+          <Card className="overflow-visible transition-shadow hover:shadow-brand-glow">
             <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
               <div>
                 <CardTitle className="flex items-center gap-2">
@@ -475,7 +478,7 @@ export default function MaterielPage() {
                 </a>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-visible">
               {suppliersError && (
                 <div className={cn("rounded-lg bg-red-50 p-4 text-sm text-red-700 mb-4")}>{suppliersError}</div>
               )}
@@ -487,7 +490,7 @@ export default function MaterielPage() {
               ) : suppliers.length === 0 ? (
                 <p className="py-8 text-center text-gray-500">{t("noSuppliers", language)}</p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overflow-y-visible">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-200 text-left text-gray-500">
@@ -499,23 +502,25 @@ export default function MaterielPage() {
                     </thead>
                     <tbody>
                       {suppliers.map((s) => (
-                        <tr key={s.id} className="border-b border-gray-100">
+                        <tr key={s.id} className={cn("border-b border-gray-100", deletingId === `supplier-${s.id}` && "opacity-60 pointer-events-none")}>
                           <td className="py-3 pr-2 font-medium">{s.name}</td>
                           <td className="py-3 pr-2 text-gray-600">{s.phone || "—"}</td>
                           <td className="py-3 pr-2 text-gray-600 max-w-[200px] truncate">{s.address || "—"}</td>
-                          <td className="py-3">
+                          <td className="py-3 overflow-visible">
                             <RowActionsMenu
                               isOpen={openMenuId === `supplier-${s.id}`}
                               onOpenChange={(open) => setOpenMenuId(open ? `supplier-${s.id}` : null)}
                               onEdit={() => setEditSupplier(s)}
                               onDelete={async () => {
                                 if (!confirm("Supprimer?")) return;
+                                setDeletingId(`supplier-${s.id}`);
                                 const supabase = createClient();
-                                if (!supabase) return;
+                                if (!supabase) { setDeletingId(null); return; }
                                 const { error } = await supabase.from("suppliers").delete().eq("id", s.id);
-                                if (error) alert("Erreur: " + error.message);
+                                if (error) { setDeletingId(null); alert("Erreur: " + error.message); }
                                 else location.reload();
                               }}
+                              isDeleting={deletingId === `supplier-${s.id}`}
                             />
                           </td>
                         </tr>

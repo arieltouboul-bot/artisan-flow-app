@@ -67,6 +67,7 @@ export default function CalendarPage() {
   const [viewMonth, setViewMonth] = useState(now.getMonth());
   const [viewDay, setViewDay] = useState(now.getDate());
   const [addOpen, setAddOpen] = useState(false);
+  const [editAppointmentId, setEditAppointmentId] = useState<string | null>(null);
   const [detailAppointment, setDetailAppointment] = useState<Appointment | null>(null);
 
   const [formTitle, setFormTitle] = useState("");
@@ -100,7 +101,7 @@ export default function CalendarPage() {
     return new Date(viewYear, viewMonth + 1, 0, 23, 59, 59);
   }, [viewMode, viewYear, viewMonth, viewDay]);
 
-  const { appointments, loading, addAppointment, deleteAppointment, refetch } = useAppointments(rangeStart, rangeEnd);
+  const { appointments, loading, addAppointment, updateAppointment, deleteAppointment, refetch } = useAppointments(rangeStart, rangeEnd);
 
   const days = useMemo(() => getDaysInMonth(viewYear, viewMonth), [viewYear, viewMonth]);
   const weekStart = useMemo(() => getWeekStart(new Date(viewYear, viewMonth, viewDay)), [viewYear, viewMonth, viewDay]);
@@ -192,25 +193,42 @@ export default function CalendarPage() {
       return;
     }
     setFormSaving(true);
-    const { error } = await addAppointment({
-      title: formTitle.trim(),
-      project_id: formProjectId || null,
-      start_at: startAt.toISOString(),
-      end_at: endAt.toISOString(),
-      type: formType,
-    });
-    setFormSaving(false);
-    if (error) {
-      setFormError(error);
-      return;
+    if (editAppointmentId) {
+      const { error } = await updateAppointment(editAppointmentId, {
+        title: formTitle.trim(),
+        project_id: formProjectId || null,
+        start_at: startAt.toISOString(),
+        end_at: endAt.toISOString(),
+        type: formType,
+      });
+      setFormSaving(false);
+      if (error) {
+        setFormError(error);
+        return;
+      }
+      setAddOpen(false);
+      setEditAppointmentId(null);
+    } else {
+      const { error } = await addAppointment({
+        title: formTitle.trim(),
+        project_id: formProjectId || null,
+        start_at: startAt.toISOString(),
+        end_at: endAt.toISOString(),
+        type: formType,
+      });
+      setFormSaving(false);
+      if (error) {
+        setFormError(error);
+        return;
+      }
+      setAddOpen(false);
+      setFormTitle("");
+      setFormProjectId("");
+      setFormDate(toDateString(now));
+      setFormStartTime("09:00");
+      setFormEndTime("10:00");
+      setFormType("chantier");
     }
-    setAddOpen(false);
-    setFormTitle("");
-    setFormProjectId("");
-    setFormDate(toDateString(now));
-    setFormStartTime("09:00");
-    setFormEndTime("10:00");
-    setFormType("chantier");
     refetch();
   };
 
@@ -463,7 +481,7 @@ export default function CalendarPage() {
       </Card>
 
       {/* Modal Ajouter un rendez-vous */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) setEditAppointmentId(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -585,13 +603,32 @@ export default function CalendarPage() {
               Fermer
             </Button>
             {detailAppointment && (
-              <Button
-                variant="destructive"
-                onClick={() => handleDeleteAppointment(detailAppointment.id)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Supprimer
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const a = detailAppointment;
+                    setFormTitle(a.title);
+                    setFormProjectId(a.project_id ?? "");
+                    setFormDate(toDateString(new Date(a.start_at)));
+                    setFormStartTime(toTimeString(new Date(a.start_at)));
+                    setFormEndTime(toTimeString(new Date(a.end_at)));
+                    setFormType(a.type);
+                    setEditAppointmentId(a.id);
+                    setDetailAppointment(null);
+                    setAddOpen(true);
+                  }}
+                >
+                  Modifier
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => handleDeleteAppointment(detailAppointment.id)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Supprimer
+                </Button>
+              </>
             )}
           </DialogFooter>
         </DialogContent>

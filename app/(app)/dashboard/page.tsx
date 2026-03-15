@@ -27,7 +27,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import { projectRestantDu } from "@/types/database";
-import { TrendingUp, AlertCircle, Euro, Percent, FolderKanban, ArrowRight, X, Search, Bell, CheckSquare, Square, Trash2, Plus, CalendarClock, MapPin } from "lucide-react";
+import { TrendingUp, AlertCircle, Euro, Percent, FolderKanban, ArrowRight, X, Search, Bell, CheckSquare, Square, Trash2, Plus, CalendarClock, MapPin, Loader2 } from "lucide-react";
 import { formatTime } from "@/lib/utils";
 import {
   Dialog,
@@ -359,7 +359,7 @@ export default function DashboardPage() {
       </motion.div>
 
       <motion.div variants={item}>
-        <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
+        <Card className="overflow-visible transition-shadow hover:shadow-brand-glow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-brand-blue-500" />
@@ -430,7 +430,7 @@ export default function DashboardPage() {
       </motion.div>
 
       <motion.div variants={item}>
-        <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
+        <Card className="overflow-visible transition-shadow hover:shadow-brand-glow">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CalendarClock className="h-5 w-5 text-brand-blue-500" />
@@ -547,7 +547,7 @@ export default function DashboardPage() {
             exit={{ opacity: 0 }}
             className="space-y-2"
           >
-            <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
+            <Card className="overflow-visible transition-shadow hover:shadow-brand-glow">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <FolderKanban className="h-5 w-5 text-brand-blue-500" />
