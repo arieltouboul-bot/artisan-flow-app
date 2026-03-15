@@ -24,6 +24,7 @@ import {
   Download,
   ImageIcon,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import type { Currency } from "@/lib/utils";
 import { generateFacturesPDF } from "@/lib/factures-pdf";
@@ -32,7 +33,7 @@ export default function FacturesPage() {
   const { language } = useLanguage();
   const { displayCurrency, profile } = useProfile();
   const currency = displayCurrency;
-  const { expenses, loading, refetch, updateExpense } = useAllExpenses();
+  const { expenses, loading, refetch, updateExpense, deleteExpense } = useAllExpenses();
   const { projects } = useProjects();
 
   const [filterProjectId, setFilterProjectId] = useState<string>("");
@@ -90,6 +91,7 @@ export default function FacturesPage() {
   };
 
   const handleExportCSV = () => {
+    console.log("CLIC CSV");
     const headerRow = [
       t("invoiceDateCol", language),
       t("invoiceVendorCol", language),
@@ -113,19 +115,18 @@ export default function FacturesPage() {
       ]);
     }
     const csvContent = "\uFEFF" + rows.map((r) => r.join(";")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a") as HTMLAnchorElement;
-    link.href = url;
-    link.download = `export_factures_${new Date().toISOString().slice(0, 10)}.csv`;
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+    const uri = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
+    const a = document.createElement("a");
+    a.href = uri;
+    a.download = `export_factures_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   const handleExportPDF = async () => {
+    console.log("CLIC PDF");
     if (filtered.length === 0) return;
     setPdfLoading(true);
     try {
@@ -157,13 +158,13 @@ export default function FacturesPage() {
         logoUrl: profile?.logo_url ?? null,
       });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a") as HTMLAnchorElement;
-      link.href = url;
-      link.download = `factures_comptable_${new Date().toISOString().slice(0, 10)}.pdf`;
-      link.style.display = "none";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `factures_comptable_${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       window.URL.revokeObjectURL(url);
     } finally {
       setPdfLoading(false);
@@ -212,11 +213,11 @@ export default function FacturesPage() {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-            <Button variant="outline" size="sm" onClick={handleExportCSV} className={cn("min-h-[44px]")} disabled={filtered.length === 0}>
+            <Button type="button" variant="outline" size="sm" onClick={handleExportCSV} className={cn("min-h-[44px] relative z-50")} disabled={filtered.length === 0}>
               <Download className="h-4 w-4 mr-2" />
               {t("exportCSV", language)}
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExportPDF} className={cn("min-h-[44px]")} disabled={filtered.length === 0 || pdfLoading}>
+            <Button type="button" variant="outline" size="sm" onClick={handleExportPDF} className={cn("min-h-[44px] relative z-50")} disabled={filtered.length === 0 || pdfLoading}>
               {pdfLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
               {t("exportPDFForAccountant", language)}
             </Button>
@@ -259,16 +260,7 @@ export default function FacturesPage() {
                         <td className={cn("py-3 pr-2 font-medium")}>{formatConvertedCurrency(ttc, currency)}</td>
                         <td className={cn("py-3 flex gap-1")}>
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className={cn("h-8 w-8 text-gray-500")}
-                            title={t("imageNotAvailable", language)}
-                            disabled
-                            aria-label={t("openInvoiceImage", language)}
-                          >
-                            <ImageIcon className="h-4 w-4" />
-                          </Button>
-                          <Button
+                            type="button"
                             variant="ghost"
                             size="icon"
                             className={cn("h-8 w-8 text-brand-blue-600")}
@@ -276,6 +268,20 @@ export default function FacturesPage() {
                             aria-label={t("editAmounts", language)}
                           >
                             <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={cn("h-8 w-8 text-red-600 hover:bg-red-50")}
+                            onClick={async () => {
+                              const msg = language === "fr" ? "Supprimer cette facture / dépense ?" : "Delete this invoice / expense?";
+                              if (!window.confirm(msg)) return;
+                              await deleteExpense(e.id);
+                            }}
+                            aria-label={t("delete", language)}
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </td>
                       </tr>

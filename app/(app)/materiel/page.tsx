@@ -60,7 +60,6 @@ export default function MaterielPage() {
   const [extractLoading, setExtractLoading] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
 
-  const [deleteSupplierId, setDeleteSupplierId] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
   const [editSupplier, setEditSupplier] = useState<Supplier | null>(null);
 
@@ -160,7 +159,7 @@ export default function MaterielPage() {
     setScanItemsText(result.items.join("\n"));
   };
 
-  /** Grayscale + binarization (contrast) for better Tesseract accuracy. */
+  /** Prétraitement CamScanner : grayscale + binarisation (noir et blanc pur) pour maximiser la précision OCR. */
   const imageFileToProcessedBlob = (file: File): Promise<Blob> => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -199,6 +198,7 @@ export default function MaterielPage() {
     });
   };
 
+  /** Auto-scan : déclenché directement par l'onChange de l'input photo/fichier. Langue : FR -> fra+eng, HE -> heb+eng (pas de mélange). */
   const onScanFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -212,7 +212,8 @@ export default function MaterielPage() {
     try {
       const processedBlob = await imageFileToProcessedBlob(file);
       const Tesseract = (await import("tesseract.js")).default;
-      const tesseractLang = (language as string).startsWith("he") ? "heb+eng" : (language as string).startsWith("fr") ? "fra+eng" : "eng";
+      const lang = (language as string).toLowerCase();
+      const tesseractLang = lang.startsWith("he") ? "heb+eng" : lang.startsWith("fr") ? "fra+eng" : "eng";
       const { data } = await Tesseract.recognize(processedBlob, tesseractLang);
       const parsed = parseInvoiceText(data.text);
       const result: ScanInvoiceResult = {
@@ -415,10 +416,15 @@ export default function MaterielPage() {
                               <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
+                              type="button"
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-red-600 hover:bg-red-50"
-                              onClick={() => deleteItem(item.id)}
+                              onClick={async () => {
+                                const msg = language === "fr" ? "Supprimer cet article du catalogue ?" : "Delete this item from the catalogue?";
+                                if (!window.confirm(msg)) return;
+                                await deleteItem(item.id);
+                              }}
                               aria-label={t("delete", language)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -516,10 +522,16 @@ export default function MaterielPage() {
                               <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
+                              type="button"
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-red-600 hover:bg-red-50"
-                              onClick={() => setDeleteSupplierId(s.id)}
+                              onClick={async () => {
+                                const msg = language === "fr" ? "Supprimer ce fournisseur de votre liste ?" : "Remove this supplier from your list?";
+                                if (!window.confirm(msg)) return;
+                                await deleteSupplier(s.id);
+                                refetchSuppliers();
+                              }}
                               aria-label={t("deleteSupplier", language)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -750,32 +762,6 @@ export default function MaterielPage() {
               </DialogFooter>
             </form>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete supplier confirm */}
-      <Dialog open={!!deleteSupplierId} onOpenChange={(open) => !open && setDeleteSupplierId(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("deleteSupplier", language)}</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-gray-600">
-            {language === "fr" ? "Supprimer ce fournisseur de votre liste ?" : "Remove this supplier from your list?"}
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteSupplierId(null)}>{t("cancel", language)}</Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                if (deleteSupplierId) {
-                  await deleteSupplier(deleteSupplierId);
-                  setDeleteSupplierId(null);
-                }
-              }}
-            >
-              {t("deleteSupplier", language)}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

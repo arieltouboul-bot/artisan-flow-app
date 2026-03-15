@@ -19,13 +19,12 @@ import { Users, Plus, Trash2, Pencil, Loader2 } from "lucide-react";
 
 export default function EmployeesPage() {
   const { language } = useLanguage();
-  const { employees, loading, error, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
+  const { employees, loading, error, addEmployee, updateEmployee, deleteEmployee, refetch } = useEmployees();
   const [addOpen, setAddOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [role, setRole] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editFirstName, setEditFirstName] = useState("");
@@ -48,10 +47,12 @@ export default function EmployeesPage() {
   };
 
   const handleDelete = async (id: string) => {
+    const msg = language === "fr" ? "Supprimer cet employé ? Il sera retiré de tous les chantiers." : "Delete this employee? They will be removed from all projects.";
+    if (!window.confirm(msg)) return;
     setDeleteLoading(true);
-    await deleteEmployee(id);
+    const result = await deleteEmployee(id);
     setDeleteLoading(false);
-    setDeleteId(null);
+    if (!result.error) await refetch();
   };
 
   return (
@@ -245,26 +246,6 @@ export default function EmployeesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{language === "fr" ? "Supprimer cet employé ?" : "Delete this employee?"}</DialogTitle>
-            <p className="text-sm text-gray-500">
-              {language === "fr" ? "Il sera retiré de tous les chantiers auxquels il est assigné." : "They will be removed from all projects they are assigned to."}
-            </p>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteId(null)} disabled={deleteLoading}>{t("cancel", language)}</Button>
-            <Button
-              variant="destructive"
-              onClick={() => deleteId && handleDelete(deleteId)}
-              disabled={deleteLoading}
-            >
-              {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("delete", language)}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </motion.div>
   );
 }

@@ -64,7 +64,6 @@ export default function ClientsPage() {
   const [formCollected, setFormCollected] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -150,6 +149,8 @@ export default function ClientsPage() {
   };
 
   const handleDelete = async (id: string) => {
+    const msg = language === "fr" ? "Supprimer ce client ? Cette action est irréversible." : "Delete this client? This action cannot be undone.";
+    if (!window.confirm(msg)) return;
     const supabase = createClient();
     if (!supabase) return;
     setDeleteLoading(true);
@@ -159,8 +160,7 @@ export default function ClientsPage() {
       setSubmitError(deleteError.message);
       return;
     }
-    setDeleteId(null);
-    refetch();
+    await refetch();
   };
 
   const margeBruteForm = (() => {
@@ -470,27 +470,6 @@ export default function ClientsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Confirmer suppression */}
-      <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{language === "fr" ? "Supprimer ce client ?" : "Delete this client?"}</DialogTitle>
-            <p className="text-sm text-gray-500">
-              {language === "fr" ? "Cette action est irréversible. Toutes les données du client seront supprimées." : "This action cannot be undone. All client data will be deleted."}
-            </p>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteId(null)} disabled={deleteLoading}>{t("cancel", language)}</Button>
-            <Button
-              variant="destructive"
-              onClick={() => deleteId && handleDelete(deleteId)}
-              disabled={deleteLoading}
-            >
-              {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-2" /> {t("delete", language)}</>}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </motion.div>
   );
 }

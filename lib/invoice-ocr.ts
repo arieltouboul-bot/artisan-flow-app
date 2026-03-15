@@ -2,6 +2,7 @@
  * Local invoice OCR: regex parsing of raw text (from Tesseract or other OCR).
  * Used client-side after Tesseract.js extracts text from image.
  * 100% gratuit, aucune API externe.
+ * Note: L'image doit être prétraitée (binarisation noir/blanc) avant Tesseract pour une meilleure précision.
  */
 
 export type InvoiceCurrency = "EUR" | "USD" | "ILS" | "GBP";

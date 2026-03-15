@@ -48,7 +48,6 @@ function ProjetsContent() {
   const { language } = useLanguage();
   const [filter, setFilter] = useState<ProjetFilter>("all");
   const [search, setSearch] = useState("");
-  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const { displayCurrency } = useProfile();
@@ -76,23 +75,26 @@ function ProjetsContent() {
     return list;
   }, [projects, filter, search]);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string): Promise<boolean> => {
     const supabase = createClient();
-    if (!supabase) return;
+    if (!supabase) return false;
     setDeleteLoading(true);
     try {
-      await supabase.from("project_tasks").delete().eq("project_id", id);
-    } catch {
-      // Ignore: table may not exist or RLS may block; project delete can still succeed
-    }
-    const { error: delError } = await supabase.from("projects").delete().eq("id", id);
-    setDeleteLoading(false);
-    if (!delError) {
-      setDeleteId(null);
+      try {
+        await supabase.from("project_tasks").delete().eq("project_id", id);
+      } catch {
+        // Ignore: table may not exist or RLS may block
+      }
+      const { error: delError } = await supabase.from("projects").delete().eq("id", id);
+      if (delError) {
+        setDeleteError(delError.message);
+        return false;
+      }
       setDeleteError(null);
-      refetch();
-    } else {
-      setDeleteError(delError.message);
+      await refetch();
+      return true;
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -229,10 +231,16 @@ function ProjetsContent() {
                           </Button>
                         </Link>
                         <Button
+                          type="button"
                           variant="ghost"
                           size="icon"
                           className="min-h-[44px] min-w-[44px] text-red-600 hover:bg-red-50"
-                          onClick={(e) => { e.preventDefault(); setDeleteId(project.id); }}
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            const msg = language === "fr" ? "Supprimer ce projet ? Les tâches seront aussi supprimées." : "Delete this project? Tasks will also be deleted.";
+                            if (!window.confirm(msg)) return;
+                            await handleDelete(project.id);
+                          }}
                           aria-label={t("delete", language)}
                         >
                           <Trash2 className="h-5 w-5" />
@@ -248,26 +256,6 @@ function ProjetsContent() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{language === "fr" ? "Supprimer ce projet ?" : "Delete this project?"}</DialogTitle>
-            <p className="text-sm text-gray-500">
-              {language === "fr" ? "Les tâches du projet seront aussi supprimées. Cette action est irréversible." : "Project tasks will also be deleted. This action cannot be undone."}
-            </p>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteId(null)} disabled={deleteLoading}>{t("cancel", language)}</Button>
-            <Button
-              variant="destructive"
-              onClick={() => deleteId && handleDelete(deleteId)}
-              disabled={deleteLoading}
-            >
-              {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4 mr-2" /> {t("delete", language)}</>}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </motion.div>
   );
 }

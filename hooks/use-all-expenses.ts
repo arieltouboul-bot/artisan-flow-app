@@ -82,5 +82,19 @@ export function useAllExpenses() {
     [fetchExpenses]
   );
 
-  return { expenses, loading, refetch: fetchExpenses, updateExpense };
+  const deleteExpense = useCallback(
+    async (id: string) => {
+      const supabase = createClient();
+      if (!supabase) return { error: "Supabase non configuré" };
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { error: "Non connecté" };
+      const { error: delError } = await supabase.from("expenses").delete().eq("id", id).eq("user_id", user.id);
+      if (delError) return { error: delError.message };
+      await fetchExpenses();
+      return {};
+    },
+    [fetchExpenses]
+  );
+
+  return { expenses, loading, refetch: fetchExpenses, updateExpense, deleteExpense };
 }
