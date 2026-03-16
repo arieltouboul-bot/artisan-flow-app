@@ -30,37 +30,27 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
   const pageHeight = doc.internal.pageSize.getHeight();
   let y = 20;
 
-  // Company name
-  if (opts.companyName && opts.companyName.trim()) {
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text(opts.companyName.trim(), 14, y);
-    y += 10;
-  }
+  // En-tête principal
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("Récapitulatif des Dépenses", 14, y);
+  y += 8;
 
-  // Optional logo (right-aligned)
-  if (opts.logoUrl && opts.logoUrl.trim()) {
-    try {
-      const img = await loadImageAsDataUrl(opts.logoUrl);
-      if (img) {
-        const logoW = 25;
-        const logoH = 12;
-        doc.addImage(img, "JPEG", pageWidth - 14 - logoW, 14, logoW, logoH);
-      }
-    } catch {
-      // ignore logo load failure
-    }
-  }
-
+  // Sous-titre avec date du jour
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text("Liste des factures — Document pour le comptable", 14, y);
-  y += 6;
-  doc.setFontSize(8);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Généré le ${new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`, 14, y);
+  doc.setTextColor(80, 80, 80);
+  doc.text(
+    `Généré le ${new Date().toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })}`,
+    14,
+    y
+  );
   doc.setTextColor(0, 0, 0);
-  y += 14;
+  y += 10;
 
   const tableData = opts.rows.map((r) => [
     r.date,

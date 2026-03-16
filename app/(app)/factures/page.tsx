@@ -196,18 +196,26 @@ export default function FacturesPage() {
       alert("Utilisateur non connecté, impossible d'importer la facture.");
       return;
     }
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(user.id)) {
+      console.error("Import facture - user id invalide:", user.id);
+      alert("Identifiant utilisateur invalide, impossible d'importer la facture.");
+      return;
+    }
 
     const today = new Date().toISOString().slice(0, 10);
-    const projectIdValue = filterProjectId || "";
-    const { error } = await supabase.from("expenses").insert({
-      project_id: projectIdValue,
+    const payload: Record<string, unknown> = {
       user_id: user.id,
       description: file.name,
       amount_ht: 0,
       tva_rate: 20,
       category: "achat_materiel",
       date: today,
-    });
+    };
+    if (filterProjectId) {
+      payload.project_id = filterProjectId;
+    }
+    const { error } = await supabase.from("expenses").insert(payload);
 
     if (error) {
       alert("Erreur lors de l'enregistrement de la facture : " + error.message);
