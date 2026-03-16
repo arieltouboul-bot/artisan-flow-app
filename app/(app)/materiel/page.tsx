@@ -25,7 +25,7 @@ import { Package, Plus, Loader2, Truck, Calendar, ExternalLink, Sparkles, Scan, 
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import type { InventoryItem } from "@/hooks/use-inventory";
 import type { Supplier } from "@/hooks/use-suppliers";
-import { parseInvoiceText, type ScanInvoiceResult } from "@/lib/invoice-ocr";
+import { parseInvoiceText, imageFileToBinarizedBlob, type ScanInvoiceResult } from "@/lib/invoice-ocr";
 
 const VAT_OPTIONS = [0, 5.5, 10, 20];
 const GOOGLE_MAPS_SEARCH_URL = "https://www.google.com/maps/search/magasin+de+bricolage+materiaux+hardware+store/";
@@ -162,45 +162,6 @@ export default function MaterielPage() {
     setScanItemsText(result.items.join("\n"));
   };
 
-  /** Prétraitement CamScanner : grayscale + binarisation (noir et blanc pur) pour maximiser la précision OCR. */
-  const imageFileToProcessedBlob = (file: File): Promise<Blob> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          resolve(file);
-          return;
-        }
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        const threshold = 128;
-        for (let i = 0; i < data.length; i += 4) {
-          const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-          const bin = gray >= threshold ? 255 : 0;
-          data[i] = data[i + 1] = data[i + 2] = bin;
-        }
-        ctx.putImageData(imageData, 0, 0);
-        canvas.toBlob(
-          (blob) => (blob ? resolve(blob) : resolve(file)),
-          "image/jpeg",
-          0.92
-        );
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        resolve(file);
-      };
-      img.src = url;
-    });
-  };
-
   /** Auto-scan : déclenché directement par l'onChange de l'input photo/fichier. Langue : FR -> fra+eng, HE -> heb+eng (pas de mélange). */
   const onScanFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -213,7 +174,7 @@ export default function MaterielPage() {
     setScanResult(null);
     setScanLoading(true);
     try {
-      const processedBlob = await imageFileToProcessedBlob(file);
+      const processedBlob = await imageFileToBinarizedBlob(file);
       const Tesseract = (await import("tesseract.js")).default;
       const lang = (language as string).toLowerCase();
       const tesseractLang = lang.startsWith("he") ? "heb+eng" : lang.startsWith("fr") ? "fra+eng" : "eng";

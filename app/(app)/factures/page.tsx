@@ -24,11 +24,14 @@ import type { Currency } from "@/lib/utils";
 import { generateFacturesPDF } from "@/lib/factures-pdf";
 import { createClient } from "@/lib/supabase/client";
 
+const INVOICE_BUCKET = "factures";
+
 export default function FacturesPage() {
   const { language } = useLanguage();
   const { displayCurrency, profile } = useProfile();
   const currency = displayCurrency;
   const { expenses, loading, refetch, updateExpense } = useAllExpenses();
+  type ExpenseRow = typeof expenses[number];
   const { projects } = useProjects();
 
   const [filterProjectId, setFilterProjectId] = useState<string>("");
@@ -43,13 +46,22 @@ export default function FacturesPage() {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [addPhotoOpen, setAddPhotoOpen] = useState(false);
+  const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
+  const [formDate, setFormDate] = useState("");
+  const [formVendor, setFormVendor] = useState("");
+  const [formTtc, setFormTtc] = useState("");
+  const [formSaving, setFormSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fullscreenImageUrl, setFullscreenImageUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const filtered = useMemo(() => {
     let list = expenses;
     if (filterProjectId) list = list.filter((e) => e.project_id === filterProjectId);
     if (filterCurrency) list = list.filter(() => true);
-    return list;
+    return [...list].sort((a, b) => b.date.localeCompare(a.date));
   }, [expenses, filterProjectId, filterCurrency]);
 
   const openEdit = (id: string) => {
@@ -133,25 +145,29 @@ export default function FacturesPage() {
     setPdfLoading(true);
     try {
       const rows = filtered.map((e) => {
-        const tvaAmount = e.amount_ht * (e.tva_rate / 100);
-        const ttc = e.amount_ht + tvaAmount;
+        let amountHt = Number(e.amount_ht) || 0;
+        let tvaAmount = amountHt * (Number(e.tva_rate) || 20) / 100;
+        let ttc = amountHt + tvaAmount;
+        const amountTtcFromDb = Number((e as ExpenseRow).amount_ttc);
+        if (amountHt <= 0 && amountTtcFromDb > 0) {
+          ttc = amountTtcFromDb;
+          amountHt = Math.round((ttc / 1.2) * 100) / 100;
+          tvaAmount = Math.round((ttc - amountHt) * 100) / 100;
+        }
         const vendor = (e.description.split(" — ")[0] || e.description).trim();
         return {
           date: e.date,
           vendor,
-          projectName: e.project_name ?? "Général",
-          amountHt: e.amount_ht,
+          amountHt,
           tvaAmount,
           ttc,
+          image_url: (e as ExpenseRow).image_url ?? null,
         };
       });
       console.log("Données envoyées au PDF:", rows);
       const headers = {
         date: t("invoiceDateCol", language),
         vendor: t("invoiceVendorCol", language),
-        project: t("invoiceProjectCol", language),
-        amountHt: t("invoiceAmountHtCol", language),
-        tva: t("invoiceTvaCol", language),
         amountTtc: t("invoiceAmountTtcCol", language),
       };
       const blob = await generateFacturesPDF({
@@ -178,52 +194,89 @@ export default function FacturesPage() {
     }
   };
 
+  const today = new Date().toISOString().slice(0, 10);
+
   const handleImportExpense = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      alert("Veuillez sélectionner une image (photo de facture).");
+      return;
+    }
 
     const supabase = createClient();
     if (!supabase) {
       alert("Connexion à la base de données indisponible (Supabase).");
       return;
     }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
     const user = userData?.user ?? null;
-    console.log("Import facture - user id:", user?.id, "authError:", userError);
     if (!user) {
-      alert("Utilisateur non connecté, impossible d'importer la facture.");
-      return;
-    }
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(user.id)) {
-      console.error("Import facture - user id invalide:", user.id);
-      alert("Identifiant utilisateur invalide, impossible d'importer la facture.");
+      alert("Utilisateur non connecté.");
       return;
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    setImporting(true);
+    const path = `${user.id}/invoices/${crypto.randomUUID()}.jpg`;
+    const { error: uploadErr } = await supabase.storage.from(INVOICE_BUCKET).upload(path, file, { upsert: false, contentType: file.type });
+    setImporting(false);
+    if (uploadErr) {
+      alert("Erreur lors du stockage de la photo : " + uploadErr.message);
+      return;
+    }
+    const { data: urlData } = supabase.storage.from(INVOICE_BUCKET).getPublicUrl(path);
+    setPendingImageUrl(urlData?.publicUrl ?? null);
+    setFormDate(today);
+    setFormVendor("");
+    setFormTtc("");
+    setFormError(null);
+    setAddPhotoOpen(true);
+  };
+
+  const handleSubmitPhotoForm = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (!pendingImageUrl) return;
+    const vendor = formVendor.trim();
+    if (!vendor) {
+      setFormError("Indiquez le fournisseur.");
+      return;
+    }
+    const ttc = parseFloat(formTtc.replace(",", "."));
+    if (Number.isNaN(ttc) || ttc < 0) {
+      setFormError("Montant TTC invalide.");
+      return;
+    }
+    const amountHt = Math.round((ttc / 1.2) * 100) / 100;
+    const supabase = createClient();
+    if (!supabase) return;
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user ?? null;
+    if (!user) return;
+
+    setFormSaving(true);
+    setFormError(null);
     const payload: Record<string, unknown> = {
       user_id: user.id,
-      description: file.name,
-      amount_ht: 0,
+      description: vendor,
+      amount_ht: amountHt,
       tva_rate: 20,
       category: "achat_materiel",
-      date: today,
+      date: formDate || today,
+      image_url: pendingImageUrl,
+      project_id: filterProjectId || null,
     };
-    if (filterProjectId) {
-      payload.project_id = filterProjectId;
-    }
     const { error } = await supabase.from("expenses").insert(payload);
-
+    setFormSaving(false);
     if (error) {
-      alert("Erreur lors de l'enregistrement de la facture : " + error.message);
+      setFormError(error.message);
       return;
     }
-
+    setAddPhotoOpen(false);
+    setPendingImageUrl(null);
+    setFormVendor("");
+    setFormTtc("");
     await refetch();
-    alert("Facture importée avec succès.");
   };
 
   return (
@@ -285,13 +338,13 @@ export default function FacturesPage() {
                   fileInputRef.current?.click();
                 }}
               >
-                Importer une facture
+                {importing ? "Import…" : "Importer une facture"}
               </button>
               <button
                 type="button"
                 className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50"
                 style={{ zIndex: 9999 }}
-                disabled={filtered.length === 0 || pdfLoading}
+                disabled={filtered.length === 0 || pdfLoading || importing}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -304,7 +357,7 @@ export default function FacturesPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*,application/pdf"
+              accept="image/*"
               className="hidden"
               onChange={handleImportExpense}
             />
@@ -323,6 +376,7 @@ export default function FacturesPage() {
               <table className={cn("w-full text-sm")}>
                 <thead>
                   <tr className={cn("border-b border-gray-200 text-left text-gray-500")}>
+                    <th className={cn("w-14 pb-2 pr-2")} aria-label="Photo" />
                     <th className={cn("pb-2 pr-2")}>{t("invoiceDateCol", language)}</th>
                     <th className={cn("pb-2 pr-2")}>{t("invoiceVendorCol", language)}</th>
                     <th className={cn("pb-2 pr-2")}>{t("invoiceProjectCol", language)}</th>
@@ -339,6 +393,24 @@ export default function FacturesPage() {
                     const vendor = e.description.split(" — ")[0] || e.description;
                     return (
                       <tr key={e.id} className={cn("border-b border-gray-100", deletingId === e.id && "opacity-60 pointer-events-none")}>
+                        <td className={cn("py-2 pr-2 align-middle")}>
+                          {(e as ExpenseRow).image_url ? (
+                            <button
+                              type="button"
+                              onClick={(ev) => {
+                                ev.preventDefault();
+                                ev.stopPropagation();
+                                setFullscreenImageUrl((e as ExpenseRow).image_url!);
+                              }}
+                              className="block w-10 h-10 rounded border border-gray-200 overflow-hidden bg-gray-100 hover:ring-2 hover:ring-brand-blue-400 focus:outline-none focus:ring-2 focus:ring-brand-blue-500"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={(e as ExpenseRow).image_url!} alt="" className="w-full h-full object-cover" />
+                            </button>
+                          ) : (
+                            <span className="block w-10 h-10 rounded border border-gray-100 bg-gray-50 flex items-center justify-center text-gray-300 text-xs">—</span>
+                          )}
+                        </td>
                         <td className={cn("py-3 pr-2")}>{formatDate(e.date)}</td>
                         <td className={cn("py-3 pr-2 font-medium")}>{vendor}</td>
                         <td className={cn("py-3 pr-2 text-gray-600")}>{e.project_name ?? "—"}</td>
@@ -373,6 +445,54 @@ export default function FacturesPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={addPhotoOpen} onOpenChange={(open) => { if (!open) { setAddPhotoOpen(false); setPendingImageUrl(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nouvelle facture — Saisie manuelle</DialogTitle>
+            <p className="text-sm text-gray-500">La photo a été enregistrée. Renseignez les informations ci-dessous.</p>
+          </DialogHeader>
+          <form onSubmit={handleSubmitPhotoForm} className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Date</label>
+              <Input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="min-h-[44px]" required />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Fournisseur</label>
+              <Input value={formVendor} onChange={(e) => setFormVendor(e.target.value)} placeholder="Nom du fournisseur" className="min-h-[44px]" required />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">Montant TTC (€)</label>
+              <Input type="number" step="0.01" min="0" value={formTtc} onChange={(e) => setFormTtc(e.target.value)} placeholder="0,00" className="min-h-[44px]" required />
+            </div>
+            {formError && <p className="text-sm text-red-600">{formError}</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => { setAddPhotoOpen(false); setPendingImageUrl(null); }} disabled={formSaving}>Annuler</Button>
+              <Button type="submit" disabled={formSaving}>{formSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!fullscreenImageUrl} onOpenChange={(open) => !open && setFullscreenImageUrl(null)}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] w-fit p-2 bg-black/95 border-gray-700">
+          {fullscreenImageUrl && (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={fullscreenImageUrl} alt="Facture" className="max-h-[90vh] w-auto object-contain" />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="absolute top-2 right-2"
+                onClick={() => setFullscreenImageUrl(null)}
+              >
+                Fermer
+              </Button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!editId} onOpenChange={(open) => !open && setEditId(null)}>
         <DialogContent className={cn("max-w-md")}>

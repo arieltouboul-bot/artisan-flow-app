@@ -21,6 +21,8 @@ function mapRow(row: Record<string, unknown>): ExpenseWithProject {
     date: row.date as string,
     created_at: row.created_at as string | undefined,
     project_name: project ? (project.name as string) : null,
+    image_url: (row.image_url as string | null) ?? null,
+    amount_ttc: row.amount_ttc != null ? Number(row.amount_ttc) : undefined,
   };
 }
 
@@ -44,7 +46,7 @@ export function useAllExpenses() {
     setLoading(true);
     const { data, error } = await supabase
       .from("expenses")
-      .select("id, project_id, user_id, description, amount_ht, tva_rate, category, date, created_at, projects(name)")
+      .select("id, project_id, user_id, description, amount_ht, tva_rate, category, date, created_at, image_url, amount_ttc, projects(name)")
       .eq("user_id", user.id)
       .order("date", { ascending: false });
     if (error) {

@@ -8,15 +8,17 @@ import autoTable from "jspdf-autotable";
 export interface FacturesPDFRow {
   date: string;
   vendor: string;
-  projectName: string;
   amountHt: number;
   tvaAmount: number;
   ttc: number;
+  /** URL de la photo de la facture (annexe en fin de PDF) */
+  image_url?: string | null;
 }
 
 export interface FacturesPDFOptions {
   rows: FacturesPDFRow[];
-  headers: { date: string; vendor: string; project: string; amountHt: string; tva: string; amountTtc: string };
+  /** Spécial Comptable : tableau 3 colonnes Date, Fournisseur, TTC */
+  headers: { date: string; vendor: string; amountTtc: string };
   companyName: string | null;
   logoUrl: string | null;
 }
@@ -55,47 +57,68 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
   const tableData = opts.rows.map((r) => [
     r.date,
     r.vendor,
-    r.projectName || "Général",
-    fmt(r.amountHt),
-    fmt(r.tvaAmount),
-    fmt(r.ttc),
+    fmt(Number(r.ttc)),
   ]);
 
-  // Ligne de total TTC
-  const totalTtc = opts.rows.reduce((sum, r) => sum + (r.ttc || 0), 0);
-  tableData.push([
-    "",
-    "TOTAL",
-    "",
-    "",
-    "",
-    fmt(totalTtc),
-  ]);
+  const totalTtc = opts.rows.reduce((sum, r) => sum + Number(r.ttc || 0), 0);
+  tableData.push(["", "TOTAL GÉNÉRAL", fmt(totalTtc)]);
 
-  const availableWidth = pageWidth - 28; // 14 de marge de chaque côté
+  const availableWidth = pageWidth - 28;
   const colWidths = {
-    0: { cellWidth: availableWidth * 0.16 }, // Date
-    1: { cellWidth: availableWidth * 0.28 }, // Fournisseur
-    2: { cellWidth: availableWidth * 0.18 }, // Projet
-    3: { cellWidth: availableWidth * 0.13 }, // HT
-    4: { cellWidth: availableWidth * 0.12 }, // TVA
-    5: { cellWidth: availableWidth * 0.13 }, // TTC
+    0: { cellWidth: availableWidth * 0.22 },
+    1: { cellWidth: availableWidth * 0.56 },
+    2: { cellWidth: availableWidth * 0.22 },
   };
 
   autoTable(doc, {
     startY: y,
-    head: [[opts.headers.date, opts.headers.vendor, opts.headers.project, opts.headers.amountHt, opts.headers.tva, opts.headers.amountTtc]],
+    head: [[opts.headers.date, opts.headers.vendor, opts.headers.amountTtc]],
     body: tableData,
     theme: "grid",
     headStyles: { fillColor: [0, 102, 255], fontStyle: "bold", fontSize: 8 },
     bodyStyles: { fontSize: 8 },
     columnStyles: colWidths,
     margin: { left: 14 },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.row.index === tableData.length - 1) {
+        (data.cell.styles as Record<string, unknown>).fontStyle = "bold";
+        (data.cell.styles as Record<string, unknown>).lineWidth = 0.35;
+      }
+    },
   });
 
   doc.setFontSize(7);
   doc.setTextColor(120, 120, 120);
   doc.text("ArtisanFlow — Liste des factures / dépenses — À remettre au comptable", pageWidth / 2, pageHeight - 12, { align: "center" });
+
+  // Annexes : photos des factures en fin de document
+  const rowsWithPhotos = opts.rows.filter((r) => r.image_url && r.image_url.trim());
+  for (let i = 0; i < rowsWithPhotos.length; i++) {
+    const row = rowsWithPhotos[i];
+    const url = (row as { image_url?: string | null }).image_url;
+    if (!url) continue;
+    try {
+      const dataUrl = await loadImageAsDataUrl(url);
+      if (!dataUrl) continue;
+      doc.addPage();
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Annexe ${i + 1} — ${row.date} — ${row.vendor}`, 14, 14);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Montant TTC : ${fmt(Number(row.ttc))} €`, 14, 20);
+      doc.setTextColor(0, 0, 0);
+      const margin = 14;
+      const maxW = pageWidth - 2 * margin;
+      const maxH = pageHeight - 35;
+      const imgW = maxW;
+      const imgH = maxH;
+      doc.addImage(dataUrl, "JPEG", margin, 25, imgW, imgH, undefined, "FAST");
+    } catch {
+      // skip failed image
+    }
+  }
 
   return doc.output("blob");
 }

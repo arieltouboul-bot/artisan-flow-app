@@ -625,7 +625,7 @@ export default function CalendarPage() {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="shrink-0 text-gray-400 hover:text-red-600 hover:bg-red-50 min-h-[40px] min-w-[40px]"
+                  className="shrink-0 text-gray-400 hover:text-gray-600 hover:bg-gray-100 min-h-[36px] min-w-[36px]"
                   onClick={() => handleDeleteAppointment(detailAppointment.id)}
                   aria-label="Supprimer le rendez-vous"
                 >

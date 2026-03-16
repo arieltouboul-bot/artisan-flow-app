@@ -7,6 +7,45 @@
 
 export type InvoiceCurrency = "EUR" | "USD" | "ILS" | "GBP";
 
+/** Seuil de contraste pour la binarisation CamScanner (0–255). Noir/blanc pur pour limiter les erreurs OCR. */
+const BINARIZATION_THRESHOLD = 128;
+
+/**
+ * Binarisation CamScanner : transforme l'image en noir et blanc pur (seuil de contraste) avant envoi à Tesseract.
+ */
+export function imageFileToBinarizedBlob(file: File, threshold: number = BINARIZATION_THRESHOLD): Promise<Blob> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        const bin = gray >= threshold ? 255 : 0;
+        data[i] = data[i + 1] = data[i + 2] = bin;
+      }
+      ctx.putImageData(imageData, 0, 0);
+      canvas.toBlob((blob) => (blob ? resolve(blob) : resolve(file)), "image/jpeg", 0.92);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+    img.src = url;
+  });
+}
+
 /** Result type used by the scan UI (materiel + factures). */
 export interface ScanInvoiceResult {
   vendor: string;
@@ -113,7 +152,7 @@ export function parseInvoiceText(text: string): ParsedInvoiceData {
   else if (/₪|ILS|shekel|NIS/i.test(fullText)) result.currency = "ILS";
   else if (/£|GBP|pound/i.test(fullText)) result.currency = "GBP";
 
-  // —— Montant TTC : TOTAL, TTC, NET, סך הכל (Hebrew total)
+  // —— Montant TTC : mots-clés TOTAL, TTC, סך הכל (Hebrew) — récupère le chiffre le plus élevé
   const ttcPatterns = [
     /(?:TOTAL\s+TTC|TTC\s*TOTAL|NET\s+(?:À|A)\s+PAYER|TOTAL\s+À\s+PAYER|TOTAL\s+NET)[\s:]*([\d\s.,]+)\s*[€$₪£]?/i,
     /(?:TTC|TOTAL)[\s:]*([\d\s.,]+)\s*[€$₪£]?/i,
@@ -124,6 +163,15 @@ export function parseInvoiceText(text: string): ParsedInvoiceData {
   const candidates: number[] = [];
   for (const re of ttcPatterns) {
     const m = fullText.match(re);
+    if (m) {
+      const val = parseAmountStrict(m[1].trim());
+      if (val != null && val > 0 && val < 1e9) candidates.push(val);
+    }
+  }
+  // Auto-focus: prioriser les montants en bas à droite (fin du texte = souvent le Total)
+  const tail = raw.slice(-500).replace(/\r?\n/g, " ");
+  for (const re of ttcPatterns) {
+    const m = tail.match(re);
     if (m) {
       const val = parseAmountStrict(m[1].trim());
       if (val != null && val > 0 && val < 1e9) candidates.push(val);
@@ -184,7 +232,7 @@ export function parseInvoiceText(text: string): ParsedInvoiceData {
     if (val != null && val > 0) result.amount_ht = val;
   }
 
-  // —— Date : DD/MM/YYYY, DD.MM.YYYY, DD-MM-YYYY, DD.MM.YY
+  // —— Date : DD/MM/YYYY ou DD.MM.YY — si rien trouvé, date du jour par défaut
   const dateRe = /(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/g;
   let dateMatch = dateRe.exec(fullText);
   let bestDate = "";
@@ -194,13 +242,16 @@ export function parseInvoiceText(text: string): ParsedInvoiceData {
     dateMatch = dateRe.exec(fullText);
   }
   if (bestDate) result.date = bestDate;
+  else result.date = new Date().toISOString().slice(0, 10);
 
-  // —— Vendor: first non-numeric line (often company name at top)
-  for (const line of lines) {
-    if (line.length < 3) continue;
-    if (/^\d+[\s.,]?\d*$/.test(line) || /^\s*€|TVA|TTC|TOTAL|HT\s*$/i.test(line)) continue;
-    if (line.length > 4 && line.length < 80) {
-      result.vendor = line;
+  // —— Fournisseur : en haut de l'image — MAJUSCULES ou lignes type logo/nom (ne pas utiliser le nom de fichier)
+  for (const line of lines.slice(0, 12)) {
+    if (line.length < 4 || line.length > 80) continue;
+    if (/^\d+[\s.,]?\d*$/.test(line) || /^(TVA|TTC|TOTAL|HT|€|Montant)\s*$/i.test(line)) continue;
+    if (/^\d{1,2}[\/.-]\d{1,2}/.test(line)) continue;
+    const capsRatio = (line.replace(/[^A-ZÀ-Ÿ]/g, "").length) / (line.replace(/\s/g, "").length || 1);
+    if (capsRatio >= 0.25 || line.length > 12) {
+      result.vendor = line.trim();
       break;
     }
   }

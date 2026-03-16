@@ -64,3 +64,34 @@ CREATE POLICY "Users can delete own logo"
 CREATE POLICY "Public read company logos"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'company-logos');
+
+-- Bucket Storage pour les factures (photos de justificatifs)
+-- Dashboard Supabase > Storage > New bucket > id = factures, Public = oui (si l'INSERT échoue)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('factures', 'factures', true)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Users can upload own factures"
+  ON storage.objects FOR INSERT
+  WITH CHECK (
+    bucket_id = 'factures'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "Users can update own factures"
+  ON storage.objects FOR UPDATE
+  USING (
+    bucket_id = 'factures'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "Users can delete own factures"
+  ON storage.objects FOR DELETE
+  USING (
+    bucket_id = 'factures'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+CREATE POLICY "Public read factures"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'factures');
