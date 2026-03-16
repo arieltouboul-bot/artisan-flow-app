@@ -261,6 +261,8 @@ export default function MaterielPage() {
       ? (parseFloat(scanTva.replace(",", ".")) / amountHt) * 100
       : 20;
     const description = [scanVendor, scanItemsText.trim()].filter(Boolean).join(" — ") || t("scannedInvoice", language);
+    const amountTtc = parseFloat(scanAmountTtc.replace(",", "."));
+    const tvaAmount = parseFloat(scanTva.replace(",", "."));
     setSaveExpenseLoading(true);
     const { error: insertError } = await supabase.from("expenses").insert({
       project_id: scanProjectId,
@@ -268,6 +270,10 @@ export default function MaterielPage() {
       description,
       amount_ht: amountHt,
       tva_rate: Math.round(tvaRate * 10) / 10,
+      // Champs supplémentaires de confort pour les exports / comptabilité
+      amount_ttc: Number.isFinite(amountTtc) ? amountTtc : null,
+      tva_amount: Number.isFinite(tvaAmount) ? tvaAmount : null,
+      image_url: null,
       category: "achat_materiel",
       date: scanDate || new Date().toISOString().slice(0, 10),
     });

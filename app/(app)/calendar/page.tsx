@@ -622,11 +622,14 @@ export default function CalendarPage() {
                   Modifier
                 </Button>
                 <Button
-                  variant="destructive"
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 text-gray-400 hover:text-red-600 hover:bg-red-50 min-h-[40px] min-w-[40px]"
                   onClick={() => handleDeleteAppointment(detailAppointment.id)}
+                  aria-label="Supprimer le rendez-vous"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Supprimer
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </>
             )}

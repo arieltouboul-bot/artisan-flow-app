@@ -159,6 +159,12 @@ export interface Expense {
   description: string;
   amount_ht: number;
   tva_rate: number;
+  /** Montant TVA absolu (optionnel, pour les rapports) */
+  tva_amount?: number;
+  /** Montant TTC (optionnel, pour les rapports) */
+  amount_ttc?: number;
+  /** URL de l'image de facture scannée (optionnel) */
+  image_url?: string | null;
   category: ExpenseCategory;
   date: string;
   created_at?: string;
