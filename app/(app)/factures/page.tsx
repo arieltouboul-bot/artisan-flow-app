@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ export default function FacturesPage() {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const filtered = useMemo(() => {
     let list = expenses;
@@ -125,7 +126,10 @@ export default function FacturesPage() {
   };
 
   const handleExportPDF = async () => {
-    if (filtered.length === 0) return;
+    if (filtered.length === 0) {
+      alert("Aucune facture à exporter");
+      return;
+    }
     setPdfLoading(true);
     try {
       const rows = filtered.map((e) => {
@@ -167,10 +171,49 @@ export default function FacturesPage() {
     } catch (err) {
       console.error("Export PDF error", err);
       const msg = err instanceof Error ? err.message : String(err);
-      alert("Erreur lors de la génération du PDF: " + msg);
+      alert("Erreur PDF : " + msg);
     } finally {
       setPdfLoading(false);
     }
+  };
+
+  const handleImportExpense = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    const supabase = createClient();
+    if (!supabase) {
+      alert("Connexion à la base de données indisponible (Supabase).");
+      return;
+    }
+
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    const user = userData?.user ?? null;
+    console.log("Import facture - user id:", user?.id, "authError:", userError);
+    if (!user) {
+      alert("Utilisateur non connecté, impossible d'importer la facture.");
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const { error } = await supabase.from("expenses").insert({
+      project_id: filterProjectId || null,
+      user_id: user.id,
+      description: file.name,
+      amount_ht: 0,
+      tva_rate: 20,
+      category: "achat_materiel",
+      date: today,
+    });
+
+    if (error) {
+      alert("Erreur lors de l'enregistrement de la facture : " + error.message);
+      return;
+    }
+
+    await refetch();
+    alert("Facture importée avec succès.");
   };
 
   return (
@@ -215,24 +258,46 @@ export default function FacturesPage() {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-            <div role="group" aria-label="Exports" onClick={(e) => e.stopPropagation()} className="flex flex-wrap items-center gap-2">
+            <div
+              role="group"
+              aria-label="Exports"
+              onClick={(e) => e.stopPropagation()}
+              className="flex flex-wrap items-center gap-2"
+              style={{ zIndex: 9999 }}
+            >
               <button
                 type="button"
                 className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50"
-                disabled={filtered.length === 0}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleExportCSV(); }}
+                style={{ zIndex: 9999 }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
               >
-                {t("exportCSV", language)}
+                Importer une facture
               </button>
               <button
                 type="button"
                 className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50"
+                style={{ zIndex: 9999 }}
                 disabled={filtered.length === 0 || pdfLoading}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleExportPDF(); }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleExportPDF();
+                }}
               >
                 {pdfLoading ? "…" : t("exportPDFForAccountant", language)}
               </button>
             </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={handleImportExpense}
+            />
           </div>
         </CardHeader>
         <CardContent>
