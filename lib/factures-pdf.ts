@@ -65,11 +65,32 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
   const tableData = opts.rows.map((r) => [
     r.date,
     r.vendor,
-    r.projectName || "—",
+    r.projectName || "Général",
     fmt(r.amountHt),
     fmt(r.tvaAmount),
     fmt(r.ttc),
   ]);
+
+  // Ligne de total TTC
+  const totalTtc = opts.rows.reduce((sum, r) => sum + (r.ttc || 0), 0);
+  tableData.push([
+    "",
+    "TOTAL",
+    "",
+    "",
+    "",
+    fmt(totalTtc),
+  ]);
+
+  const availableWidth = pageWidth - 28; // 14 de marge de chaque côté
+  const colWidths = {
+    0: { cellWidth: availableWidth * 0.16 }, // Date
+    1: { cellWidth: availableWidth * 0.28 }, // Fournisseur
+    2: { cellWidth: availableWidth * 0.18 }, // Projet
+    3: { cellWidth: availableWidth * 0.13 }, // HT
+    4: { cellWidth: availableWidth * 0.12 }, // TVA
+    5: { cellWidth: availableWidth * 0.13 }, // TTC
+  };
 
   autoTable(doc, {
     startY: y,
@@ -78,14 +99,7 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
     theme: "grid",
     headStyles: { fillColor: [0, 102, 255], fontStyle: "bold", fontSize: 8 },
     bodyStyles: { fontSize: 8 },
-    columnStyles: {
-      0: { cellWidth: 22 },
-      1: { cellWidth: 45 },
-      2: { cellWidth: 35 },
-      3: { cellWidth: 28 },
-      4: { cellWidth: 28 },
-      5: { cellWidth: 28 },
-    },
+    columnStyles: colWidths,
     margin: { left: 14 },
   });
 

@@ -127,7 +127,7 @@ export default function FacturesPage() {
 
   const handleExportPDF = async () => {
     if (filtered.length === 0) {
-      alert("Aucune facture à exporter");
+      alert("Aucune donnée à exporter");
       return;
     }
     setPdfLoading(true);
@@ -139,12 +139,13 @@ export default function FacturesPage() {
         return {
           date: e.date,
           vendor,
-          projectName: e.project_name ?? "",
+          projectName: e.project_name ?? "Général",
           amountHt: e.amount_ht,
           tvaAmount,
           ttc,
         };
       });
+      console.log("Données envoyées au PDF:", rows);
       const headers = {
         date: t("invoiceDateCol", language),
         vendor: t("invoiceVendorCol", language),
@@ -197,8 +198,9 @@ export default function FacturesPage() {
     }
 
     const today = new Date().toISOString().slice(0, 10);
+    const projectIdValue = filterProjectId || "";
     const { error } = await supabase.from("expenses").insert({
-      project_id: filterProjectId || null,
+      project_id: projectIdValue,
       user_id: user.id,
       description: file.name,
       amount_ht: 0,
