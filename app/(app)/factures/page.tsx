@@ -268,7 +268,7 @@ export default function FacturesPage() {
       alert("Erreur lors de l'insertion en base : " + insertError.message);
       return;
     }
-    alert("Insertion Database réussie");
+    alert("Facture enregistrée !");
     window.location.reload();
   };
 
