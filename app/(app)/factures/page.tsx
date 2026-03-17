@@ -222,6 +222,7 @@ export default function FacturesPage() {
     const { error: uploadErr } = await supabase.storage.from(INVOICE_BUCKET).upload(path, file, { upsert: false, contentType: file.type });
     setImporting(false);
     if (uploadErr) {
+      console.error("Factures upload error:", uploadErr);
       alert("Erreur lors du stockage de la photo : " + uploadErr.message);
       return;
     }
@@ -269,6 +270,7 @@ export default function FacturesPage() {
     const { error } = await supabase.from("expenses").insert(payload);
     setFormSaving(false);
     if (error) {
+      console.error("Factures insert expense error:", error);
       setFormError(error.message);
       return;
     }
