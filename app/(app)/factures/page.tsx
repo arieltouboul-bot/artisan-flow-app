@@ -197,6 +197,7 @@ export default function FacturesPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   const handleImportExpense = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    alert("Début de l'import");
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
@@ -207,12 +208,14 @@ export default function FacturesPage() {
 
     const supabase = createClient();
     if (!supabase) {
+      console.error("Factures import error: Supabase client indisponible");
       alert("Connexion à la base de données indisponible (Supabase).");
       return;
     }
     const { data: userData } = await supabase.auth.getUser();
     const user = userData?.user ?? null;
     if (!user) {
+      console.error("Factures import error: utilisateur non connecté");
       alert("Utilisateur non connecté.");
       return;
     }
@@ -226,7 +229,9 @@ export default function FacturesPage() {
       alert("Erreur lors du stockage de la photo : " + uploadErr.message);
       return;
     }
+    alert("Upload Storage réussi");
     const { data: urlData } = supabase.storage.from(INVOICE_BUCKET).getPublicUrl(path);
+    console.log("Factures public URL:", urlData);
     setPendingImageUrl(urlData?.publicUrl ?? null);
     setFormDate(today);
     setFormVendor("");
@@ -237,7 +242,10 @@ export default function FacturesPage() {
 
   const handleSubmitPhotoForm = async (ev: React.FormEvent) => {
     ev.preventDefault();
-    if (!pendingImageUrl) return;
+    if (!pendingImageUrl) {
+      alert("Erreur : aucune image à enregistrer (image_url vide).");
+      return;
+    }
     const vendor = formVendor.trim();
     if (!vendor) {
       setFormError("Indiquez le fournisseur.");
@@ -250,10 +258,18 @@ export default function FacturesPage() {
     }
     const amountHt = Math.round((ttc / 1.2) * 100) / 100;
     const supabase = createClient();
-    if (!supabase) return;
+    if (!supabase) {
+      console.error("Factures submit form error: Supabase client indisponible");
+      alert("Connexion à la base de données indisponible (Supabase).");
+      return;
+    }
     const { data: userData } = await supabase.auth.getUser();
     const user = userData?.user ?? null;
-    if (!user) return;
+    if (!user) {
+      console.error("Factures submit form error: utilisateur non connecté");
+      alert("Utilisateur non connecté.");
+      return;
+    }
 
     setFormSaving(true);
     setFormError(null);
@@ -274,6 +290,7 @@ export default function FacturesPage() {
       setFormError(error.message);
       return;
     }
+    alert("Insertion Database réussie");
     setAddPhotoOpen(false);
     setPendingImageUrl(null);
     setFormVendor("");
