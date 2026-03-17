@@ -232,12 +232,44 @@ export default function FacturesPage() {
     alert("Upload Storage réussi");
     const { data: urlData } = supabase.storage.from(INVOICE_BUCKET).getPublicUrl(path);
     console.log("Factures public URL:", urlData);
-    setPendingImageUrl(urlData?.publicUrl ?? null);
-    setFormDate(today);
-    setFormVendor("");
-    setFormTtc("");
-    setFormError(null);
-    setAddPhotoOpen(true);
+    const publicUrl = urlData?.publicUrl ?? null;
+    if (!publicUrl) {
+      alert("Erreur : impossible de récupérer l'URL publique de la photo.");
+      return;
+    }
+
+    const vendor = window.prompt("Nom du fournisseur ?")?.trim() ?? "";
+    if (!vendor) {
+      alert("Import annulé : fournisseur manquant.");
+      return;
+    }
+    const ttcInput = window.prompt("Montant TTC (€) ? (ex: 123.45)")?.trim() ?? "";
+    const ttc = parseFloat(ttcInput.replace(",", "."));
+    if (!ttcInput || Number.isNaN(ttc) || ttc < 0) {
+      alert("Montant TTC invalide. Import annulé.");
+      return;
+    }
+    const amountHt = Math.round((ttc / 1.2) * 100) / 100;
+
+    const payload: Record<string, unknown> = {
+      user_id: user.id,
+      description: vendor,
+      amount_ht: amountHt,
+      tva_rate: 20,
+      category: "achat_materiel",
+      date: today,
+      image_url: publicUrl,
+      project_id: filterProjectId || null,
+    };
+
+    const { error: insertError } = await supabase.from("expenses").insert(payload);
+    if (insertError) {
+      console.error("Factures insert expense error:", insertError);
+      alert("Erreur lors de l'insertion en base : " + insertError.message);
+      return;
+    }
+    alert("Insertion Database réussie");
+    window.location.reload();
   };
 
   const handleSubmitPhotoForm = async (ev: React.FormEvent) => {
