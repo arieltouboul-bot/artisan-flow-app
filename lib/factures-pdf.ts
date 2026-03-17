@@ -81,8 +81,8 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
     margin: { left: 14 },
     didParseCell: (data) => {
       if (data.section === "body" && data.row.index === tableData.length - 1) {
-        (data.cell.styles as Record<string, unknown>).fontStyle = "bold";
-        (data.cell.styles as Record<string, unknown>).lineWidth = 0.35;
+        ((data.cell.styles as unknown) as Record<string, any>).fontStyle = "bold";
+        ((data.cell.styles as unknown) as Record<string, any>).lineWidth = 0.35;
       }
     },
   });
