@@ -95,7 +95,7 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className={cn(
         "flex h-screen flex-col border-r border-gray-200 bg-white shadow-sm",
-        mobileMode ? "relative" : "fixed left-0 top-0 z-40"
+        mobileMode ? "relative" : "fixed left-0 top-0 z-[100]"
       )}
     >
       <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 px-4">

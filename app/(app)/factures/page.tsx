@@ -325,13 +325,11 @@ export default function FacturesPage() {
               role="group"
               aria-label="Exports"
               onClick={(e) => e.stopPropagation()}
-              className="flex flex-wrap items-center gap-2"
-              style={{ zIndex: 9999 }}
+              className="flex flex-wrap items-center gap-2 z-10"
             >
               <button
                 type="button"
                 className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50"
-                style={{ zIndex: 9999 }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -343,7 +341,6 @@ export default function FacturesPage() {
               <button
                 type="button"
                 className="cursor-pointer bg-blue-600 text-white p-2 rounded min-h-[44px] disabled:opacity-50"
-                style={{ zIndex: 9999 }}
                 disabled={filtered.length === 0 || pdfLoading || importing}
                 onClick={(e) => {
                   e.preventDefault();
