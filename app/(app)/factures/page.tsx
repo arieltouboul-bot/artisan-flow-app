@@ -275,7 +275,8 @@ export default function FacturesPage() {
     }
 
     setImporting(true);
-    setOcrLoading(true);
+    // Bypass OCR automatique: on ouvre directement le formulaire manuel après upload.
+    setOcrLoading(false);
     setOcrError(null);
     setOcrUncertain(false);
     setFormError(null);
@@ -292,7 +293,6 @@ export default function FacturesPage() {
       console.error("Factures upload error:", uploadErr);
       alert("Erreur lors du stockage de la photo : " + uploadErr.message);
       setImporting(false);
-      setOcrLoading(false);
       return;
     }
 
@@ -302,39 +302,12 @@ export default function FacturesPage() {
       alert("Erreur : impossible de récupérer l'URL publique de la photo.");
       console.error("Factures public URL missing:", urlData);
       setImporting(false);
-      setOcrLoading(false);
       return;
     }
 
-    // UI: ouvrir le formulaire dès que l'upload est OK (rempli ensuite après OCR).
     setPendingImageUrl(publicUrl);
     setAddPhotoOpen(true);
-
-    try {
-      // Prétraitement (CamScanner style + contraste renforcé) puis OCR.
-      const processedBlob = await imageFileToBinarizedBlob(file);
-      const Tesseract = (await import("tesseract.js")).default;
-      const lang = (language as string).toLowerCase();
-      const tesseractLang = lang.startsWith("he") ? "heb+eng" : lang.startsWith("fr") ? "fra+eng" : "eng";
-      const { data } = await Tesseract.recognize(processedBlob, tesseractLang);
-      const parsed = parseInvoiceText(data.text);
-
-      const vendorFound = Boolean(parsed.vendor && parsed.vendor.trim());
-      const dateFound = Boolean(parsed.date && parsed.date.trim());
-      const ttcFound = Number(parsed.amount_ttc) > 0;
-
-      setFormVendor(vendorFound ? parsed.vendor.trim() : "");
-      setFormDate(dateFound ? parsed.date : today);
-      setFormTtc(ttcFound ? String(Number(parsed.amount_ttc).toFixed(2)).replace(".", ",") : "");
-      setOcrUncertain(!(vendorFound && dateFound && ttcFound));
-    } catch (err) {
-      console.error("Factures OCR error:", err);
-      setOcrError("OCR impossible : veuillez vérifier manuellement les champs.");
-      setOcrUncertain(true);
-    } finally {
-      setOcrLoading(false);
-      setImporting(false);
-    }
+    setImporting(false);
   };
 
   const handleSubmitPhotoForm = async (ev: React.FormEvent) => {
@@ -372,6 +345,9 @@ export default function FacturesPage() {
       return;
     }
 
+    const projectId = filterProjectId?.trim() ? filterProjectId : null;
+    const safeDate = formDate || today;
+
     setFormSaving(true);
     setFormError(null);
     const payload: Record<string, unknown> = {
@@ -380,15 +356,25 @@ export default function FacturesPage() {
       amount_ht: amountHt,
       tva_rate: 20,
       category: "achat_materiel",
-      date: formDate || today,
+      date: safeDate,
       image_url: pendingImageUrl,
-      project_id: filterProjectId || null,
+      project_id: projectId,
     };
     const { error } = await supabase.from("expenses").insert(payload);
     setFormSaving(false);
     if (error) {
-      console.error("Factures insert expense error:", error);
-      setFormError(error.message);
+      console.error("Factures insert expense error (ultra-détaillé):", {
+        message: error.message,
+        code: (error as any).code,
+        details: (error as any).details,
+        hint: (error as any).hint,
+        payload,
+        userId: user.id,
+        projectId,
+        imageUrl: pendingImageUrl,
+      });
+      setFormError(error.message || "Erreur insertion facture");
+      alert("Erreur insertion facture : " + (error.message || "inconnue"));
       return;
     }
     alert("Facture enregistrée !");

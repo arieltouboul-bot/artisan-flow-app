@@ -82,6 +82,7 @@ export default function DashboardPage() {
   const [dashboardView, setDashboardView] = useState<DashboardView>("all");
   const [globalSearch, setGlobalSearch] = useState("");
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [isMobile, setIsMobile] = useState(false);
   const { user } = useUser();
   const { profile, displayCurrency } = useProfile();
   const { stats, projects, projectsImpayes, loading, error, refetch } = useDashboardStats(selectedYear);
@@ -101,6 +102,20 @@ export default function DashboardPage() {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [refetch, router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    // Support older browsers
+    if ("addEventListener" in mq) {
+      mq.addEventListener("change", update);
+      return () => mq.removeEventListener("change", update);
+    }
+    (mq as any).addListener(update);
+    return () => (mq as any).removeListener(update);
+  }, []);
 
   const progressValue =
     stats.caAnnuel > 0 ? Math.min(100, (stats.caMensuel / (stats.caAnnuel / 12)) * 100) : 0;
@@ -517,20 +532,29 @@ export default function DashboardPage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.1 }}
-                  className="h-[320px] min-h-[240px] w-full overflow-hidden"
+                  className={cn("h-[320px] min-h-[240px] w-full overflow-hidden", isMobile && "h-[350px]")}
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={localizedChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
-                      <XAxis dataKey="month" className="text-xs" interval={0} />
-                      <YAxis className="text-xs" tickFormatter={(v) => `${(convertCurrency(v, currency) / 1000).toFixed(0)}k ${getCurrencySymbol(currency)}`} />
+                      <XAxis
+                        dataKey="month"
+                        interval={0}
+                        tick={{ fontSize: isMobile ? 10 : 12 }}
+                        angle={isMobile ? -45 : 0}
+                        textAnchor={isMobile ? "end" : "middle"}
+                      />
+                      <YAxis
+                        tickFormatter={(v) => `${(convertCurrency(v, currency) / 1000).toFixed(0)}k ${getCurrencySymbol(currency)}`}
+                        tick={isMobile ? { fontSize: 10 } : { fontSize: 12 }}
+                      />
                       <Tooltip
                         formatter={(value: number) => [formatConvertedCurrency(value, currency), ""]}
                         contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
                       />
-                      <Legend />
-                      <Bar dataKey="ca" name={t("revenues", language)} fill="#22c55e" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="cout" name={t("expensesLabel", language)} fill="#ef4444" radius={[4, 4, 0, 0]} />
+                      <Legend wrapperStyle={isMobile ? { display: "none" } : undefined} />
+                      <Bar dataKey="ca" name={t("revenues", language)} fill="#00C853" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="cout" name={t("expensesLabel", language)} fill="#FF1744" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </motion.div>
@@ -648,19 +672,28 @@ export default function DashboardPage() {
               <p className="text-xs text-brand-blue-600">{t("clickChartForDetails", language)}</p>
             </CardHeader>
             <CardContent>
-              <div className="h-[280px] min-h-[240px] w-full overflow-hidden">
+              <div className={cn("h-[280px] min-h-[240px] w-full overflow-hidden", isMobile && "h-[350px]")}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={localizedChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
-                    <XAxis dataKey="month" className="text-xs" interval={0} />
-                    <YAxis className="text-xs" tickFormatter={(v) => `${(convertCurrency(v, currency) / 1000).toFixed(0)}k ${getCurrencySymbol(currency)}`} />
+                    <XAxis
+                      dataKey="month"
+                      interval={0}
+                      tick={{ fontSize: isMobile ? 10 : 12 }}
+                      angle={isMobile ? -45 : 0}
+                      textAnchor={isMobile ? "end" : "middle"}
+                    />
+                    <YAxis
+                      tickFormatter={(v) => `${(convertCurrency(v, currency) / 1000).toFixed(0)}k ${getCurrencySymbol(currency)}`}
+                      tick={isMobile ? { fontSize: 10 } : { fontSize: 12 }}
+                    />
                     <Tooltip
                       formatter={(value: number) => [formatConvertedCurrency(value, currency), ""]}
                       contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }}
                     />
-                    <Legend />
-                    <Bar dataKey="ca" name={t("revenues", language)} fill="#22c55e" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="cout" name={t("expensesLabel", language)} fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    <Legend wrapperStyle={isMobile ? { display: "none" } : undefined} />
+                    <Bar dataKey="ca" name={t("revenues", language)} fill="#00C853" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="cout" name={t("expensesLabel", language)} fill="#FF1744" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -675,16 +708,25 @@ export default function DashboardPage() {
             <DialogTitle>{t("chartDetailFullscreen", language)}</DialogTitle>
           </DialogHeader>
           <div className="space-y-6">
-            <div className="h-[360px] w-full">
+            <div className={cn("h-[360px] w-full", isMobile && "h-[350px]")}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={localizedChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
-                  <XAxis dataKey="month" className="text-xs" interval={0} />
-                  <YAxis className="text-xs" tickFormatter={(v) => `${(convertCurrency(v, currency) / 1000).toFixed(0)}k ${getCurrencySymbol(currency)}`} />
+                  <XAxis
+                    dataKey="month"
+                    interval={0}
+                    tick={{ fontSize: isMobile ? 10 : 12 }}
+                    angle={isMobile ? -45 : 0}
+                    textAnchor={isMobile ? "end" : "middle"}
+                  />
+                  <YAxis
+                    tickFormatter={(v) => `${(convertCurrency(v, currency) / 1000).toFixed(0)}k ${getCurrencySymbol(currency)}`}
+                    tick={isMobile ? { fontSize: 10 } : { fontSize: 12 }}
+                  />
                   <Tooltip formatter={(value: number) => [formatConvertedCurrency(value, currency), ""]} contentStyle={{ borderRadius: "8px", border: "1px solid #e5e7eb" }} />
-                  <Legend />
-                  <Bar dataKey="ca" name={t("revenues", language)} fill="#22c55e" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="cout" name={t("expensesLabel", language)} fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  <Legend wrapperStyle={isMobile ? { display: "none" } : undefined} />
+                  <Bar dataKey="ca" name={t("revenues", language)} fill="#00C853" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="cout" name={t("expensesLabel", language)} fill="#FF1744" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
