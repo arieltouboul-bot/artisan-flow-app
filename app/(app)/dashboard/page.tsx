@@ -532,14 +532,18 @@ export default function DashboardPage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.1 }}
-                  className={cn("h-[320px] min-h-[240px] w-full overflow-hidden", isMobile && "h-[350px]")}
+                    className={cn("h-[320px] min-h-[240px] w-full overflow-hidden", isMobile && "h-[350px]")}
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={localizedChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <BarChart
+                      data={localizedChartData}
+                      margin={{ top: 8, right: 8, left: 0, bottom: isMobile ? 40 : 0 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
                       <XAxis
                         dataKey="month"
                         interval={0}
+                        tickFormatter={(v) => (isMobile ? String(v).charAt(0) : v)}
                         tick={{ fontSize: isMobile ? 10 : 12 }}
                         angle={isMobile ? -45 : 0}
                         textAnchor={isMobile ? "end" : "middle"}
@@ -674,7 +678,10 @@ export default function DashboardPage() {
             <CardContent>
               <div className={cn("h-[280px] min-h-[240px] w-full overflow-hidden", isMobile && "h-[350px]")}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={localizedChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                        <BarChart
+                          data={localizedChartData}
+                          margin={{ top: 8, right: 8, left: 0, bottom: isMobile ? 40 : 0 }}
+                        >
                     <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
                     <XAxis
                       dataKey="month"
@@ -710,11 +717,15 @@ export default function DashboardPage() {
           <div className="space-y-6">
             <div className={cn("h-[360px] w-full", isMobile && "h-[350px]")}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={localizedChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <BarChart
+                      data={localizedChartData}
+                      margin={{ top: 8, right: 8, left: 0, bottom: isMobile ? 50 : 0 }}
+                    >
                   <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
                   <XAxis
                     dataKey="month"
                     interval={0}
+                    tickFormatter={(v) => (isMobile ? String(v).charAt(0) : v)}
                     tick={{ fontSize: isMobile ? 10 : 12 }}
                     angle={isMobile ? -45 : 0}
                     textAnchor={isMobile ? "end" : "middle"}

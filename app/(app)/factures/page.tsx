@@ -345,7 +345,7 @@ export default function FacturesPage() {
       return;
     }
 
-    const projectId = filterProjectId?.trim() ? filterProjectId : null;
+    const projectId = filterProjectId?.trim() ? filterProjectId.trim() : null;
     const safeDate = formDate || today;
 
     setFormSaving(true);
@@ -360,21 +360,32 @@ export default function FacturesPage() {
       image_url: pendingImageUrl,
       project_id: projectId,
     };
-    const { error } = await supabase.from("expenses").insert(payload);
-    setFormSaving(false);
-    if (error) {
-      console.error("Factures insert expense error (ultra-détaillé):", {
-        message: error.message,
-        code: (error as any).code,
-        details: (error as any).details,
-        hint: (error as any).hint,
-        payload,
-        userId: user.id,
-        projectId,
-        imageUrl: pendingImageUrl,
-      });
-      setFormError(error.message || "Erreur insertion facture");
-      alert("Erreur insertion facture : " + (error.message || "inconnue"));
+    console.log("Données envoyées:", payload);
+    console.log("user_id:", user.id, "project_id:", projectId, "image_url:", pendingImageUrl);
+    try {
+      const { error } = await supabase.from("expenses").insert(payload);
+      setFormSaving(false);
+      if (error) {
+        console.error("Factures insert expense error (ultra-détaillé):", {
+          message: error.message,
+          code: (error as any).code,
+          details: (error as any).details,
+          hint: (error as any).hint,
+          payload,
+          userId: user.id,
+          projectId,
+          imageUrl: pendingImageUrl,
+        });
+        setFormError(error.message || "Erreur insertion facture");
+        alert("Erreur base de données: " + (error.message || "inconnue"));
+        return;
+      }
+    } catch (err) {
+      setFormSaving(false);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Factures insert threw exception:", err);
+      setFormError(msg);
+      alert("Erreur base de données: " + msg);
       return;
     }
     alert("Facture enregistrée !");
