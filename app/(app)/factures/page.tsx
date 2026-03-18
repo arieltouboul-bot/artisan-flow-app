@@ -18,11 +18,12 @@ import { useProjects } from "@/hooks/use-projects";
 import { t } from "@/lib/translations";
 import { formatDate, formatConvertedCurrency, cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
-import { FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2, Trash2, Download } from "lucide-react";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import type { Currency } from "@/lib/utils";
 import { generateFacturesPDF } from "@/lib/factures-pdf";
 import { createClient } from "@/lib/supabase/client";
+import { imageFileToBinarizedBlob, parseInvoiceText } from "@/lib/invoice-ocr";
 
 const INVOICE_BUCKET = "factures";
 
@@ -55,6 +56,10 @@ export default function FacturesPage() {
   const [formSaving, setFormSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fullscreenImageUrl, setFullscreenImageUrl] = useState<string | null>(null);
+  const [fullscreenExpenseId, setFullscreenExpenseId] = useState<string | null>(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [ocrUncertain, setOcrUncertain] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const filtered = useMemo(() => {
@@ -196,8 +201,57 @@ export default function FacturesPage() {
 
   const today = new Date().toISOString().slice(0, 10);
 
+  const extractStoragePathFromPublicUrl = (publicUrl: string): string | null => {
+    const marker = `/storage/v1/object/public/${INVOICE_BUCKET}/`;
+    const idx = publicUrl.indexOf(marker);
+    if (idx === -1) return null;
+    return publicUrl.slice(idx + marker.length);
+  };
+
+  const deleteInvoiceFromLightbox = async (expenseId: string, imageUrl: string) => {
+    const supabase = createClient();
+    if (!supabase) {
+      alert("Connexion Supabase indisponible.");
+      return;
+    }
+    const { data: userData } = await supabase.auth.getUser();
+    const user = userData?.user ?? null;
+    if (!user) {
+      alert("Utilisateur non connecté.");
+      return;
+    }
+    if (!confirm("Supprimer cette facture ?")) return;
+
+    setDeletingId(expenseId);
+    const { error: deleteErr } = await supabase
+      .from("expenses")
+      .delete()
+      .eq("id", expenseId)
+      .eq("user_id", user.id);
+
+    if (deleteErr) {
+      setDeletingId(null);
+      alert("Erreur suppression : " + deleteErr.message);
+      return;
+    }
+
+    // Best-effort: delete the storage object too (optional).
+    try {
+      const storagePath = extractStoragePathFromPublicUrl(imageUrl);
+      if (storagePath) {
+        await supabase.storage.from(INVOICE_BUCKET).remove([storagePath]);
+      }
+    } catch (err) {
+      console.error("Factures storage remove failed:", err);
+    }
+
+    setDeletingId(null);
+    setFullscreenImageUrl(null);
+    setFullscreenExpenseId(null);
+    window.location.reload();
+  };
+
   const handleImportExpense = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    alert("Début de l'import");
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
@@ -221,61 +275,76 @@ export default function FacturesPage() {
     }
 
     setImporting(true);
+    setOcrLoading(true);
+    setOcrError(null);
+    setOcrUncertain(false);
+    setFormError(null);
+    setFormVendor("");
+    setFormTtc("");
+    setFormDate(today);
+
     const path = `${user.id}/invoices/${crypto.randomUUID()}.jpg`;
-    const { error: uploadErr } = await supabase.storage.from(INVOICE_BUCKET).upload(path, file, { upsert: false, contentType: file.type });
-    setImporting(false);
+    const { error: uploadErr } = await supabase.storage
+      .from(INVOICE_BUCKET)
+      .upload(path, file, { upsert: false, contentType: file.type });
+
     if (uploadErr) {
       console.error("Factures upload error:", uploadErr);
       alert("Erreur lors du stockage de la photo : " + uploadErr.message);
+      setImporting(false);
+      setOcrLoading(false);
       return;
     }
-    alert("Upload Storage réussi");
+
     const { data: urlData } = supabase.storage.from(INVOICE_BUCKET).getPublicUrl(path);
-    console.log("Factures public URL:", urlData);
     const publicUrl = urlData?.publicUrl ?? null;
     if (!publicUrl) {
       alert("Erreur : impossible de récupérer l'URL publique de la photo.");
+      console.error("Factures public URL missing:", urlData);
+      setImporting(false);
+      setOcrLoading(false);
       return;
     }
 
-    const vendor = window.prompt("Nom du fournisseur ?")?.trim() ?? "";
-    if (!vendor) {
-      alert("Import annulé : fournisseur manquant.");
-      return;
-    }
-    const ttcInput = window.prompt("Montant TTC (€) ? (ex: 123.45)")?.trim() ?? "";
-    const ttc = parseFloat(ttcInput.replace(",", "."));
-    if (!ttcInput || Number.isNaN(ttc) || ttc < 0) {
-      alert("Montant TTC invalide. Import annulé.");
-      return;
-    }
-    const amountHt = Math.round((ttc / 1.2) * 100) / 100;
+    // UI: ouvrir le formulaire dès que l'upload est OK (rempli ensuite après OCR).
+    setPendingImageUrl(publicUrl);
+    setAddPhotoOpen(true);
 
-    const payload: Record<string, unknown> = {
-      user_id: user.id,
-      description: vendor,
-      amount_ht: amountHt,
-      tva_rate: 20,
-      category: "achat_materiel",
-      date: today,
-      image_url: publicUrl,
-      project_id: filterProjectId || null,
-    };
+    try {
+      // Prétraitement (CamScanner style + contraste renforcé) puis OCR.
+      const processedBlob = await imageFileToBinarizedBlob(file);
+      const Tesseract = (await import("tesseract.js")).default;
+      const lang = (language as string).toLowerCase();
+      const tesseractLang = lang.startsWith("he") ? "heb+eng" : lang.startsWith("fr") ? "fra+eng" : "eng";
+      const { data } = await Tesseract.recognize(processedBlob, tesseractLang);
+      const parsed = parseInvoiceText(data.text);
 
-    const { error: insertError } = await supabase.from("expenses").insert(payload);
-    if (insertError) {
-      console.error("Factures insert expense error:", insertError);
-      alert("Erreur lors de l'insertion en base : " + insertError.message);
-      return;
+      const vendorFound = Boolean(parsed.vendor && parsed.vendor.trim());
+      const dateFound = Boolean(parsed.date && parsed.date.trim());
+      const ttcFound = Number(parsed.amount_ttc) > 0;
+
+      setFormVendor(vendorFound ? parsed.vendor.trim() : "");
+      setFormDate(dateFound ? parsed.date : today);
+      setFormTtc(ttcFound ? String(Number(parsed.amount_ttc).toFixed(2)).replace(".", ",") : "");
+      setOcrUncertain(!(vendorFound && dateFound && ttcFound));
+    } catch (err) {
+      console.error("Factures OCR error:", err);
+      setOcrError("OCR impossible : veuillez vérifier manuellement les champs.");
+      setOcrUncertain(true);
+    } finally {
+      setOcrLoading(false);
+      setImporting(false);
     }
-    alert("Facture enregistrée !");
-    window.location.reload();
   };
 
   const handleSubmitPhotoForm = async (ev: React.FormEvent) => {
     ev.preventDefault();
     if (!pendingImageUrl) {
       alert("Erreur : aucune image à enregistrer (image_url vide).");
+      return;
+    }
+    if (!pendingImageUrl.includes(`/storage/v1/object/public/${INVOICE_BUCKET}/`)) {
+      setFormError("Image non trouvée dans le bucket 'factures'.");
       return;
     }
     const vendor = formVendor.trim();
@@ -322,12 +391,12 @@ export default function FacturesPage() {
       setFormError(error.message);
       return;
     }
-    alert("Insertion Database réussie");
+    alert("Facture enregistrée !");
     setAddPhotoOpen(false);
     setPendingImageUrl(null);
     setFormVendor("");
     setFormTtc("");
-    await refetch();
+    window.location.reload();
   };
 
   return (
@@ -413,9 +482,21 @@ export default function FacturesPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className={cn("flex items-center gap-2 py-12 text-gray-500")}>
-              <Loader2 className="h-8 w-8 animate-spin" />
-              <span>{t("loading", language)}</span>
+            <div className="py-8">
+              <div className="flex items-center justify-center gap-2 text-gray-500 mb-4">
+                <span className="text-sm">{t("loading", language)}</span>
+              </div>
+              <div className="space-y-3 px-2">
+                {Array.from({ length: 6 }).map((_, idx) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded bg-gray-100 animate-pulse" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-1/3 rounded bg-gray-100 animate-pulse" />
+                      <div className="h-4 w-1/4 rounded bg-gray-100 animate-pulse" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : filtered.length === 0 ? (
             <p className={cn("py-12 text-center text-gray-500")}>{t("noInvoices", language)}</p>
@@ -449,6 +530,7 @@ export default function FacturesPage() {
                                 ev.preventDefault();
                                 ev.stopPropagation();
                                 setFullscreenImageUrl((e as ExpenseRow).image_url!);
+                                setFullscreenExpenseId(e.id);
                               }}
                               className="block w-10 h-10 rounded border border-gray-200 overflow-hidden bg-gray-100 hover:ring-2 hover:ring-brand-blue-400 focus:outline-none focus:ring-2 focus:ring-brand-blue-500"
                             >
@@ -494,7 +576,18 @@ export default function FacturesPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={addPhotoOpen} onOpenChange={(open) => { if (!open) { setAddPhotoOpen(false); setPendingImageUrl(null); } }}>
+      <Dialog
+        open={addPhotoOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddPhotoOpen(false);
+            setPendingImageUrl(null);
+            setOcrLoading(false);
+            setOcrError(null);
+            setOcrUncertain(false);
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Nouvelle facture — Saisie manuelle</DialogTitle>
@@ -503,40 +596,134 @@ export default function FacturesPage() {
           <form onSubmit={handleSubmitPhotoForm} className="space-y-4">
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Date</label>
-              <Input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="min-h-[44px]" required />
+              <Input
+                type="date"
+                value={formDate}
+                onChange={(e) => setFormDate(e.target.value)}
+                className="min-h-[44px]"
+                required
+                disabled={ocrLoading || formSaving}
+              />
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Fournisseur</label>
-              <Input value={formVendor} onChange={(e) => setFormVendor(e.target.value)} placeholder="Nom du fournisseur" className="min-h-[44px]" required />
+              <Input
+                value={formVendor}
+                onChange={(e) => setFormVendor(e.target.value)}
+                placeholder="Nom du fournisseur"
+                className="min-h-[44px]"
+                required
+                disabled={ocrLoading || formSaving}
+              />
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Montant TTC (€)</label>
-              <Input type="number" step="0.01" min="0" value={formTtc} onChange={(e) => setFormTtc(e.target.value)} placeholder="0,00" className="min-h-[44px]" required />
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={formTtc}
+                onChange={(e) => setFormTtc(e.target.value)}
+                placeholder="0,00"
+                className="min-h-[44px]"
+                required
+                disabled={ocrLoading || formSaving}
+              />
             </div>
+            {ocrLoading && (
+              <p className="text-sm text-gray-500 flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Lecture OCR…
+              </p>
+            )}
+            {ocrError && <p className="text-sm text-red-600">{ocrError}</p>}
+            {ocrUncertain && !ocrLoading && (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                OCR incertain : vérifie les champs avant d’enregistrer.
+              </p>
+            )}
             {formError && <p className="text-sm text-red-600">{formError}</p>}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => { setAddPhotoOpen(false); setPendingImageUrl(null); }} disabled={formSaving}>Annuler</Button>
-              <Button type="submit" disabled={formSaving}>{formSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer"}</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setAddPhotoOpen(false);
+                  setPendingImageUrl(null);
+                  setOcrLoading(false);
+                  setOcrError(null);
+                  setOcrUncertain(false);
+                }}
+                disabled={formSaving || ocrLoading}
+              >
+                Annuler
+              </Button>
+              <Button type="submit" disabled={formSaving || ocrLoading}>
+                {formSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!fullscreenImageUrl} onOpenChange={(open) => !open && setFullscreenImageUrl(null)}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] w-fit p-2 bg-black/95 border-gray-700">
+      <Dialog
+        open={!!fullscreenImageUrl}
+        onOpenChange={(open) => {
+          if (!open) {
+            setFullscreenImageUrl(null);
+            setFullscreenExpenseId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-[95vw] max-h-[95vh] w-fit p-2 bg-black/95 border-gray-700 relative">
           {fullscreenImageUrl && (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={fullscreenImageUrl} alt="Facture" className="max-h-[90vh] w-auto object-contain" />
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="absolute top-2 right-2"
-                onClick={() => setFullscreenImageUrl(null)}
-              >
-                Fermer
-              </Button>
+              <img
+                src={fullscreenImageUrl}
+                alt="Facture"
+                className="max-h-[90vh] w-auto object-contain rounded"
+              />
+
+              <div className="absolute top-2 right-2 flex gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = fullscreenImageUrl;
+                    a.download = "facture.jpg";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                  }}
+                >
+                  Télécharger
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  disabled={!fullscreenExpenseId || deletingId === fullscreenExpenseId}
+                  onClick={() => {
+                    if (!fullscreenExpenseId) return;
+                    deleteInvoiceFromLightbox(fullscreenExpenseId, fullscreenImageUrl);
+                  }}
+                >
+                  {deletingId === fullscreenExpenseId ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Supprimer"
+                  )}
+                </Button>
+
+                <Button type="button" variant="outline" size="sm" onClick={() => setFullscreenImageUrl(null)}>
+                  Fermer
+                </Button>
+              </div>
             </>
           )}
         </DialogContent>

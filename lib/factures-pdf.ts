@@ -54,6 +54,31 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
   doc.setTextColor(0, 0, 0);
   y += 10;
 
+  // En-tête société (logo si fourni)
+  if (opts.logoUrl) {
+    try {
+      const logoDataUrl = await loadImageAsDataUrl(opts.logoUrl);
+      if (logoDataUrl) {
+        const maxLogoW = 40;
+        const maxLogoH = 18;
+        const props = doc.getImageProperties(logoDataUrl);
+        const ratio = props.width / props.height || 1;
+        let logoW = maxLogoW;
+        let logoH = logoW / ratio;
+        if (logoH > maxLogoH) {
+          logoH = maxLogoH;
+          logoW = logoH * ratio;
+        }
+        const x = pageWidth - 14 - logoW;
+        const yLogo = 12;
+        doc.addImage(logoDataUrl, "JPEG", x, yLogo, logoW, logoH, undefined, "FAST");
+      }
+    } catch (err) {
+      // Best-effort: skip logo
+      console.error("Factures PDF logo load failed:", err);
+    }
+  }
+
   const tableData = opts.rows.map((r) => [
     r.date,
     r.vendor,
@@ -110,11 +135,20 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
       doc.text(`Montant TTC : ${fmt(Number(row.ttc))} €`, 14, 20);
       doc.setTextColor(0, 0, 0);
       const margin = 14;
+      const imgStartY = 30;
       const maxW = pageWidth - 2 * margin;
-      const maxH = pageHeight - 35;
-      const imgW = maxW;
-      const imgH = maxH;
-      doc.addImage(dataUrl, "JPEG", margin, 25, imgW, imgH, undefined, "FAST");
+      const maxH = pageHeight - imgStartY - margin;
+      const props = doc.getImageProperties(dataUrl);
+      const ratio = props.width / props.height || 1;
+      let imgW = maxW;
+      let imgH = imgW / ratio;
+      if (imgH > maxH) {
+        imgH = maxH;
+        imgW = imgH * ratio;
+      }
+      const x = (pageWidth - imgW) / 2;
+      const yImg = imgStartY + (maxH - imgH) / 2;
+      doc.addImage(dataUrl, "JPEG", x, yImg, imgW, imgH, undefined, "FAST");
     } catch {
       // skip failed image
     }

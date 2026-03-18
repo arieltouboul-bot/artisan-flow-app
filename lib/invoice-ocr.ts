@@ -10,6 +10,9 @@ export type InvoiceCurrency = "EUR" | "USD" | "ILS" | "GBP";
 /** Seuil de contraste pour la binarisation CamScanner (0–255). Noir/blanc pur pour limiter les erreurs OCR. */
 const BINARIZATION_THRESHOLD = 128;
 
+/** Facteur de contraste appliqué avant la binarisation (valeurs >1 renforcent les contours). */
+const CONTRAST_FACTOR = 2.2;
+
 /**
  * Binarisation CamScanner : transforme l'image en noir et blanc pur (seuil de contraste) avant envoi à Tesseract.
  */
@@ -31,7 +34,11 @@ export function imageFileToBinarizedBlob(file: File, threshold: number = BINARIZ
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
       for (let i = 0; i < data.length; i += 4) {
-        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        // Grayscale
+        let gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        // Contrast boost (simple linear contrast around midpoint 128)
+        gray = (gray - 128) * CONTRAST_FACTOR + 128;
+        gray = Math.max(0, Math.min(255, gray));
         const bin = gray >= threshold ? 255 : 0;
         data[i] = data[i + 1] = data[i + 2] = bin;
       }
@@ -156,6 +163,7 @@ export function parseInvoiceText(text: string): ParsedInvoiceData {
   const ttcPatterns = [
     /(?:TOTAL\s+TTC|TTC\s*TOTAL|NET\s+(?:À|A)\s+PAYER|TOTAL\s+À\s+PAYER|TOTAL\s+NET)[\s:]*([\d\s.,]+)\s*[€$₪£]?/i,
     /(?:TTC|TOTAL)[\s:]*([\d\s.,]+)\s*[€$₪£]?/i,
+    /(?:AMOUNT|AMOUNT\s+TTC|TOTAL\s+AMOUNT|AMOUNT\s+TOTAL|Total\s+Amount)[\s:]*([\d\s.,]+)\s*[€$₪£]?/i,
     /(?:montant\s+total|total\s+ttc)[\s:]*([\d\s.,]+)\s*[€$₪£]?/i,
     /\u05E1\u05DA\u0020\u05D4\u05DB\u05DC[\s:]*([\d\s.,]+)/, // סך הכל
     /(?:grand\s+total|total\s+amount)[\s:]*([\d\s.,]+)\s*[€$₪£]?/i,
@@ -242,13 +250,24 @@ export function parseInvoiceText(text: string): ParsedInvoiceData {
     dateMatch = dateRe.exec(fullText);
   }
   if (bestDate) result.date = bestDate;
-  else result.date = new Date().toISOString().slice(0, 10);
 
-  // —— Fournisseur : en haut de l'image — MAJUSCULES ou lignes type logo/nom (ne pas utiliser le nom de fichier)
+  // —— Fournisseur : en haut de l'image — privilégier un nom "propre" (lettres) et éviter les mots techniques.
   for (const line of lines.slice(0, 12)) {
-    if (line.length < 4 || line.length > 80) continue;
-    if (/^\d+[\s.,]?\d*$/.test(line) || /^(TVA|TTC|TOTAL|HT|€|Montant)\s*$/i.test(line)) continue;
+    if (line.length < 3 || line.length > 80) continue;
+
+    // Skip pure numbers / techniques
+    if (/^\d+[\s.,]?\d*$/.test(line)) continue;
+    if (/^(TVA|TTC|TOTAL|HT|€|Montant)\s*$/i.test(line)) continue;
+    if (/(FACTURE|INVOICE|CLIENT|FOURNISSEUR|DATE|IBAN|SIRET|TVA|TTC|TOTAL|HT)\b/i.test(line)) continue;
     if (/^\d{1,2}[\/.-]\d{1,2}/.test(line)) continue;
+
+    // Un fournisseur est généralement une ligne contenant des lettres (latin ou hébreu).
+    if (!/[A-Za-zÀ-ÿ\u0590-\u05FF]/.test(line)) continue;
+
+    const lettersCount = line.replace(/[^A-Za-zÀ-ÿ\u0590-\u05FF]/g, "").length;
+    const digitsCount = line.replace(/[^0-9]/g, "").length;
+    if (digitsCount > lettersCount) continue;
+
     const capsRatio = (line.replace(/[^A-ZÀ-Ÿ]/g, "").length) / (line.replace(/\s/g, "").length || 1);
     if (capsRatio >= 0.25 || line.length > 12) {
       result.vendor = line.trim();
