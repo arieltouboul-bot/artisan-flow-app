@@ -377,7 +377,7 @@ export default function FacturesPage() {
           imageUrl: pendingImageUrl,
         });
         setFormError(error.message || "Erreur insertion facture");
-        alert("Erreur base de données: " + (error.message || "inconnue"));
+        alert("Erreur Supabase: " + (error.message || "inconnue"));
         return;
       }
     } catch (err) {
@@ -385,7 +385,7 @@ export default function FacturesPage() {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("Factures insert threw exception:", err);
       setFormError(msg);
-      alert("Erreur base de données: " + msg);
+      alert("Erreur Supabase: " + msg);
       return;
     }
     alert("Facture enregistrée !");
