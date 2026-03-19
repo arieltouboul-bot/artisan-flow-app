@@ -29,6 +29,7 @@ import { parseInvoiceText, imageFileToBinarizedBlob, type ScanInvoiceResult } fr
 
 const VAT_OPTIONS = [0, 5.5, 10, 20];
 const GOOGLE_MAPS_SEARCH_URL = "https://www.google.com/maps/search/magasin+de+bricolage+materiaux+hardware+store/";
+const INVOICE_BUCKET = "factures";
 
 export default function MaterielPage() {
   const { language } = useLanguage();
@@ -77,6 +78,7 @@ export default function MaterielPage() {
   const [scanAmountTtc, setScanAmountTtc] = useState("");
   const [scanItemsText, setScanItemsText] = useState("");
   const [scanProjectId, setScanProjectId] = useState<string>("");
+  const [scanImageFile, setScanImageFile] = useState<File | null>(null);
   const [saveExpenseLoading, setSaveExpenseLoading] = useState(false);
   const [saveExpenseError, setSaveExpenseError] = useState<string | null>(null);
   const [saveExpenseSuccess, setSaveExpenseSuccess] = useState(false);
@@ -149,6 +151,7 @@ export default function MaterielPage() {
     setSaveExpenseError(null);
     setSaveExpenseSuccess(false);
     setScanProjectId("");
+    setScanImageFile(null);
     setScanOpen(true);
   };
 
@@ -170,6 +173,7 @@ export default function MaterielPage() {
       setScanError(t("invalidImage", language));
       return;
     }
+    setScanImageFile(file);
     setScanError(null);
     setScanResult(null);
     setScanLoading(true);
@@ -225,6 +229,22 @@ export default function MaterielPage() {
     const amountTtc = parseFloat(scanAmountTtc.replace(",", "."));
     const tvaAmount = parseFloat(scanTva.replace(",", "."));
     setSaveExpenseLoading(true);
+
+    let imageUrl: string | null = null;
+    if (scanImageFile) {
+      const storagePath = `${user.id}/materials/${crypto.randomUUID()}.jpg`;
+      const { error: uploadErr } = await supabase.storage
+        .from(INVOICE_BUCKET)
+        .upload(storagePath, scanImageFile, { upsert: false, contentType: scanImageFile.type });
+      if (uploadErr) {
+        setSaveExpenseLoading(false);
+        setSaveExpenseError(uploadErr.message);
+        return;
+      }
+      const { data: urlData } = supabase.storage.from(INVOICE_BUCKET).getPublicUrl(storagePath);
+      imageUrl = urlData?.publicUrl ?? null;
+    }
+
     const { error: insertError } = await supabase.from("expenses").insert({
       project_id: scanProjectId,
       user_id: user.id,
@@ -234,7 +254,7 @@ export default function MaterielPage() {
       // Champs supplémentaires de confort pour les exports / comptabilité
       amount_ttc: Number.isFinite(amountTtc) ? amountTtc : null,
       tva_amount: Number.isFinite(tvaAmount) ? tvaAmount : null,
-      image_url: null,
+      image_url: imageUrl,
       category: "achat_materiel",
       date: scanDate || new Date().toISOString().slice(0, 10),
     });
@@ -730,6 +750,7 @@ export default function MaterielPage() {
           if (!open) {
             setScanError(null);
             setScanResult(null);
+            setScanImageFile(null);
           }
         }}
       >

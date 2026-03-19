@@ -353,6 +353,7 @@ export default function FacturesPage() {
     const payload: Record<string, unknown> = {
       user_id: user.id,
       description: vendor,
+      amount_ttc: ttc,
       amount_ht: amountHt,
       tva_rate: 20,
       category: "achat_materiel",
