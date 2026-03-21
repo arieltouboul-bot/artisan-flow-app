@@ -331,6 +331,7 @@ export default function FacturesPage() {
       return;
     }
     const amountHt = Math.round((ttc / 1.2) * 100) / 100;
+    const tvaAmount = Math.round((ttc - amountHt) * 100) / 100;
     const supabase = createClient();
     if (!supabase) {
       console.error("Factures submit form error: Supabase client indisponible");
@@ -355,6 +356,7 @@ export default function FacturesPage() {
       description: vendor,
       amount_ttc: ttc,
       amount_ht: amountHt,
+      tva_amount: tvaAmount,
       tva_rate: 20,
       category: "achat_materiel",
       date: safeDate,
