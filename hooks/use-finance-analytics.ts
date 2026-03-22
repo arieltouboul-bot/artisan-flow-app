@@ -46,6 +46,7 @@ function emptyAnalytics(): FinanceAnalytics {
     companyMarginEur: 0,
     companyMarginPct: 0,
     totalOutstandingEur: 0,
+    projectBalanceDueEurById: {},
     outstandingRows: [],
     projectMargins: [],
     ytdByMonth: [],
@@ -191,6 +192,7 @@ export function useFinanceAnalytics() {
       const projectMargins: ProjectMarginRow[] = [];
       const outstandingRows: OutstandingRow[] = [];
       const materialAlerts: MaterialBudgetAlert[] = [];
+      const projectBalanceDueEurById: Record<string, number> = {};
 
       for (const p of projects) {
         const pTx = txByProject.get(p.id) ?? [];
@@ -199,7 +201,10 @@ export function useFinanceAnalytics() {
         const revEur = totalProjectRevenueEur(pTx, pRev);
         const marginEur = projectNetProfitEur(num(p.material_costs), pEx, pTx, pRev);
         companyMarginEur += marginEur;
-        companyTotalExpensesEur += totalProjectExpensesEur(num(p.material_costs), pEx);
+        const matField = num(p.material_costs);
+        const lineExpTtc = sumMaterialToolExpensesTtc(pEx);
+        const totalExpProj = totalProjectExpensesEur(matField, pEx);
+        companyTotalExpensesEur += totalExpProj;
 
         const clientName = p.client?.name ?? "—";
         const marginPct = revEur !== 0 ? (marginEur / Math.abs(revEur)) * 100 : 0;
@@ -208,15 +213,18 @@ export function useFinanceAnalytics() {
           projectName: p.name,
           clientName,
           revenueEur: revEur,
-          expensesEur: totalProjectExpensesEur(num(p.material_costs), pEx),
+          expensesEur: totalExpProj,
           marginEur,
           marginPct: Number.isFinite(marginPct) ? marginPct : 0,
+          materialCostsFieldEur: matField,
+          expenseLinesTtcEur: lineExpTtc,
         });
 
         /** Budget contrat − encaissements totaux (transactions + lignes revenus), équivalent EUR. */
         const collectedEur = totalProjectRevenueEur(pTx, pRev);
         const budgetEur = num(p.contract_amount);
         const balanceEur = Math.max(0, budgetEur - collectedEur);
+        projectBalanceDueEurById[p.id] = Math.round(balanceEur * 100) / 100;
         if (balanceEur > 0.005) {
           outstandingRows.push({
             projectId: p.id,
@@ -255,7 +263,9 @@ export function useFinanceAnalytics() {
       }, 0);
       const companyMarginPct = companyTotalRevenueEur > 0 ? (companyMarginEur / companyTotalRevenueEur) * 100 : 0;
 
-      const totalOutstandingEur = outstandingRows.reduce((s, r) => s + r.balanceEur, 0);
+      const totalOutstandingEur = Math.round(
+        Object.values(projectBalanceDueEurById).reduce((s, v) => s + v, 0) * 100
+      ) / 100;
 
       const projectNameById = new Map(projects.map((p) => [p.id, p.name]));
       const cashFlowLines: CashFlowLine[] = [];
@@ -300,6 +310,7 @@ export function useFinanceAnalytics() {
         companyMarginEur,
         companyMarginPct,
         totalOutstandingEur,
+        projectBalanceDueEurById,
         outstandingRows,
         projectMargins,
         ytdByMonth,

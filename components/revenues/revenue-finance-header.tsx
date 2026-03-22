@@ -36,7 +36,7 @@ function RevenueFinanceHeaderInner() {
   const { profile, displayCurrency } = useProfile();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data, loading, error, refetch } = useFinanceAnalytics();
+  const { data, loading, error, refetch: refetchFinance } = useFinanceAnalytics();
   const [open, setOpen] = useState<FinanceKpiDetailKey | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const detailYear = new Date().getFullYear();
@@ -91,7 +91,7 @@ function RevenueFinanceHeaderInner() {
       {error && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           {error}
-          <button type="button" className="ml-2 underline" onClick={() => refetch()}>
+          <button type="button" className="ml-2 underline" onClick={() => refetchFinance()}>
             {t("financeRetry", language)}
           </button>
         </div>
@@ -216,6 +216,7 @@ function RevenueFinanceHeaderInner() {
         onOpenChange={setOpen}
         displayCurrency={displayCurrency}
         detailYear={detailYear}
+        onRefetchFinance={refetchFinance}
       />
     </div>
   );

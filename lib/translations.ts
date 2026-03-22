@@ -495,10 +495,6 @@ export const translations: Record<string, { fr: string; en: string }> = {
     en: "One or more projects exceed the materials budget.",
   },
   dashboardMaterialBudgetCta: { fr: "Voir le détail marge", en: "View margin detail" },
-  dashboardKpiOpenDetailHere: {
-    fr: "Voir le détail (sans quitter la page)",
-    en: "View details (stay on this page)",
-  },
   dashboardKpiYearModalNote: {
     fr: "Détail des encaissements pour l’année {year} (graphique et liste).",
     en: "Cash collected in {year} (chart and list).",
@@ -528,6 +524,12 @@ export const translations: Record<string, { fr: string; en: string }> = {
   revenueCardMargin: { fr: "Marge bénéficiaire", en: "Profit margin" },
   revenueCardUnpaid: { fr: "Impayés", en: "Unpaid" },
   revenueCardTapDetail: { fr: "Voir le détail", en: "View details" },
+  financeEditSaveError: { fr: "Enregistrement impossible.", en: "Could not save." },
+  financeEditMarginInvalid: {
+    fr: "Marge incompatible avec les charges réelles (matériaux + lignes). Réduisez la marge ou les dépenses.",
+    en: "Margin is incompatible with actual costs (materials + lines). Lower the margin or expenses.",
+  },
+  financeEditAmountAria: { fr: "Modifier le montant", en: "Edit amount" },
   revenueModalMonthTitle: { fr: "Détail — mois en cours", en: "Detail — current month" },
   revenueModalMonthSubtitle: {
     fr: "Encaissements du mois et progression cumulée.",
@@ -536,6 +538,7 @@ export const translations: Record<string, { fr: string; en: string }> = {
   revenueModalCum: { fr: "Cumul", en: "Cumulative" },
   revenueModalEmptyPeriod: { fr: "Aucun encaissement sur cette période.", en: "No cash collected in this period." },
   revenueModalYearTitle: { fr: "Détail — année en cours", en: "Detail — current year" },
+  revenueModalYearTitleWithYear: { fr: "Détail — {year}", en: "Detail — {year}" },
   revenueKindTx: { fr: "Transaction", en: "Transaction" },
   revenueKindRow: { fr: "Ligne revenu", en: "Revenue entry" },
   revenueModalMarginTitle: { fr: "Marge nette (entreprise)", en: "Net margin (company)" },

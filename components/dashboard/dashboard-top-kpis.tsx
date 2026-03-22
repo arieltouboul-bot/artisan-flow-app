@@ -26,6 +26,7 @@ type Props = {
   yearCaDisplay: number;
   yearCaPending: boolean;
   displayCurrency: Currency;
+  onRefetchFinance: () => void | Promise<void>;
 };
 
 export function DashboardTopKpis({
@@ -36,6 +37,7 @@ export function DashboardTopKpis({
   yearCaDisplay,
   yearCaPending,
   displayCurrency,
+  onRefetchFinance,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -66,7 +68,7 @@ export function DashboardTopKpis({
               marginEur: financeData.companyMarginEur,
               marginPct: financeData.companyMarginPct,
               unpaidEur: financeData.totalOutstandingEur,
-              unpaidProjectCount: financeData.outstandingRows.length,
+              unpaidProjectCount: Object.values(financeData.projectBalanceDueEurById).filter((v) => v > 0.005).length,
             },
     });
     return () => setPageContext({});
@@ -82,7 +84,7 @@ export function DashboardTopKpis({
   const momPct = financeData.caMonthMomPct;
   const momUp = momPct != null && momPct > 0;
   const momDown = momPct != null && momPct < 0;
-  const nbOutstandingProjects = financeData.outstandingRows.length;
+  const nbOutstandingProjects = Object.values(financeData.projectBalanceDueEurById).filter((v) => v > 0.005).length;
   const currency = displayCurrency;
 
   const openKpi = (k: FinanceKpiDetailKey) => () => setKpiModal(k);
@@ -162,7 +164,7 @@ export function DashboardTopKpis({
                         <span className="text-slate-400">{t("financeMomNa", language)}</span>
                       )}
                     </p>
-                    <p className="text-xs text-blue-700 font-medium mt-2">{t("dashboardKpiOpenDetailHere", language)}</p>
+                    <p className="text-xs text-blue-700 font-medium mt-2">{t("revenueCardTapDetail", language)}</p>
                   </>
                 )}
               </CardContent>
@@ -197,7 +199,7 @@ export function DashboardTopKpis({
                     <p className="text-xs text-blue-700/80 mt-1">
                       {tReplace("dashboardRevenueDetailYear", language, { year: String(selectedYear) })}
                     </p>
-                    <p className="text-xs text-blue-700 font-medium mt-2">{t("dashboardKpiOpenDetailHere", language)}</p>
+                    <p className="text-xs text-blue-700 font-medium mt-2">{t("revenueCardTapDetail", language)}</p>
                   </>
                 )}
               </CardContent>
@@ -230,7 +232,7 @@ export function DashboardTopKpis({
                     <p className="text-xs text-emerald-800/90 mt-1">
                       {tReplace("financeMarginPctLabel", language, { pct: Math.round(financeData.companyMarginPct * 10) / 10 })}
                     </p>
-                    <p className="text-xs text-emerald-800 font-medium mt-2">{t("dashboardKpiOpenDetailHere", language)}</p>
+                    <p className="text-xs text-emerald-800 font-medium mt-2">{t("revenueCardTapDetail", language)}</p>
                   </>
                 )}
               </CardContent>
@@ -263,7 +265,7 @@ export function DashboardTopKpis({
                     <p className="text-xs text-red-700 mt-1">
                       {tReplace("dashboardOutstandingCount", language, { n: String(nbOutstandingProjects) })}
                     </p>
-                    <p className="text-xs text-red-800 font-medium mt-2">{t("dashboardKpiOpenDetailHere", language)}</p>
+                    <p className="text-xs text-red-800 font-medium mt-2">{t("revenueCardTapDetail", language)}</p>
                   </>
                 )}
               </CardContent>
@@ -278,6 +280,7 @@ export function DashboardTopKpis({
         onOpenChange={setKpiModal}
         displayCurrency={displayCurrency}
         detailYear={selectedYear}
+        onRefetchFinance={onRefetchFinance}
       />
     </>
   );

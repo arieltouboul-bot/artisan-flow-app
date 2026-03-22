@@ -34,8 +34,7 @@ import { useTodayAppointments } from "@/hooks/use-appointments";
 import { useUser } from "@/hooks/use-user";
 import { useProfile } from "@/hooks/use-profile";
 import { useLanguage } from "@/context/language-context";
-import { t, tReplace } from "@/lib/translations";
-import { projectRestantDu } from "@/types/database";
+import { t } from "@/lib/translations";
 import { FolderKanban, ArrowRight, X, Bell, CheckSquare, Square, Trash2, Plus, CalendarClock, MapPin, Loader2 } from "lucide-react";
 import { formatTime } from "@/lib/utils";
 import {
@@ -95,8 +94,8 @@ export default function DashboardPage() {
   const [isMobile, setIsMobile] = useState(false);
   const { user } = useUser();
   const { profile, displayCurrency } = useProfile();
-  const { stats, projects, projectsImpayes, loading, error, refetch } = useDashboardStats(selectedYear);
-  const { data: financeData, loading: financeAnalyticsLoading } = useFinanceAnalytics();
+  const { stats, projects, loading, error, refetch } = useDashboardStats(selectedYear);
+  const { data: financeData, loading: financeAnalyticsLoading, refetch: refetchFinance } = useFinanceAnalytics();
   const { reminders, addReminder, toggleReminder, deleteReminder } = useReminders();
   const { appointments: todayAppointments } = useTodayAppointments();
   const [newReminder, setNewReminder] = useState("");
@@ -138,8 +137,13 @@ export default function DashboardPage() {
     [stats.chartData, selectedYear, dateLocale]
   );
 
+  const projectsImpayesAligned = useMemo(
+    () => projects.filter((p) => (financeData.projectBalanceDueEurById[p.id] ?? 0) > 0.005),
+    [projects, financeData.projectBalanceDueEurById]
+  );
+
   const listProjects = useMemo(() => {
-    let list = dashboardView === "impayes" ? projectsImpayes : projects;
+    let list = dashboardView === "impayes" ? projectsImpayesAligned : projects;
     const q = debouncedGlobalSearch.toLowerCase().trim();
     if (q) {
       list = list.filter(
@@ -149,7 +153,7 @@ export default function DashboardPage() {
       );
     }
     return list;
-  }, [dashboardView, projects, projectsImpayes, debouncedGlobalSearch]);
+  }, [dashboardView, projects, projectsImpayesAligned, debouncedGlobalSearch]);
 
   const showList = dashboardView === "all" || dashboardView === "impayes";
   const showCaDetail = dashboardView === "ca_detail";
@@ -247,6 +251,7 @@ export default function DashboardPage() {
             yearCaDisplay={yearCaDisplay}
             yearCaPending={yearCaPending}
             displayCurrency={currency}
+            onRefetchFinance={refetchFinance}
           />
         </Suspense>
       </motion.div>
@@ -538,7 +543,9 @@ export default function DashboardPage() {
                       </motion.li>
                     ) : (
                       listProjects.map((project, i) => {
-                        const restant = projectRestantDu(project);
+                        const restant = financeAnalyticsLoading
+                          ? 0
+                          : (financeData.projectBalanceDueEurById[project.id] ?? 0);
                         const endDate = project.end_date ? new Date(project.end_date) : null;
                         const isOverdue = endDate && endDate < new Date() && project.status !== "termine";
                         return (

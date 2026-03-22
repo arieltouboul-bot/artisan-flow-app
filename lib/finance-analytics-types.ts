@@ -3,6 +3,7 @@ export type OutstandingRow = {
   projectName: string;
   clientName: string;
   budgetEur: number;
+  /** Encaissements totaux EUR (transactions + lignes revenus). */
   paidEur: number;
   balanceEur: number;
 };
@@ -15,6 +16,10 @@ export type ProjectMarginRow = {
   expensesEur: number;
   marginEur: number;
   marginPct: number;
+  /** Champ matériaux projet (EUR) — pour recalcul marge en édition. */
+  materialCostsFieldEur: number;
+  /** Dépenses matériel/outillage issues des lignes `expenses` (TTC EUR). */
+  expenseLinesTtcEur: number;
 };
 
 export type MaterialBudgetAlert = {
@@ -51,6 +56,8 @@ export interface FinanceAnalytics {
   companyMarginEur: number;
   companyMarginPct: number;
   totalOutstandingEur: number;
+  /** Solde dû (EUR) par projet : contrat − encaissements — aligné carte + listes. */
+  projectBalanceDueEurById: Record<string, number>;
   outstandingRows: OutstandingRow[];
   projectMargins: ProjectMarginRow[];
   ytdByMonth: FinanceYtdMonth[];
