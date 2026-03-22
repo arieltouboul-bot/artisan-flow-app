@@ -89,6 +89,7 @@ export function SwipeActionsRow({
       >
         <button
           type="button"
+          tabIndex={actionsInteractive ? 0 : -1}
           className="flex w-[60px] shrink-0 items-center justify-center bg-brand-blue-500 text-white active:bg-brand-blue-600"
           onClick={(e) => {
             e.stopPropagation();
@@ -102,6 +103,7 @@ export function SwipeActionsRow({
         </button>
         <button
           type="button"
+          tabIndex={actionsInteractive ? 0 : -1}
           className="flex w-[60px] shrink-0 items-center justify-center bg-red-500 text-white active:bg-red-600"
           onClick={(e) => {
             e.stopPropagation();
@@ -116,7 +118,7 @@ export function SwipeActionsRow({
       </motion.div>
 
       <motion.div
-        className="relative z-10 touch-pan-y border-r border-transparent bg-white [touch-action:pan-y]"
+        className="relative z-20 isolate touch-pan-y border-r border-transparent bg-white shadow-[2px_0_12px_rgba(0,0,0,0.06)] [touch-action:pan-y]"
         style={{ x: offset }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, ScanLine, FolderKanban, Sparkles, FileDown, Calendar, Package, Smartphone } from "lucide-react";
+import { BookOpen, ScanLine, FolderKanban, Sparkles, FileDown, Calendar, Package, Smartphone, LineChart } from "lucide-react";
 import type { HelpSection } from "./help-sections-en";
 
 export const HELP_SECTIONS_FR: HelpSection[] = [
@@ -199,6 +199,41 @@ export const HELP_SECTIONS_FR: HelpSection[] = [
           </li>
           <li>
             Glissement vers la gauche sur mobile : <strong>Modifier</strong> / <strong>Supprimer</strong>.
+          </li>
+        </ul>
+      </div>
+    ),
+  },
+  {
+    id: "finance-dashboard",
+    title: "Graphiques & impayés",
+    icon: LineChart,
+    body: (
+      <div className="space-y-3 text-sm text-gray-700">
+        <p className="font-medium text-gray-900">Lire les graphiques du tableau de bord</p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            Les <strong>barres vertes</strong> = encaissements (paiements par mois + revenus directs). Les{" "}
+            <strong>barres rouges</strong> = frais matériaux rattachés au mois de début du chantier.
+          </li>
+          <li>
+            Les trois compteurs en tête (<strong>Total encaissé</strong>, <strong>Total dépenses</strong>,{" "}
+            <strong>Bénéfice net</strong>) utilisent votre <strong>devise d’affichage</strong> ; les devises mélangées sont
+            converties pour une vision unique sur l’année choisie.
+          </li>
+          <li>
+            Sur un <strong>projet</strong>, le bénéfice = <strong>revenus − (coûts matériaux + dépenses matériel & location)</strong>.
+            La section <strong>Impayé / solde budget</strong> s’affiche si le contrat dépasse les encaissements totaux.
+          </li>
+        </ul>
+        <p className="font-medium text-gray-900 pt-2">Gérer les impayés</p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            Enregistrez les paiements sur le chantier pour que la <strong>progression</strong> et le{" "}
+            <strong>restant à payer</strong> restent justes.
+          </li>
+          <li>
+            Utilisez la vue <strong>Impayés</strong> sur le tableau de bord pour lister les projets avec solde.
           </li>
         </ul>
       </div>

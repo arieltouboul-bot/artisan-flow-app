@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProjects } from "@/hooks/use-projects";
-import { projectRestantDu } from "@/types/database";
+import { projectBalanceDueRevenue } from "@/types/database";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -99,7 +99,7 @@ function ProjetsContent() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { displayCurrency } = useProfile();
   const currency = displayCurrency;
-  const { projects, loading, error } = useProjects();
+  const { projects, loading, error, revenuePaidEurByProject } = useProjects();
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -110,7 +110,8 @@ function ProjetsContent() {
 
   const filtered = useMemo(() => {
     let list = projects;
-    if (filter === "unpaid") list = list.filter((p) => projectRestantDu(p) > 0);
+    if (filter === "unpaid")
+      list = list.filter((p) => projectBalanceDueRevenue(p, revenuePaidEurByProject[p.id] ?? 0) > 0);
     else if (filter !== "all") list = list.filter((p) => p.status === filter);
     if (debouncedSearch.trim()) {
       const q = debouncedSearch.toLowerCase();
@@ -121,7 +122,7 @@ function ProjetsContent() {
       );
     }
     return list;
-  }, [projects, filter, debouncedSearch]);
+  }, [projects, filter, debouncedSearch, revenuePaidEurByProject]);
 
   return (
     <motion.div
@@ -146,7 +147,7 @@ function ProjetsContent() {
         </Link>
       </div>
 
-      {(error || deleteError) && (
+      {!loading && (error || deleteError) && (
         <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
           {deleteError ?? error}
         </div>
@@ -181,7 +182,7 @@ function ProjetsContent() {
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="space-y-0 divide-y divide-gray-100 px-4 py-2" aria-busy="true">
+            <div className="relative z-0 space-y-0 divide-y divide-gray-100 px-4 py-2" aria-busy="true">
               {[0, 1, 2, 3, 4].map((i) => (
                 <div key={i} className="flex items-center gap-4 py-4">
                   <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
@@ -213,8 +214,9 @@ function ProjetsContent() {
                     const endDate = project.end_date ? new Date(project.end_date) : null;
                     const isOverdue = endDate && endDate < new Date() && project.status !== "termine";
                     const total = project.contract_amount ?? 0;
-                    const paid = project.amount_collected ?? 0;
-                    const percentPaid = total > 0 ? Math.min(100, (paid / total) * 100) : 0;
+                    const paidEur = revenuePaidEurByProject[project.id] ?? 0;
+                    const percentPaid = total > 0 ? Math.min(100, (paidEur / total) * 100) : 0;
+                    const isFullyPaid = total > 0 && paidEur >= total - 1e-6;
                     const runDelete = async () => {
                       if (!confirm(t("deleteProjectConfirm", language))) return;
                       setDeletingId(project.id);
@@ -258,9 +260,19 @@ function ProjetsContent() {
                                   {project.client?.name} • {project.address ?? project.client?.address ?? "—"}
                                 </p>
                                 <div className="mt-2 max-w-[220px]">
-                                  <Progress value={percentPaid} className="h-2" />
-                                  <p className="text-xs text-gray-500 mt-0.5">
-                                    {total > 0 ? `${Math.round(percentPaid)} %` : "—"} · {formatConvertedCurrency(paid, currency)} / {formatConvertedCurrency(total, currency)}
+                                  <Progress
+                                    value={percentPaid}
+                                    className={cn("h-2", isFullyPaid && "bg-emerald-100")}
+                                    indicatorClassName={isFullyPaid ? "bg-emerald-600" : undefined}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-0.5 flex flex-wrap items-center gap-1">
+                                    {total > 0 ? `${Math.round(percentPaid)} %` : "—"} ·{" "}
+                                    {formatConvertedCurrency(paidEur, currency)} / {formatConvertedCurrency(total, currency)}
+                                    {isFullyPaid && (
+                                      <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] px-1.5 py-0">
+                                        {t("projectPaidBadge", language)}
+                                      </Badge>
+                                    )}
                                   </p>
                                 </div>
                               </div>
@@ -293,9 +305,19 @@ function ProjetsContent() {
                                 {project.client?.name} • {project.address ?? project.client?.address ?? "—"}
                               </p>
                               <div className="mt-2 max-w-[200px]">
-                                <Progress value={percentPaid} className="h-2" />
-                                <p className="text-xs text-gray-500 mt-0.5">
-                                  {total > 0 ? `${Math.round(percentPaid)} % payé` : "—"} · {formatConvertedCurrency(paid, currency)} / {formatConvertedCurrency(total, currency)}
+                                <Progress
+                                  value={percentPaid}
+                                  className={cn("h-2", isFullyPaid && "bg-emerald-100")}
+                                  indicatorClassName={isFullyPaid ? "bg-emerald-600" : undefined}
+                                />
+                                <p className="text-xs text-gray-500 mt-0.5 flex flex-wrap items-center gap-1">
+                                  {total > 0 ? `${Math.round(percentPaid)} % ${language === "en" ? "paid" : "payé"}` : "—"} ·{" "}
+                                  {formatConvertedCurrency(paidEur, currency)} / {formatConvertedCurrency(total, currency)}
+                                  {isFullyPaid && (
+                                    <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600 text-white text-[10px] px-1.5 py-0">
+                                      {t("projectPaidBadge", language)}
+                                    </Badge>
+                                  )}
                                 </p>
                               </div>
                             </div>

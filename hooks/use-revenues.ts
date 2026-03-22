@@ -9,10 +9,10 @@ export type RevenueRow = {
   user_id: string;
   project_id: string;
   amount: number;
-  /** Colonne Supabase : date (jour du revenu) */
+  /** Colonne Supabase : date (jour du revenu). Ne pas utiliser received_at. */
   date: string;
   currency: RevenueCurrency;
-  description: string | null;
+  notes: string | null;
   created_at?: string;
   project?: { id: string; name: string } | null;
 };
@@ -49,9 +49,7 @@ export function useRevenues() {
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from(TABLE)
-        .select(
-          "id, user_id, project_id, amount, date, currency, description, created_at, project:projects(id, name)"
-        )
+        .select("id, user_id, project_id, amount, date, currency, notes, created_at, project:projects(id, name)")
         .eq("user_id", user.id)
         .order("date", { ascending: false });
 
@@ -72,7 +70,7 @@ export function useRevenues() {
               amount: Number(row.amount),
               date: String(row.date),
               currency: parseStoredRevenueCurrency(row.currency as string | null | undefined),
-              description: (row.description as string | null) ?? null,
+              notes: (row.notes as string | null) ?? null,
               created_at: row.created_at as string | undefined,
               project: project ? { id: project.id, name: project.name } : null,
             };
@@ -92,13 +90,27 @@ export function useRevenues() {
     fetchRevenues();
   }, [fetchRevenues]);
 
+  useEffect(() => {
+    const supabase = createClient();
+    if (!supabase) return;
+    const ch = supabase
+      .channel("revenues-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: TABLE }, () => {
+        fetchRevenues();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [fetchRevenues]);
+
   const insertRevenue = useCallback(
     async (payload: {
       project_id: string;
       amount: number;
       date: string;
       currency: RevenueCurrency;
-      description?: string | null;
+      notes?: string | null;
       user_id: string;
     }) => {
       const supabase = createClient();
@@ -113,7 +125,7 @@ export function useRevenues() {
           amount: payload.amount,
           date: payload.date,
           currency: payload.currency,
-          description: payload.description?.trim() || null,
+          notes: payload.notes?.trim() || null,
         };
         const { error: insertError } = await supabase.from(TABLE).insert(insertPayload);
         if (insertError) {
@@ -130,5 +142,72 @@ export function useRevenues() {
     [fetchRevenues]
   );
 
-  return { rows, loading, error, refetch: fetchRevenues, insertRevenue };
+  const updateRevenue = useCallback(
+    async (
+      id: string,
+      payload: {
+        project_id: string;
+        amount: number;
+        date: string;
+        currency: RevenueCurrency;
+        notes?: string | null;
+      }
+    ) => {
+      const supabase = createClient();
+      if (!supabase) return { error: "Supabase non configuré" as const };
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return { error: "Not authenticated" as const };
+        const { error: upErr } = await supabase
+          .from(TABLE)
+          .update({
+            project_id: payload.project_id,
+            amount: payload.amount,
+            date: payload.date,
+            currency: payload.currency,
+            notes: payload.notes?.trim() || null,
+          })
+          .eq("id", id)
+          .eq("user_id", user.id);
+        if (upErr) {
+          logRevenuesError("update", upErr);
+          return { error: upErr.message };
+        }
+        await fetchRevenues();
+        return { error: null };
+      } catch (e) {
+        logRevenuesError("update catch", e);
+        return { error: e instanceof Error ? e.message : String(e) };
+      }
+    },
+    [fetchRevenues]
+  );
+
+  const deleteRevenue = useCallback(
+    async (id: string) => {
+      const supabase = createClient();
+      if (!supabase) return { error: "Supabase non configuré" as const };
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return { error: "Not authenticated" as const };
+        const { error: delErr } = await supabase.from(TABLE).delete().eq("id", id).eq("user_id", user.id);
+        if (delErr) {
+          logRevenuesError("delete", delErr);
+          return { error: delErr.message };
+        }
+        await fetchRevenues();
+        return { error: null };
+      } catch (e) {
+        logRevenuesError("delete catch", e);
+        return { error: e instanceof Error ? e.message : String(e) };
+      }
+    },
+    [fetchRevenues]
+  );
+
+  return { rows, loading, error, refetch: fetchRevenues, insertRevenue, updateRevenue, deleteRevenue };
 }

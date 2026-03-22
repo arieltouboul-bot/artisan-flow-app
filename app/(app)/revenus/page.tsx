@@ -14,12 +14,14 @@ import {
 } from "@/components/ui/dialog";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
-import { useRevenues } from "@/hooks/use-revenues";
+import { useRevenues, type RevenueRow } from "@/hooks/use-revenues";
 import { useProjects } from "@/hooks/use-projects";
 import { useClients } from "@/hooks/use-clients";
 import { createClient } from "@/lib/supabase/client";
 import { formatAmountInCurrency, formatDate, cn, type RevenueCurrency } from "@/lib/utils";
 import { Banknote, Loader2 } from "lucide-react";
+import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
+import { Skeleton } from "@/components/ui/skeleton";
 import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
@@ -27,7 +29,7 @@ const REV_CURRENCIES: RevenueCurrency[] = ["EUR", "USD", "ILS"];
 
 export default function RevenusPage() {
   const { language } = useLanguage();
-  const { rows, loading, error: revenuesError, insertRevenue } = useRevenues();
+  const { rows, loading, error: revenuesError, insertRevenue, updateRevenue, deleteRevenue } = useRevenues();
   const { projects, refetch: refetchProjects } = useProjects();
   const { clients, refetch: refetchClients } = useClients();
 
@@ -38,7 +40,7 @@ export default function RevenusPage() {
   const [revenueCurrency, setRevenueCurrency] = useState<RevenueCurrency>("EUR");
   const [receivedAt, setReceivedAt] = useState(() => new Date().toISOString().slice(0, 10));
   const [projectId, setProjectId] = useState("");
-  const [description, setDescription] = useState("");
+  const [revenueNotes, setRevenueNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -48,12 +50,22 @@ export default function RevenusPage() {
   const [newClientName, setNewClientName] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
 
+  const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState<RevenueRow | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editCurrency, setEditCurrency] = useState<RevenueCurrency>("EUR");
+  const [editDate, setEditDate] = useState("");
+  const [editProjectId, setEditProjectId] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
   const filteredRows = useMemo(() => {
     const q = debouncedSearch.toLowerCase().trim();
     if (!q) return rows;
     return rows.filter((r) => {
       const pn = r.project?.name?.toLowerCase() ?? "";
-      const n = (r.description ?? "").toLowerCase();
+      const n = (r.notes ?? "").toLowerCase();
       return pn.includes(q) || n.includes(q);
     });
   }, [rows, debouncedSearch]);
@@ -83,13 +95,13 @@ export default function RevenusPage() {
       amount: n,
       date: receivedAt,
       currency: revenueCurrency,
-      description: description.trim() || null,
+      notes: revenueNotes.trim() || null,
     });
     setSubmitting(false);
     if (error) setFormError(error);
     else {
       setAmount("");
-      setDescription("");
+      setRevenueNotes("");
     }
   };
 
@@ -168,6 +180,51 @@ export default function RevenusPage() {
     } finally {
       setCreatingProject(false);
     }
+  };
+
+  const openEdit = (r: RevenueRow) => {
+    setEditRow(r);
+    setEditAmount(String(r.amount));
+    setEditCurrency(r.currency);
+    setEditDate(r.date.slice(0, 10));
+    setEditProjectId(r.project_id);
+    setEditNotes(r.notes ?? "");
+    setEditError(null);
+    setEditOpen(true);
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editRow) return;
+    setEditError(null);
+    const n = parseFloat(editAmount.replace(",", "."));
+    if (Number.isNaN(n) || n <= 0) {
+      setEditError(language === "en" ? "Invalid amount." : "Montant invalide.");
+      return;
+    }
+    if (!editProjectId) {
+      setEditError(language === "en" ? "Select a project." : "Sélectionnez un projet.");
+      return;
+    }
+    setEditSaving(true);
+    const { error } = await updateRevenue(editRow.id, {
+      project_id: editProjectId,
+      amount: n,
+      date: editDate,
+      currency: editCurrency,
+      notes: editNotes.trim() || null,
+    });
+    setEditSaving(false);
+    if (error) setEditError(error);
+    else {
+      setEditOpen(false);
+      setEditRow(null);
+    }
+  };
+
+  const handleDelete = async (r: RevenueRow) => {
+    if (!window.confirm(t("revenueDeleteConfirm", language))) return;
+    await deleteRevenue(r.id);
   };
 
   const currencyLabel = (c: RevenueCurrency) => {
@@ -286,10 +343,10 @@ export default function RevenusPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">{t("revenueDescriptionLabel", language)}</label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">{t("revenueNotesLabel", language)}</label>
               <Input
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                value={revenueNotes}
+                onChange={(e) => setRevenueNotes(e.target.value)}
                 className="min-h-[44px]"
                 disabled={submitting}
               />
@@ -308,23 +365,120 @@ export default function RevenusPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-gray-500 py-4">{language === "en" ? "Loading…" : "Chargement…"}</p>
+            <div className="space-y-3 py-2">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-[72px] w-full rounded-lg" />
+              ))}
+            </div>
           ) : filteredRows.length === 0 ? (
             <p className="text-sm text-gray-500 py-4">{t("revenueEmpty", language)}</p>
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="space-y-2">
               {filteredRows.map((r) => (
-                <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
-                  <span className="font-medium text-gray-900">{r.project?.name ?? "—"}</span>
-                  <span className="text-emerald-700 font-semibold">{formatAmountInCurrency(r.amount, r.currency)}</span>
-                  <span className="text-gray-500 w-full sm:w-auto">{formatDate(r.date)}</span>
-                  {r.description && <span className="text-gray-600 w-full text-xs">{r.description}</span>}
+                <li key={r.id}>
+                  <SwipeActionsRow
+                    onEdit={() => openEdit(r)}
+                    onDelete={() => void handleDelete(r)}
+                    editLabel={t("revenueSwipeEdit", language)}
+                    deleteLabel={t("revenueSwipeDelete", language)}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm min-h-[56px]">
+                      <span className="font-medium text-gray-900">{r.project?.name ?? "—"}</span>
+                      <span className="text-emerald-700 font-semibold">{formatAmountInCurrency(r.amount, r.currency)}</span>
+                      <span className="text-gray-500 w-full sm:w-auto">{formatDate(r.date)}</span>
+                      {r.notes && <span className="text-gray-600 w-full text-xs">{r.notes}</span>}
+                    </div>
+                  </SwipeActionsRow>
                 </li>
               ))}
             </ul>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("revenueEditTitle", language)}</DialogTitle>
+          </DialogHeader>
+          {editRow && (
+            <form onSubmit={handleEditSave} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">{t("revenueAmountLabel", language)}</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editAmount}
+                      onChange={(e) => setEditAmount(e.target.value)}
+                      className="min-h-[44px]"
+                      required
+                      disabled={editSaving}
+                    />
+                  </div>
+                  <div className="min-w-[140px]">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">{t("revenueCurrencyLabel", language)}</label>
+                    <select
+                      value={editCurrency}
+                      onChange={(e) => setEditCurrency(e.target.value as RevenueCurrency)}
+                      className={cn("w-full min-h-[44px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm")}
+                      disabled={editSaving}
+                    >
+                      {REV_CURRENCIES.map((c) => (
+                        <option key={c} value={c}>
+                          {currencyLabel(c)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("revenueDateLabel", language)}</label>
+                  <Input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="min-h-[44px]"
+                    required
+                    disabled={editSaving}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{t("revenueProjectLabel", language)}</label>
+                <select
+                  value={editProjectId}
+                  onChange={(e) => setEditProjectId(e.target.value)}
+                  className={cn("w-full min-h-[44px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm")}
+                  disabled={editSaving}
+                >
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                      {p.client?.name ? ` (${p.client.name})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{t("revenueNotesLabel", language)}</label>
+                <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} className="min-h-[44px]" disabled={editSaving} />
+              </div>
+              {editError && <p className="text-sm text-red-600">{editError}</p>}
+              <DialogFooter className="gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditOpen(false)} disabled={editSaving}>
+                  {t("cancel", language)}
+                </Button>
+                <Button type="submit" disabled={editSaving}>
+                  {editSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={newProjectOpen} onOpenChange={setNewProjectOpen}>
         <DialogContent className="max-w-md">

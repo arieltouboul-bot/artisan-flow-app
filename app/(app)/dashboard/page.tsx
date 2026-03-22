@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import Link from "next/link";
+import { useFinanceAnalytics } from "@/hooks/use-finance-analytics";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -17,7 +18,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import {
@@ -36,7 +37,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { useLanguage } from "@/context/language-context";
 import { t, tReplace } from "@/lib/translations";
 import { projectRestantDu } from "@/types/database";
-import { TrendingUp, AlertCircle, Euro, Percent, FolderKanban, ArrowRight, X, Bell, CheckSquare, Square, Trash2, Plus, CalendarClock, MapPin, Loader2 } from "lucide-react";
+import { TrendingUp, AlertCircle, Euro, Percent, FolderKanban, ArrowRight, X, Bell, CheckSquare, Square, Trash2, Plus, CalendarClock, MapPin, Loader2, Banknote, Wallet, AlertTriangle } from "lucide-react";
 import { formatTime } from "@/lib/utils";
 import {
   Dialog,
@@ -111,6 +112,7 @@ export default function DashboardPage() {
   const { user } = useUser();
   const { profile, displayCurrency } = useProfile();
   const { stats, projects, projectsImpayes, loading, error, refetch } = useDashboardStats(selectedYear);
+  const { data: financeData, loading: financeAnalyticsLoading } = useFinanceAnalytics();
   const { reminders, addReminder, toggleReminder, deleteReminder } = useReminders();
   const { appointments: todayAppointments } = useTodayAppointments();
   const [newReminder, setNewReminder] = useState("");
@@ -232,6 +234,26 @@ export default function DashboardPage() {
         </motion.div>
       )}
 
+      {!financeAnalyticsLoading && financeData.materialAlerts.length > 0 && (
+        <motion.div
+          variants={item}
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-amber-950 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex gap-3 min-w-0">
+            <AlertTriangle className="h-6 w-6 shrink-0 text-amber-600" aria-hidden />
+            <p className="text-sm font-medium">{t("dashboardMaterialBudgetBanner", language)}</p>
+          </div>
+          <Link
+            href="/finance"
+            className={cn(buttonVariants({ variant: "outline" }), "shrink-0 border-amber-400 bg-white")}
+          >
+            {t("dashboardMaterialBudgetCta", language)}
+          </Link>
+        </motion.div>
+      )}
+
       {nextAppointment && (
         <motion.div
           variants={item}
@@ -286,6 +308,47 @@ export default function DashboardPage() {
               <option key={y} value={y}>{y}</option>
             ))}
           </select>
+        </div>
+      </motion.div>
+
+      <motion.div variants={item} className="space-y-2">
+        <p className="text-xs text-gray-500">{t("dashboardFinanceCountersHint", language)}</p>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Card className="border-brand-blue-100 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">{t("dashboardCounterEarned", language)}</CardTitle>
+              <Banknote className="h-5 w-5 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-emerald-700 tabular-nums">
+                {loading ? "—" : formatConvertedCurrency(stats.totalEarnedYearEur, currency)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-gray-200 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">{t("dashboardCounterExpenses", language)}</CardTitle>
+              <Wallet className="h-5 w-5 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-red-600 tabular-nums">
+                {loading ? "—" : formatConvertedCurrency(stats.totalExpensesYearEur, currency)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-brand-blue-100 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">{t("dashboardCounterNetProfit", language)}</CardTitle>
+              <TrendingUp className="h-5 w-5 text-brand-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <p
+                className={`text-2xl font-bold tabular-nums ${stats.netProfitYearEur >= 0 ? "text-brand-blue-700" : "text-red-600"}`}
+              >
+                {loading ? "—" : formatConvertedCurrency(stats.netProfitYearEur, currency)}
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </motion.div>
 

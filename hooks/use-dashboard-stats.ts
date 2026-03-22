@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Project } from "@/types/database";
 import { projectRestantDu } from "@/types/database";
 import { amountInCurrencyToEur, type RevenueCurrency, parseStoredRevenueCurrency } from "@/lib/utils";
+import { expenseLineTtc } from "@/lib/project-finance";
 
 export type DashboardView = "all" | "impayes" | "ca_detail" | "marge";
 
@@ -30,6 +31,12 @@ export interface DashboardStats {
   revenueMonthByCurrency: Partial<Record<RevenueCurrency, number>>;
   /** Même chose sur l'année sélectionnée */
   revenueYearByCurrency: Partial<Record<RevenueCurrency, number>>;
+  /** Encaissements année (EUR équivalent), aligné sur caAnnuel */
+  totalEarnedYearEur: number;
+  /** Charges : coûts matériaux (projets dont la date de référence tombe dans l'année) + dépenses enregistrées TTC dans l'année */
+  totalExpensesYearEur: number;
+  /** Bénéfice net = totalEarnedYearEur − totalExpensesYearEur */
+  netProfitYearEur: number;
 }
 
 const MOIS: string[] = [
@@ -117,6 +124,14 @@ interface RevenueDashboardRow {
   currency: string | null;
 }
 
+interface DashboardExpenseRow {
+  amount_ht: number;
+  tva_rate: number;
+  amount_ttc?: number | null;
+  date: string;
+  invoice_date?: string | null;
+}
+
 /** Gestion des null/undefined : traiter comme 0 pour les totaux. */
 function num(v: number | null | undefined): number {
   return v == null || Number.isNaN(Number(v)) ? 0 : Number(v);
@@ -127,6 +142,7 @@ function computeStats(
   projects: Project[],
   transactions: TransactionRow[],
   revenues: RevenueDashboardRow[],
+  expenses: DashboardExpenseRow[],
   selectedYear: number
 ): DashboardStats {
   const now = new Date();
@@ -225,6 +241,22 @@ function computeStats(
 
   const tauxMarge = caAnnuel > 0 ? Math.round((margeAnnuelle / caAnnuel) * 100) : 0;
 
+  let totalExpensesYear = 0;
+  for (const p of projects) {
+    const projectDate = getProjectDate(p);
+    if (projectDate && projectDate >= yearStart && projectDate <= yearEnd) {
+      totalExpensesYear += num(p.material_costs);
+    }
+  }
+  for (const ex of expenses) {
+    const dStr = ex.invoice_date || ex.date;
+    if (!dStr) continue;
+    const d = new Date(dStr.includes("T") ? dStr : `${dStr}T12:00:00`);
+    if (Number.isNaN(d.getTime()) || d < yearStart || d > yearEnd) continue;
+    totalExpensesYear += expenseLineTtc(ex);
+  }
+  const netProfitYear = caAnnuel - totalExpensesYear;
+
   return {
     caMensuel,
     caAnnuel,
@@ -240,6 +272,9 @@ function computeStats(
     chartData,
     revenueMonthByCurrency,
     revenueYearByCurrency,
+    totalEarnedYearEur: caAnnuel,
+    totalExpensesYearEur: totalExpensesYear,
+    netProfitYearEur: netProfitYear,
   };
 }
 
@@ -247,6 +282,7 @@ export function useDashboardStats(selectedYear?: number) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [revenues, setRevenues] = useState<RevenueDashboardRow[]>([]);
+  const [expenseRows, setExpenseRows] = useState<DashboardExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const year = selectedYear ?? new Date().getFullYear();
@@ -266,6 +302,7 @@ export function useDashboardStats(selectedYear?: number) {
       setProjects([]);
       setTransactions([]);
       setRevenues([]);
+      setExpenseRows([]);
       setLoading(false);
       return;
     }
@@ -279,6 +316,7 @@ export function useDashboardStats(selectedYear?: number) {
       setProjects([]);
       setTransactions([]);
       setRevenues([]);
+      setExpenseRows([]);
       setLoading(false);
       return;
     }
@@ -308,6 +346,17 @@ export function useDashboardStats(selectedYear?: number) {
       setRevenues((revData ?? []) as RevenueDashboardRow[]);
     }
 
+    const { data: expData, error: expErr } = await supabase
+      .from("expenses")
+      .select("amount_ht, tva_rate, amount_ttc, date, invoice_date")
+      .eq("user_id", user.id);
+    if (expErr) {
+      console.error("[dashboard] expenses fetch:", expErr.message, expErr);
+      setExpenseRows([]);
+    } else {
+      setExpenseRows((expData ?? []) as DashboardExpenseRow[]);
+    }
+
     setLoading(false);
   }, []);
 
@@ -329,6 +378,9 @@ export function useDashboardStats(selectedYear?: number) {
       .on("postgres_changes", { event: "*", schema: "public", table: "revenues" }, () => {
         fetchData();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => {
+        fetchData();
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -346,7 +398,7 @@ export function useDashboardStats(selectedYear?: number) {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [fetchData]);
 
-  const stats = computeStats(projects, transactions, revenues, year);
+  const stats = computeStats(projects, transactions, revenues, expenseRows, year);
   const projectsImpayes = projects.filter((p) => projectRestantDu(p) > 0);
 
   return {

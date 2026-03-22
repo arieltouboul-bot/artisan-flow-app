@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, ScanLine, FolderKanban, Sparkles, FileDown, Calendar, Package, Smartphone } from "lucide-react";
+import { BookOpen, ScanLine, FolderKanban, Sparkles, FileDown, Calendar, Package, Smartphone, LineChart } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -207,6 +207,40 @@ export const HELP_SECTIONS_EN: HelpSection[] = [
           </li>
           <li>
             Swipe left on mobile for <strong>Edit</strong> / <strong>Delete</strong>.
+          </li>
+        </ul>
+      </div>
+    ),
+  },
+  {
+    id: "finance-dashboard",
+    title: "Financial charts & unpaid",
+    icon: LineChart,
+    body: (
+      <div className="space-y-3 text-sm text-gray-700">
+        <p className="font-medium text-gray-900">Reading the dashboard charts</p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            The <strong>green bars</strong> show cash collected (payments recorded per month plus direct revenue entries).
+            The <strong>red bars</strong> show material costs attributed to the month when a project starts.
+          </li>
+          <li>
+            The three counters at the top (<strong>Total earned</strong>, <strong>Total expenses</strong>,{" "}
+            <strong>Net profit</strong>) use your <strong>display currency</strong>; mixed-currency receipts are converted
+            using built-in rates so you get one comparable total for the selected year.
+          </li>
+          <li>
+            On a <strong>project</strong>, profit is <strong>revenue − (materials field + material &amp; rental expense lines)</strong>.
+            <strong> Unpaid / balance due</strong> appears when contract value is higher than total cash-in (payments + revenue lines).
+          </li>
+        </ul>
+        <p className="font-medium text-gray-900 pt-2">Managing unpaid balances</p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            Record payments under the project so <strong>progress</strong> and <strong>remaining balance</strong> stay accurate.
+          </li>
+          <li>
+            Use the <strong>Unpaid</strong> view on the dashboard to list projects with a balance due.
           </li>
         </ul>
       </div>

@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.revenues (
   amount numeric NOT NULL CHECK (amount > 0),
   date date NOT NULL DEFAULT (CURRENT_DATE),
   currency text NOT NULL DEFAULT 'EUR' CHECK (currency IN ('EUR', 'USD', 'ILS')),
-  description text,
+  notes text,
   created_at timestamptz DEFAULT now()
 );
 

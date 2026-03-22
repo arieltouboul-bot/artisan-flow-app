@@ -70,6 +70,12 @@ export function projectRestantDu(p: Project): number {
   return Math.max(0, ctr - collected);
 }
 
+/** Restant dû après somme des revenus (table `revenues`, équivalent EUR) vs budget contrat */
+export function projectBalanceDueRevenue(p: Project, revenueSumEur: number): number {
+  const ctr = p.contract_amount ?? 0;
+  return Math.max(0, ctr - revenueSumEur);
+}
+
 export interface ProjectTask {
   id: string;
   project_id: string;

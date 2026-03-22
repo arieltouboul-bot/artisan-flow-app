@@ -5,6 +5,14 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Language } from "@/lib/translations";
+import type { Expense } from "@/types/database";
+import {
+  expenseLineTtc,
+  projectNetProfitEur,
+  totalProjectRevenueEur,
+} from "@/lib/project-finance";
+import { caInRangeEur } from "@/lib/finance-metrics";
+import { amountInCurrencyToEur, parseStoredRevenueCurrency } from "@/lib/utils";
 
 type Append = (
   role: "user" | "assistant",
@@ -257,6 +265,365 @@ export async function runExtendedAssistantScenarios(opts: {
           : `Rappel ajouté : « ${reminderLabel} ». Retrouve-le sur le **tableau de bord**.`
       );
       return true;
+    }
+  }
+
+  // ——— Profit on a named project (incl. "profit margin on …")
+  const profitEn =
+    /(?:how much profit|what (?:was|is) the profit|profit did i make).{0,100}(?:on|for)\s+(?:the\s+)?(.+?)\s+project/i.exec(
+      text
+    );
+  const profitFr =
+    /(?:combien|quel).{0,40}(?:de\s+)?(?:bénéfice|profit).{0,60}(?:sur|du|pour)\s+(?:le\s+)?(?:projet\s+)?(.+?)(?:\?|$)/i.exec(
+      text
+    );
+  const profitMarginEn =
+    /(?:what(?:'s| is) my|how much is my).{0,20}(?:profit )?margin.{0,100}(?:on|for)\s+(?:the\s+)?(.+?)(?:\s+project)?(?:\?|$)/i.exec(
+      text
+    );
+  const profitMarginFr =
+    /(?:quelle|quel).{0,30}(?:marge|profit).{0,60}(?:sur|du|pour)\s+(?:le\s+)?(?:projet\s+)?(.+?)(?:\?|$)/i.exec(text);
+  const profitMatch = profitEn || profitFr || profitMarginEn || profitMarginFr;
+  if (profitMatch) {
+    const rawName = profitMatch[1].trim().replace(/[.,?]$/, "");
+    if (rawName.length >= 2) {
+      const { data: projects } = await supabase.from("projects").select("id, name, material_costs").eq("user_id", userId);
+      const proj = findProjectByName((projects ?? []) as { id: string; name: string }[], rawName);
+      if (!proj) {
+        appendMessage(
+          "assistant",
+          language === "en"
+            ? `No project matches « ${rawName} » for a profit calculation.`
+            : `Aucun projet ne correspond à « ${rawName} » pour le calcul du bénéfice.`
+        );
+        return true;
+      }
+      const { data: txs } = await supabase
+        .from("project_transactions")
+        .select("amount")
+        .eq("project_id", proj.id);
+      const { data: revs } = await supabase
+        .from("revenues")
+        .select("amount, currency")
+        .eq("project_id", proj.id)
+        .eq("user_id", userId);
+      const { data: exps } = await supabase
+        .from("expenses")
+        .select("id, project_id, user_id, description, amount_ht, tva_rate, category, date, amount_ttc")
+        .eq("project_id", proj.id)
+        .eq("user_id", userId);
+      const mc = Number((proj as { material_costs?: number }).material_costs ?? 0);
+      const txList = ((txs ?? []) as { amount: number }[]).map((x) => ({ amount: Number(x.amount) }));
+      const revList = ((revs ?? []) as { amount: number; currency: string }[]).map((r) => ({
+        amount: Number(r.amount),
+        currency: parseStoredRevenueCurrency(r.currency),
+      }));
+      const expList: Expense[] = ((exps ?? []) as Record<string, unknown>[]).map((row) => ({
+        id: row.id as string,
+        project_id: row.project_id as string,
+        user_id: row.user_id as string,
+        description: (row.description as string) ?? "",
+        amount_ht: Number(row.amount_ht ?? 0),
+        tva_rate: Number(row.tva_rate ?? 20),
+        category: row.category as Expense["category"],
+        date: row.date as string,
+        amount_ttc: row.amount_ttc != null ? Number(row.amount_ttc) : undefined,
+      }));
+      const profit = projectNetProfitEur(mc, expList, txList, revList);
+      const revEur = totalProjectRevenueEur(txList, revList);
+      const marginPct = revEur !== 0 ? (profit / Math.abs(revEur)) * 100 : 0;
+      const wantsMargin =
+        /\bmargin\b/i.test(text) || profitMarginEn || profitMarginFr;
+      const marginLine =
+        wantsMargin && Number.isFinite(marginPct)
+          ? language === "en"
+            ? ` Approximate **margin**: **${Math.round(marginPct * 10) / 10} %** of revenue (EUR equivalent).`
+            : ` **Marge** approximative : **${Math.round(marginPct * 10) / 10} %** du chiffre d’affaires (équivalent EUR).`
+          : "";
+      appendMessage(
+        "assistant",
+        language === "en"
+          ? `Estimated **profit** on **${proj.name}** (revenue − materials & tools): **${Math.round(profit * 100) / 100} €** (EUR equivalent).${marginLine}`
+          : `**Bénéfice** estimé sur **${proj.name}** (revenus − matériaux & outillage) : **${Math.round(profit * 100) / 100} €** (équivalent EUR).${marginLine}`
+      );
+      return true;
+    }
+  }
+
+  // ——— Finance summary for a calendar year (e.g. 2026)
+  const yearFin =
+    /(?:give me|get|show|donne|affiche).{0,50}(?:a\s+)?(?:summary|overview|résumé).{0,80}(?:finances|financial|finance|financier).{0,50}(?:for|in|of|de|pour)\s+(20\d{2})/i.exec(
+      lower
+    ) ||
+    /(?:summary|overview|résumé).{0,80}(?:finances|financial|finance|financier).{0,50}(?:for|in|of|de|pour)\s+(20\d{2})/i.exec(
+      lower
+    );
+  if (yearFin) {
+    const yy = parseInt(yearFin[1], 10);
+    if (!Number.isNaN(yy) && yy >= 2000 && yy <= 2100) {
+      const yStart = new Date(yy, 0, 1, 0, 0, 0, 0);
+      const yEnd = new Date(yy, 11, 31, 23, 59, 59, 999);
+      const { data: prows } = await supabase.from("projects").select("id, contract_amount").eq("user_id", userId);
+      const ids = (prows ?? []).map((p) => (p as { id: string }).id);
+      let txList: { amount: number; payment_date: string }[] = [];
+      if (ids.length) {
+        const { data: txs } = await supabase
+          .from("project_transactions")
+          .select("amount, payment_date")
+          .in("project_id", ids);
+        txList = (txs ?? []) as { amount: number; payment_date: string }[];
+      }
+      const { data: revs } = await supabase
+        .from("revenues")
+        .select("project_id, amount, date, currency")
+        .eq("user_id", userId);
+      const revRows = (revs ?? []) as { project_id: string; amount: number; date: string; currency: string | null }[];
+      const revList = revRows.map((r) => ({ amount: r.amount, date: r.date, currency: r.currency }));
+      const caYear = caInRangeEur(txList, revList, yStart, yEnd);
+      let outstanding = 0;
+      const paid = new Map<string, number>();
+      for (const r of revRows) {
+        const eur = amountInCurrencyToEur(Number(r.amount), parseStoredRevenueCurrency(r.currency));
+        paid.set(r.project_id, (paid.get(r.project_id) ?? 0) + eur);
+      }
+      for (const p of prows ?? []) {
+        const row = p as { id: string; contract_amount?: number | null };
+        const c = Number(row.contract_amount ?? 0);
+        const pEur = paid.get(row.id) ?? 0;
+        outstanding += Math.max(0, c - pEur);
+      }
+      appendMessage(
+        "assistant",
+        language === "en"
+          ? `**${yy} finances (EUR equivalent):** cash collected in **${yy}**: **${Math.round(caYear * 100) / 100} €**. **Outstanding** today (contract − revenue rows): **${Math.round(outstanding * 100) / 100} €**. Open **Finance** for charts and PDF export.`
+          : `**Finances ${yy}** (équivalent EUR) : encaissements en **${yy}** : **${Math.round(caYear * 100) / 100} €**. **Impayés** aujourd’hui (contrat − lignes revenus) : **${Math.round(outstanding * 100) / 100} €**. Onglet **Finance** pour graphiques et export PDF.`
+      );
+      return true;
+    }
+  }
+
+  // ——— Total unpaid balance (contract vs collected) — "this month" wording
+  if (
+    /(unpaid|impayé|balance due|restant|due)/i.test(lower) &&
+    /(this month|ce mois|month)/i.test(lower) &&
+    /(invoice|facture|total|how much|combien|what)/i.test(lower)
+  ) {
+    const { data: projects } = await supabase
+      .from("projects")
+      .select("contract_amount, amount_collected")
+      .eq("user_id", userId);
+    let sum = 0;
+    for (const p of projects ?? []) {
+      const row = p as { contract_amount?: number | null; amount_collected?: number | null };
+      const c = Number(row.contract_amount ?? 0);
+      const col = Number(row.amount_collected ?? 0);
+      sum += Math.max(0, c - col);
+    }
+    appendMessage(
+      "assistant",
+      language === "en"
+        ? `**Total unpaid balance** across projects (contract − collected): **${Math.round(sum * 100) / 100} €**. Record payments on each project to reduce this.`
+        : `**Total des impayés** (contrat − encaissé, tous chantiers) : **${Math.round(sum * 100) / 100} €**. Enregistrez les paiements sur chaque projet pour le faire baisser.`
+    );
+    return true;
+  }
+
+  // ——— Biggest expense category (last 7 days)
+  if (
+    /(biggest|largest|main|plus grosse).{0,40}(expense|dépense).{0,40}(category|catégorie)/i.test(lower) &&
+    /(last week|semaine dernière|7\s*days|sept jours)/i.test(lower)
+  ) {
+    const start = new Date();
+    start.setDate(start.getDate() - 7);
+    start.setHours(0, 0, 0, 0);
+    const { data: exps } = await supabase
+      .from("expenses")
+      .select("category, amount_ht, tva_rate, amount_ttc, date, invoice_date")
+      .eq("user_id", userId);
+    const byCat = new Map<string, number>();
+    const labels: Record<string, string> = {
+      achat_materiel: language === "en" ? "Materials" : "Matériel",
+      location: language === "en" ? "Rental / tools" : "Location / outillage",
+      main_oeuvre: language === "en" ? "Labor" : "Main d’œuvre",
+      sous_traitance: language === "en" ? "Subcontracting" : "Sous-traitance",
+    };
+    for (const r of exps ?? []) {
+      const row = r as {
+        category: string;
+        amount_ht: number;
+        tva_rate: number;
+        amount_ttc?: number | null;
+        date: string;
+        invoice_date?: string | null;
+      };
+      const dStr = row.invoice_date || row.date;
+      const d = new Date(dStr.includes("T") ? dStr : `${dStr}T12:00:00`);
+      if (Number.isNaN(d.getTime()) || d < start) continue;
+      const ttc = expenseLineTtc(row);
+      byCat.set(row.category, (byCat.get(row.category) ?? 0) + ttc);
+    }
+    let best = "";
+    let bestV = 0;
+    for (const [k, v] of Array.from(byCat.entries())) {
+      if (v > bestV) {
+        best = k;
+        bestV = v;
+      }
+    }
+    if (bestV <= 0) {
+      appendMessage(
+        "assistant",
+        language === "en"
+          ? "No expenses recorded in the **last 7 days**."
+          : "Aucune dépense sur les **7 derniers jours**."
+      );
+    } else {
+      appendMessage(
+        "assistant",
+        language === "en"
+          ? `Largest expense category (last 7 days): **${labels[best] ?? best}** — about **${Math.round(bestV * 100) / 100} €** TTC.`
+          : `Catégorie la plus importante (7 derniers jours) : **${labels[best] ?? best}** — environ **${Math.round(bestV * 100) / 100} €** TTC.`
+      );
+    }
+    return true;
+  }
+
+  // ——— Expenses without project → suggest linking
+  const orphanHint =
+    /(expense|dépense|facture).{0,50}(without|sans|no|not linked|pas de).{0,30}(project|projet|chantier)/i.test(lower) ||
+    /(unlink|non rattaché|orphan)/i.test(lower);
+  if (orphanHint) {
+    const { data: orphans, error: oErr } = await supabase
+      .from("expenses")
+      .select("id, description, vendor, amount_ht, project_id")
+      .eq("user_id", userId)
+      .is("project_id", null)
+      .limit(6);
+    if (oErr || !orphans?.length) {
+      appendMessage(
+        "assistant",
+        language === "en"
+          ? "All recorded expenses are linked to a project, or none are pending assignment."
+          : "Toutes les dépenses sont rattachées à un projet, ou aucune n’est en attente."
+      );
+      return true;
+    }
+    const { data: activeP } = await supabase
+      .from("projects")
+      .select("id, name")
+      .eq("user_id", userId)
+      .eq("status", "en_cours")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const suggest = activeP as { id: string; name: string } | null;
+    const lines = (orphans as { description?: string; vendor?: string; amount_ht: number }[])
+      .map((o) => `• ${(o.vendor || o.description || "—").slice(0, 60)} (${Math.round(Number(o.amount_ht) * 100) / 100} € HT)`)
+      .join("\n");
+    appendMessage(
+      "assistant",
+      language === "en"
+        ? `These expenses have **no project**:\n${lines}\n\n${suggest ? `You can link them to the active project **${suggest.name}** from **Invoices** (edit line → project).` : "Open **Invoices**, edit a line, and choose a **project**."}`
+        : `Ces dépenses **sans projet** :\n${lines}\n\n${suggest ? `Vous pouvez les lier au chantier en cours **${suggest.name}** depuis **Factures** (modifier la ligne → projet).` : "Ouvrez **Factures**, modifiez une ligne et choisissez un **projet**."}`
+    );
+    return true;
+  }
+
+  // ——— Payment progress for a project (revenue ÷ budget)
+  const payProgIntent =
+    /(payment progress|progression (?:du |de )?paiement|avancement (?:du )?paiement)/i.test(lower) &&
+    /(project|projet|chantier)/i.test(lower);
+  if (payProgIntent) {
+    const raw =
+      /(?:project|projet|chantier)\s+(.+?)(?:\?|$)/i.exec(text)?.[1]?.trim() ||
+      /(?:for|pour)\s+(?:the\s+)?(?:project\s+)?(.+?)(?:\?|$)/i.exec(text)?.[1]?.trim();
+    if (raw && raw.length >= 2) {
+      const { data: projects } = await supabase
+        .from("projects")
+        .select("id, name, contract_amount")
+        .eq("user_id", userId);
+      const proj = findProjectByName((projects ?? []) as { id: string; name: string }[], raw.replace(/[.,?]$/, ""));
+      if (proj) {
+        const full = (projects ?? []).find((p) => p.id === proj.id) as { contract_amount?: number | null } | undefined;
+        const budget = Number(full?.contract_amount ?? 0);
+        const { data: revs } = await supabase
+          .from("revenues")
+          .select("amount, currency")
+          .eq("user_id", userId)
+          .eq("project_id", proj.id);
+        let paidEur = 0;
+        for (const r of revs ?? []) {
+          const row = r as { amount: number; currency: string | null };
+          paidEur += amountInCurrencyToEur(Number(row.amount), parseStoredRevenueCurrency(row.currency));
+        }
+        const pct = budget > 0 ? Math.min(100, Math.round((paidEur / budget) * 1000) / 10) : 0;
+        appendMessage(
+          "assistant",
+          language === "en"
+            ? `**${proj.name}** — payment progress (revenue ÷ budget): **${pct} %** (${Math.round(paidEur * 100) / 100} € recorded vs ${Math.round(budget * 100) / 100} € budget).`
+            : `**${proj.name}** — progression du paiement (revenus ÷ budget) : **${pct} %** (${Math.round(paidEur * 100) / 100} € enregistrés / ${Math.round(budget * 100) / 100} € budget).`
+        );
+        return true;
+      }
+    }
+  }
+
+  // ——— How much does client X still owe (sum of contract − revenue over their projects)
+  const oweIntent =
+    /(owe|owe me|still owe|me doit|doit|reste|unpaid|impayé)/i.test(lower) &&
+    /(client|customer|cliente)/i.test(lower);
+  if (oweIntent) {
+    const namePart =
+      /(?:client|customer)\s+["'«]?([^"'»?]+)["'»]?/i.exec(text)?.[1]?.trim() ||
+      /(?:does|do|est-ce que)\s+(.+?)\s+(?:still|owe|me)/i.exec(text)?.[1]?.trim();
+    if (namePart && namePart.length >= 2) {
+      const { data: clients } = await supabase.from("clients").select("id, name").eq("user_id", userId);
+      const client = (clients ?? []).find(
+        (c: { name: string }) =>
+          c.name.toLowerCase().includes(namePart.toLowerCase()) || namePart.toLowerCase().includes(c.name.toLowerCase())
+      ) as { id: string; name: string } | undefined;
+      if (client) {
+        const { data: projs } = await supabase
+          .from("projects")
+          .select("id, contract_amount")
+          .eq("user_id", userId)
+          .eq("client_id", client.id);
+        const ids = (projs ?? []).map((p: { id: string }) => p.id);
+        if (ids.length === 0) {
+          appendMessage(
+            "assistant",
+            language === "en"
+              ? `No projects found for client **${client.name}**.`
+              : `Aucun projet pour le client **${client.name}**.`
+          );
+          return true;
+        }
+        const { data: revs } = await supabase
+          .from("revenues")
+          .select("project_id, amount, currency")
+          .eq("user_id", userId)
+          .in("project_id", ids);
+        const paidByProj: Record<string, number> = {};
+        for (const r of revs ?? []) {
+          const row = r as { project_id: string; amount: number; currency: string | null };
+          const eur = amountInCurrencyToEur(Number(row.amount), parseStoredRevenueCurrency(row.currency));
+          paidByProj[row.project_id] = (paidByProj[row.project_id] ?? 0) + eur;
+        }
+        let owe = 0;
+        for (const p of projs ?? []) {
+          const row = p as { id: string; contract_amount?: number | null };
+          const b = Number(row.contract_amount ?? 0);
+          const paid = paidByProj[row.id] ?? 0;
+          owe += Math.max(0, b - paid);
+        }
+        appendMessage(
+          "assistant",
+          language === "en"
+            ? `**${client.name}** — estimated balance due (budget − revenue recorded): **${Math.round(owe * 100) / 100} €** (EUR equivalent).`
+            : `**${client.name}** — solde estimé (budget − revenus enregistrés) : **${Math.round(owe * 100) / 100} €** (équivalent EUR).`
+        );
+        return true;
+      }
     }
   }
 

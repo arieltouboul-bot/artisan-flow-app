@@ -17,12 +17,19 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { formatConvertedCurrency, formatDate } from "@/lib/utils";
+import { formatConvertedCurrency, formatDate, cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { useProject } from "@/hooks/use-projects";
 import { useProjectTasks } from "@/hooks/use-project-tasks";
 import { useProjectTransactions } from "@/hooks/use-project-transactions";
 import { useProjectExpenses, EXPENSE_CATEGORIES } from "@/hooks/use-project-expenses";
+import { useProjectRevenues } from "@/hooks/use-project-revenues";
+import {
+  totalProjectRevenueEur,
+  totalProjectExpensesEur,
+  projectNetProfitEur,
+  sumRevenueRowsEur,
+} from "@/lib/project-finance";
 import { useEmployees } from "@/hooks/use-employees";
 import { useProjectEmployees } from "@/hooks/use-project-employees";
 import { createClient } from "@/lib/supabase/client";
@@ -86,6 +93,7 @@ export default function ProjetDetailPage() {
   const { tasks, loading: tasksLoading, addTask, toggleTask, deleteTask } = useProjectTasks(id);
   const { transactions, loading: transactionsLoading, addTransaction } = useProjectTransactions(id);
   const { expenses, loading: expensesLoading, addExpense, deleteExpense, totalHT: expensesTotalHT, totalTvaRecuperable } = useProjectExpenses(id);
+  const { revenueRows, loading: projectRevenuesLoading } = useProjectRevenues(id);
   const { displayCurrency } = useProfile();
   const currency = displayCurrency;
   const { employees } = useEmployees();
@@ -271,8 +279,14 @@ export default function ProjetDetailPage() {
   const progressPercent = totalDays > 0 ? Math.min(100, (elapsedDays / totalDays) * 100) : 0;
   const isOverdue = endDate && now > endDate && currentProject?.status !== "termine";
   const marge = currentProject ? projectMarge(currentProject) : 0;
-  const totalPaid = transactions.reduce((sum, tx) => sum + tx.amount, 0);
-  const restant = Math.max(0, parseNum(contractAmount) - totalPaid);
+  const revenuePaidEur = sumRevenueRowsEur(revenueRows);
+  const budgetNum = parseNum(contractAmount);
+  const restant = Math.max(0, budgetNum - revenuePaidEur);
+  const payProgressPct = budgetNum > 0 ? Math.min(100, (revenuePaidEur / budgetNum) * 100) : 0;
+  const isPaymentComplete = budgetNum > 0 && restant < 0.005;
+  const totalRevEur = totalProjectRevenueEur(transactions, revenueRows);
+  const totalExpEur = totalProjectExpensesEur(parseNum(materialCosts), expenses);
+  const netProfitProj = projectNetProfitEur(parseNum(materialCosts), expenses, transactions, revenueRows);
 
   return (
     <motion.div
@@ -524,11 +538,14 @@ export default function ProjetDetailPage() {
           <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex flex-wrap items-center gap-2">
                   <FileText className="h-5 w-5 text-brand-blue-500" />
-                  Finances
+                  {t("projectFinanceSectionTitle", language)}
+                  {isPaymentComplete && (
+                    <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">{t("projectPaidBadge", language)}</Badge>
+                  )}
                 </CardTitle>
-                <p className="text-sm text-gray-500">Marge = Contrat − Coûts matériaux · Restant dû = Contrat − Encaissé</p>
+                <p className="text-sm text-gray-500">{t("projectFinanceCardSubtitle", language)}</p>
               </div>
               <Button size="sm" onClick={handleSaveFinance} disabled={financeSaving}>
                 {financeSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer"}
@@ -538,36 +555,52 @@ export default function ProjetDetailPage() {
               {/* Trois montants clairs + barre de progression */}
               <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Montant total (Contract Amount)</span>
-                  <span className="text-xl font-bold text-gray-900">{formatConvertedCurrency(parseNum(contractAmount), currency)}</span>
+                  <span className="text-sm text-gray-500">{t("contractAmount", language)}</span>
+                  <span className="text-xl font-bold text-gray-900">{formatConvertedCurrency(budgetNum, currency)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Déjà encaissé (Total Paid)</span>
-                  <span className="text-xl font-bold text-emerald-600">{formatConvertedCurrency(totalPaid, currency)}</span>
+                  <span className="text-sm text-gray-500">{t("projectAmountPaidLabel", language)}</span>
+                  <span className="text-xl font-bold text-emerald-600">
+                    {projectRevenuesLoading ? "…" : formatConvertedCurrency(revenuePaidEur, currency)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-                  <span className="text-sm font-medium text-gray-700">Reste à payer (Remaining Balance)</span>
+                  <span className="text-sm font-medium text-gray-700">{t("projectRemainingBalanceLabel", language)}</span>
                   <span className={`text-xl font-bold ${restant > 0 ? "text-amber-600" : "text-emerald-600"}`}>
-                    {formatConvertedCurrency(restant, currency)}
+                    {projectRevenuesLoading ? "…" : formatConvertedCurrency(restant, currency)}
                   </span>
                 </div>
                 <div className="pt-2">
-                  <p className="text-xs text-gray-500 mb-1">Progression du paiement</p>
+                  <p className="text-xs text-gray-500 mb-1">{t("projectPaymentProgressLabel", language)}</p>
                   <Progress
-                    value={(() => {
-                      const total = parseNum(contractAmount);
-                      const paid = totalPaid;
-                      return total > 0 ? Math.min(100, (paid / total) * 100) : 0;
-                    })()}
-                    className="h-3"
+                    value={payProgressPct}
+                    className={cn("h-3", isPaymentComplete && "bg-emerald-100")}
+                    indicatorClassName={isPaymentComplete ? "bg-emerald-600" : undefined}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    {(() => {
-                      const total = parseNum(contractAmount);
-                      const paid = totalPaid;
-                      return total > 0 ? `${Math.round(Math.min(100, (paid / total) * 100))} % payé` : "—";
-                    })()}
+                    {budgetNum > 0 ? `${Math.round(payProgressPct)} %` : "—"}
                   </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4 space-y-2">
+                <p className="text-sm font-medium text-gray-800">{t("projectFinanceProfitTitle", language)}</p>
+                <p className="text-xs text-gray-600">{t("projectFinanceProfitHint", language)}</p>
+                <div className="flex flex-wrap gap-4 justify-between text-sm">
+                  <span className="text-gray-600">{t("projectFinanceTotalRevenue", language)}</span>
+                  <span className="font-semibold text-gray-900">
+                    {projectRevenuesLoading ? "…" : formatConvertedCurrency(totalRevEur, currency)}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-4 justify-between text-sm">
+                  <span className="text-gray-600">{t("projectFinanceTotalExpenses", language)}</span>
+                  <span className="font-semibold text-gray-900">{formatConvertedCurrency(totalExpEur, currency)}</span>
+                </div>
+                <div className="flex flex-wrap gap-4 justify-between border-t border-emerald-100 pt-2">
+                  <span className="font-medium text-gray-800">{t("dashboardCounterNetProfit", language)}</span>
+                  <span className={`text-lg font-bold ${netProfitProj >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+                    {projectRevenuesLoading ? "…" : formatConvertedCurrency(netProfitProj, currency)}
+                  </span>
                 </div>
               </div>
 

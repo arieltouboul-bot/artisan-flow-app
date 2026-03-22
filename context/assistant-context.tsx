@@ -327,7 +327,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             amount: existingRev.amount,
             date: today,
             currency: existingRev.currency as RevenueCurrency,
-            description: language === "en" ? "Voice assistant" : "Assistant vocal",
+            notes: language === "en" ? "Voice assistant" : "Assistant vocal",
           });
           if (revErr) {
             console.error("[assistant] revenues.insert:", revErr.message, revErr);
@@ -450,7 +450,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
               amount: newProjectRevenue.amount,
               date: today,
               currency: newProjectRevenue.currency as RevenueCurrency,
-              description: language === "en" ? "Voice assistant" : "Assistant vocal",
+              notes: language === "en" ? "Voice assistant" : "Assistant vocal",
             });
             if (revErr) {
               console.error("[assistant] revenues.insert:", revErr.message, revErr);

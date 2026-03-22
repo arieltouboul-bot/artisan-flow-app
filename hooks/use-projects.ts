@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Project, Client } from "@/types/database";
+import { amountInCurrencyToEur, parseStoredRevenueCurrency } from "@/lib/utils";
 
-function mapProjectRow(row: Record<string, unknown>): Project {
+export function mapProjectRow(row: Record<string, unknown>): Project {
   const client = row.client as Record<string, unknown> | null;
   return {
     id: row.id as string,
@@ -40,6 +41,8 @@ function mapProjectRow(row: Record<string, unknown>): Project {
 
 export function useProjects(clientId?: string | null) {
   const [projects, setProjects] = useState<Project[]>([]);
+  /** Somme des revenus (table `revenues`) par projet, en équivalent EUR — pour progression vs budget */
+  const [revenuePaidEurByProject, setRevenuePaidEurByProject] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +73,7 @@ export function useProjects(clientId?: string | null) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setProjects([]);
+      setRevenuePaidEurByProject({});
       setLoading(false);
       return;
     }
@@ -83,6 +87,7 @@ export function useProjects(clientId?: string | null) {
     const { data, error: fetchError } = await query;
     if (fetchError) {
       setError(fetchError.message);
+      setRevenuePaidEurByProject({});
     } else {
       const mapped = ((data ?? []) as Record<string, unknown>[]).map(mapProjectRow);
       setProjects(mapped);
@@ -93,6 +98,17 @@ export function useProjects(clientId?: string | null) {
           // ignore
         }
       }
+      const { data: revData } = await supabase
+        .from("revenues")
+        .select("project_id, amount, currency")
+        .eq("user_id", user.id);
+      const revenueMap: Record<string, number> = {};
+      for (const r of revData ?? []) {
+        const row = r as { project_id: string; amount: number; currency: string | null };
+        const eur = amountInCurrencyToEur(Number(row.amount), parseStoredRevenueCurrency(row.currency));
+        revenueMap[row.project_id] = (revenueMap[row.project_id] ?? 0) + eur;
+      }
+      setRevenuePaidEurByProject(revenueMap);
     }
     setLoading(false);
   }, [clientId]);
@@ -109,13 +125,16 @@ export function useProjects(clientId?: string | null) {
       .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, () => {
         fetchProjects();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "revenues" }, () => {
+        fetchProjects();
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, [fetchProjects]);
 
-  return { projects, loading, error, refetch: fetchProjects };
+  return { projects, loading, error, refetch: fetchProjects, revenuePaidEurByProject };
 }
 
 export function useProject(projectId: string | null) {

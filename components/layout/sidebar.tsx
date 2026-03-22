@@ -23,6 +23,7 @@ import {
   Package,
   Receipt,
   Banknote,
+  PieChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/translations";
@@ -32,6 +33,7 @@ import { useLanguage } from "@/context/language-context";
 
 const navItems = [
   { href: "/dashboard", key: "dashboard", icon: LayoutDashboard },
+  { href: "/finance", key: "finance", icon: PieChart },
   { href: "/revenus", key: "revenues", icon: Banknote },
   { href: "/projets", key: "projects", icon: FolderKanban },
   { href: "/calendar", key: "calendar", icon: Calendar },
