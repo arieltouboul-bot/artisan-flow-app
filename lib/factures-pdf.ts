@@ -21,21 +21,45 @@ export interface FacturesPDFOptions {
   headers: { date: string; vendor: string; amountTtc: string };
   companyName: string | null;
   logoUrl: string | null;
+  /** Langue du document (libellés et dates) */
+  locale?: "fr" | "en";
 }
 
-const fmt = (n: number) =>
-  n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n: number, locale: "fr" | "en") =>
+  n.toLocaleString(locale === "fr" ? "fr-FR" : "en-GB", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blob> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
+  const locale = opts.locale ?? "en";
+  const L =
+    locale === "fr"
+      ? {
+          title: "Synthèse des dépenses / factures",
+          generatedOn: "Généré le",
+          footer: "ArtisanFlow — Factures / dépenses — Export comptable",
+          grandTotal: "TOTAL TTC",
+          appendix: "Annexe",
+          totalAmount: "Montant TTC",
+        }
+      : {
+          title: "Expense summary",
+          generatedOn: "Generated on",
+          footer: "ArtisanFlow — Invoices / expenses — Accountant export",
+          grandTotal: "GRAND TOTAL",
+          appendix: "Appendix",
+          totalAmount: "Total amount",
+        };
   let y = 20;
 
   // Main header
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("Expense Summary", 14, y);
+  doc.text(L.title, 14, y);
   y += 8;
 
   // Subtitle with generation date
@@ -43,7 +67,7 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
   doc.setFont("helvetica", "normal");
   doc.setTextColor(80, 80, 80);
   doc.text(
-    `Generated on ${new Date().toLocaleDateString("en-GB", {
+    `${L.generatedOn} ${new Date().toLocaleDateString(locale === "fr" ? "fr-FR" : "en-GB", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -82,11 +106,11 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
   const tableData = opts.rows.map((r) => [
     r.date,
     r.vendor,
-    fmt(Number(r.ttc)),
+    fmt(Number(r.ttc), locale),
   ]);
 
   const totalTtc = opts.rows.reduce((sum, r) => sum + Number(r.ttc || 0), 0);
-  tableData.push(["", "GRAND TOTAL", fmt(totalTtc)]);
+  tableData.push(["", L.grandTotal, fmt(totalTtc, locale)]);
 
   const availableWidth = pageWidth - 28;
   const colWidths = {
@@ -114,7 +138,7 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
 
   doc.setFontSize(7);
   doc.setTextColor(120, 120, 120);
-  doc.text("ArtisanFlow — Invoices / Expenses — Accountant Export", pageWidth / 2, pageHeight - 12, { align: "center" });
+  doc.text(L.footer, pageWidth / 2, pageHeight - 12, { align: "center" });
 
   // Appendices: invoice photos at the end
   const rowsWithPhotos = opts.rows.filter((r) => r.image_url && r.image_url.trim());
@@ -128,11 +152,11 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
       doc.addPage();
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.text(`Appendix ${i + 1} — ${row.date} — ${row.vendor}`, 14, 14);
+      doc.text(`${L.appendix} ${i + 1} — ${row.date} — ${row.vendor}`, 14, 14);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(100, 100, 100);
-      doc.text(`Total Amount: ${fmt(Number(row.ttc))} €`, 14, 20);
+      doc.text(`${L.totalAmount}: ${fmt(Number(row.ttc), locale)} €`, 14, 20);
       doc.setTextColor(0, 0, 0);
       const margin = 14;
       const imgStartY = 30;

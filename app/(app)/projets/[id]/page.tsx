@@ -34,6 +34,7 @@ import { useEmployees } from "@/hooks/use-employees";
 import { useProjectEmployees } from "@/hooks/use-project-employees";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/context/language-context";
+import { useAssistant } from "@/context/assistant-context";
 import { t } from "@/lib/translations";
 import { Skeleton } from "@/components/ui/skeleton";
 import { projectMarge, projectRestantDu, type ProjectStatus } from "@/types/database";
@@ -107,6 +108,10 @@ export default function ProjetDetailPage() {
   const [address, setAddress] = useState("");
   const [contractAmount, setContractAmount] = useState("");
   const [materialCosts, setMaterialCosts] = useState("");
+  const [plannedStartDate, setPlannedStartDate] = useState("");
+  const [plannedEndDate, setPlannedEndDate] = useState("");
+  const [planningOpen, setPlanningOpen] = useState(false);
+  const [planningSaving, setPlanningSaving] = useState(false);
   const [financeSaving, setFinanceSaving] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -125,6 +130,7 @@ export default function ProjetDetailPage() {
   const [expenseError, setExpenseError] = useState<string | null>(null);
 
   const supabase = createClient();
+  const { setPageContext } = useAssistant();
 
   const currentProject = project ?? null;
 
@@ -137,8 +143,16 @@ export default function ProjetDetailPage() {
       setAddress(currentProject.address ?? "");
       setContractAmount(String(currentProject.contract_amount ?? ""));
       setMaterialCosts(String(currentProject.material_costs ?? ""));
+      setPlannedStartDate(currentProject.start_date ? currentProject.start_date.slice(0, 10) : "");
+      setPlannedEndDate(currentProject.end_date ? currentProject.end_date.slice(0, 10) : "");
     }
   }, [currentProject]);
+
+  useEffect(() => {
+    if (!id || !currentProject) return;
+    setPageContext({ currentProjectId: id, currentProjectName: currentProject.name });
+    return () => setPageContext({});
+  }, [id, currentProject?.name, setPageContext]);
 
   const handleSaveNotes = async () => {
     if (!supabase || !id) return;
@@ -175,6 +189,25 @@ export default function ProjetDetailPage() {
     if (!updateError) {
       refetchProject();
       router.refresh();
+    }
+  };
+
+  const handleSavePlanning = async () => {
+    if (!supabase || !id) return;
+    setPlanningSaving(true);
+    const { error } = await supabase
+      .from("projects")
+      .update({
+        start_date: plannedStartDate.trim() || null,
+        end_date: plannedEndDate.trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+    setPlanningSaving(false);
+    if (!error) {
+      refetchProject();
+      router.refresh();
+      setPlanningOpen(false);
     }
   };
 
@@ -271,13 +304,17 @@ export default function ProjetDetailPage() {
     );
   }
 
-  const startDate = currentProject?.start_date ? new Date(currentProject.start_date) : null;
-  const endDate = currentProject?.end_date ? new Date(currentProject.end_date) : null;
-  const now = new Date();
-  const totalDays = startDate && endDate ? Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-  const elapsedDays = startDate ? Math.max(0, (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+  const MS_DAY = 86_400_000;
+  const startOfLocalDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const startDate = plannedStartDate ? new Date(`${plannedStartDate}T12:00:00`) : null;
+  const endDate = plannedEndDate ? new Date(`${plannedEndDate}T12:00:00`) : null;
+  const startDay = startDate ? startOfLocalDay(startDate) : null;
+  const endDay = endDate ? startOfLocalDay(endDate) : null;
+  const todayDay = startOfLocalDay(new Date());
+  const totalDays = startDay && endDay ? Math.max(1, (endDay.getTime() - startDay.getTime()) / MS_DAY) : 0;
+  const elapsedDays = startDay ? Math.max(0, (todayDay.getTime() - startDay.getTime()) / MS_DAY) : 0;
   const progressPercent = totalDays > 0 ? Math.min(100, (elapsedDays / totalDays) * 100) : 0;
-  const isOverdue = endDate && now > endDate && currentProject?.status !== "termine";
+  const isOverdue = endDay && todayDay > endDay && currentProject?.status !== "termine";
   const marge = currentProject ? projectMarge(currentProject) : 0;
   const revenuePaidEur = sumRevenueRowsEur(revenueRows);
   const budgetNum = parseNum(contractAmount);
@@ -312,27 +349,31 @@ export default function ProjetDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           {currentProject && isOverdue && (
-            <Badge variant="destructive" className="text-sm min-h-[28px]">En retard</Badge>
+            <Badge variant="destructive" className="text-sm min-h-[28px]">{t("overdue", language)}</Badge>
           )}
           {currentProject && (
             <Badge variant={statusVariant[currentProject.status]} className="text-sm min-h-[28px]">
               {statusLabels[currentProject.status]}
             </Badge>
           )}
-          <button
+          <Button
             type="button"
-            className="z-50 p-2 bg-red-600 text-white rounded cursor-pointer text-sm"
+            variant="outline"
+            size="icon"
+            className="z-50 min-h-[48px] min-w-[48px] border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
             onClick={async () => {
-              if (!confirm("Supprimer?")) return;
+              if (!confirm(t("deleteProjectConfirm", language))) return;
               if (!supabase || !id) return;
               try { await supabase.from("project_tasks").delete().eq("project_id", id); } catch { /* ignore */ }
               const { error } = await supabase.from("projects").delete().eq("id", id);
-              if (error) alert("Erreur: " + error.message);
-              else location.reload();
+              if (error) alert(error.message);
+              else router.push("/projets");
             }}
+            aria-label={t("deleteProject", language)}
+            title={t("deleteProject", language)}
           >
-            Supprimer
-          </button>
+            <Trash2 className="h-5 w-5" strokeWidth={2} aria-hidden />
+          </Button>
         </div>
       </div>
 
@@ -343,21 +384,42 @@ export default function ProjetDetailPage() {
       {currentProject && (
         <>
           <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
-            <CardHeader>
-              <CardTitle className="text-lg">Dates & suivi temporel</CardTitle>
-              <p className="text-sm text-gray-500">
-                Date de début : {currentProject.start_date ? formatDate(currentProject.start_date) : "—"} · Fin prévue :{" "}
-                {currentProject.end_date ? formatDate(currentProject.end_date) : "—"}
-              </p>
+            <CardHeader className="flex flex-row items-start justify-between gap-3">
+              <div className="min-w-0">
+                <CardTitle className="text-lg">{t("projectDatesTemporalTitle", language)}</CardTitle>
+                <p className="text-sm text-gray-500">
+                  {plannedStartDate ? formatDate(plannedStartDate) : "—"} · {plannedEndDate ? formatDate(plannedEndDate) : "—"}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 min-h-[40px]"
+                onClick={() => setPlanningOpen(true)}
+              >
+                {t("edit", language)}
+              </Button>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>Avancement dans le temps</span>
-                <span>{totalDays > 0 ? `${Math.round(progressPercent)} %` : "—"}</span>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-600">
+                <span>{t("projectTimeProgressLabel", language)}</span>
+                <span className="flex items-center gap-2">
+                  {isOverdue && (
+                    <Badge variant="destructive" className="text-xs">
+                      {t("overdue", language)}
+                    </Badge>
+                  )}
+                  <span>{totalDays > 0 ? `${Math.round(progressPercent)} %` : "—"}</span>
+                </span>
               </div>
-              <Progress value={progressPercent} className="h-3" />
+              <Progress
+                value={progressPercent}
+                className={cn("h-3", isOverdue && "bg-red-100")}
+                indicatorClassName={isOverdue ? "bg-red-600" : undefined}
+              />
               {isOverdue && (
-                <p className="text-sm font-medium text-red-600">Chantier en retard par rapport à la date de fin prévue</p>
+                <p className="text-sm font-medium text-red-600">{t("projectTimeOverdueHint", language)}</p>
               )}
             </CardContent>
           </Card>
@@ -561,13 +623,21 @@ export default function ProjetDetailPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">{t("projectAmountPaidLabel", language)}</span>
                   <span className="text-xl font-bold text-emerald-600">
-                    {projectRevenuesLoading ? "…" : formatConvertedCurrency(revenuePaidEur, currency)}
+                    {projectRevenuesLoading ? (
+                      <Skeleton className="inline-block h-8 w-28 rounded-md" />
+                    ) : (
+                      formatConvertedCurrency(revenuePaidEur, currency)
+                    )}
                   </span>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                   <span className="text-sm font-medium text-gray-700">{t("projectRemainingBalanceLabel", language)}</span>
                   <span className={`text-xl font-bold ${restant > 0 ? "text-amber-600" : "text-emerald-600"}`}>
-                    {projectRevenuesLoading ? "…" : formatConvertedCurrency(restant, currency)}
+                    {projectRevenuesLoading ? (
+                      <Skeleton className="inline-block h-8 w-28 rounded-md" />
+                    ) : (
+                      formatConvertedCurrency(restant, currency)
+                    )}
                   </span>
                 </div>
                 <div className="pt-2">
@@ -589,7 +659,11 @@ export default function ProjetDetailPage() {
                 <div className="flex flex-wrap gap-4 justify-between text-sm">
                   <span className="text-gray-600">{t("projectFinanceTotalRevenue", language)}</span>
                   <span className="font-semibold text-gray-900">
-                    {projectRevenuesLoading ? "…" : formatConvertedCurrency(totalRevEur, currency)}
+                    {projectRevenuesLoading ? (
+                      <Skeleton className="inline-block h-5 w-24 rounded-md" />
+                    ) : (
+                      formatConvertedCurrency(totalRevEur, currency)
+                    )}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-4 justify-between text-sm">
@@ -599,7 +673,11 @@ export default function ProjetDetailPage() {
                 <div className="flex flex-wrap gap-4 justify-between border-t border-emerald-100 pt-2">
                   <span className="font-medium text-gray-800">{t("dashboardCounterNetProfit", language)}</span>
                   <span className={`text-lg font-bold ${netProfitProj >= 0 ? "text-emerald-700" : "text-red-600"}`}>
-                    {projectRevenuesLoading ? "…" : formatConvertedCurrency(netProfitProj, currency)}
+                    {projectRevenuesLoading ? (
+                      <Skeleton className="inline-block h-7 w-28 rounded-md" />
+                    ) : (
+                      formatConvertedCurrency(netProfitProj, currency)
+                    )}
                   </span>
                 </div>
               </div>
@@ -766,6 +844,43 @@ export default function ProjetDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={planningOpen} onOpenChange={setPlanningOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("projectDatesTemporalTitle", language)}</DialogTitle>
+            <p className="text-sm text-gray-500">{t("projectPlanningModalHint", language)}</p>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 py-2">
+            <div>
+              <label className="text-sm text-gray-500 block mb-1">{t("projectPlannedStartDate", language)}</label>
+              <Input
+                type="date"
+                value={plannedStartDate}
+                onChange={(e) => setPlannedStartDate(e.target.value)}
+                className="min-h-[48px]"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-gray-500 block mb-1">{t("projectPlannedEndDate", language)}</label>
+              <Input
+                type="date"
+                value={plannedEndDate}
+                onChange={(e) => setPlannedEndDate(e.target.value)}
+                className="min-h-[48px]"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setPlanningOpen(false)} disabled={planningSaving}>
+              {t("close", language)}
+            </Button>
+            <Button type="button" onClick={() => void handleSavePlanning()} disabled={planningSaving}>
+              {planningSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={paymentOpen} onOpenChange={(open) => { setPaymentOpen(open); setPaymentError(null); }}>
         <DialogContent>

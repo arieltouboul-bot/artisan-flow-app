@@ -34,8 +34,10 @@ export function SwipeActionsRow({
   const offset = useMotionValue(0);
   const actionsOpacity = useTransform(offset, [0, -24, -REVEAL], [0, 0, 1]);
   const [actionsInteractive, setActionsInteractive] = useState(false);
+  const [showSwipeHint, setShowSwipeHint] = useState(true);
   useMotionValueEvent(offset, "change", (v) => {
     setActionsInteractive(v < -22);
+    setShowSwipeHint(v > -12);
   });
 
   const hapticDone = useRef(false);
@@ -129,10 +131,13 @@ export function SwipeActionsRow({
         <div className="relative pr-7">
           {children}
           <span
-            className="pointer-events-none absolute right-0.5 top-1/2 -translate-y-1/2 select-none text-[13px] font-light leading-none text-gray-400/85"
+            className={cn(
+              "pointer-events-none absolute right-0.5 top-1/2 -translate-y-1/2 select-none text-[15px] font-light leading-none text-gray-400 transition-opacity duration-150",
+              showSwipeHint ? "opacity-90" : "opacity-0"
+            )}
             aria-hidden
           >
-            &lt;
+            ‹
           </span>
         </div>
       </motion.div>

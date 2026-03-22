@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { MoreVertical, Loader2 } from "lucide-react";
+import { MoreVertical, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
 
 type RowActionsMenuProps = {
   isOpen: boolean;
@@ -14,6 +16,7 @@ type RowActionsMenuProps = {
 };
 
 export function RowActionsMenu({ isOpen, onOpenChange, onEdit, onDelete, isDeleting = false, className }: RowActionsMenuProps) {
+  const { language } = useLanguage();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,7 +41,7 @@ export function RowActionsMenu({ isOpen, onOpenChange, onEdit, onDelete, isDelet
           e.stopPropagation();
           onOpenChange(!isOpen);
         }}
-        aria-label="Actions"
+        aria-label={t("actions", language)}
         aria-expanded={isOpen}
         disabled={isDeleting}
       >
@@ -57,17 +60,19 @@ export function RowActionsMenu({ isOpen, onOpenChange, onEdit, onDelete, isDelet
               onEdit();
             }}
           >
-            Modifier
+            {t("edit", language)}
           </button>
           <button
             type="button"
-            className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+            className="flex w-full items-center justify-center px-3 py-2 text-sm text-red-600 hover:bg-red-50"
             onClick={() => {
               onOpenChange(false);
               onDelete();
             }}
+            aria-label={t("delete", language)}
+            title={t("delete", language)}
           >
-            Supprimer
+            <Trash2 className="h-5 w-5" strokeWidth={2} aria-hidden />
           </button>
         </div>
       )}

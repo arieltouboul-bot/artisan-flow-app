@@ -19,6 +19,9 @@ import {
   Package,
   Receipt,
   Banknote,
+  Settings,
+  Users,
+  UsersRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/translations";
@@ -26,14 +29,22 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/context/language-context";
 
-const navItems = [
+/**
+ * Navigation principale (ordre fixe) :
+ * Dashboard → Projects → Clients → Team → Revenues → Invoices → Inventory → Appointments → Settings,
+ * puis Help & Support en bas du panneau.
+ */
+const mainNavItems = [
   { href: "/dashboard", key: "dashboard", icon: LayoutDashboard },
   { href: "/projets", key: "projects", icon: FolderKanban },
+  /** Table Supabase `clients` — page `app/(app)/clients/page.tsx` */
+  { href: "/clients", key: "clients", icon: Users },
+  { href: "/team", key: "team", icon: UsersRound },
   { href: "/revenus", key: "revenues", icon: Banknote },
   { href: "/factures", key: "invoices", icon: Receipt },
   { href: "/materiel", key: "material", icon: Package },
   { href: "/calendar", key: "calendar", icon: Calendar },
-  { href: "/help", key: "helpSupport", icon: HelpCircle },
+  { href: "/settings", key: "settings", icon: Settings },
 ];
 
 type SidebarProps = {
@@ -45,7 +56,7 @@ type SidebarProps = {
 
 export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: SidebarProps) {
   const expanded = mobileMode ? true : !collapsed;
-  const width = mobileMode ? 260 : (collapsed ? 72 : 260);
+  const width = mobileMode ? 260 : collapsed ? 72 : 260;
   const pathname = usePathname();
   const router = useRouter();
   const { language } = useLanguage();
@@ -120,60 +131,100 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
           </Button>
         )}
       </div>
-      <nav className="flex-1 space-y-1 p-3">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
-          const Icon = item.icon;
-          const label = t(item.key, language);
-          const showCalendarBadge = item.key === "calendar" && appointmentSoon;
-          const showProjectsBadge = item.key === "projects" && staleProjectsCount > 0;
-          return (
-            <Link key={item.href} href={item.href} onClick={() => onCloseMobile?.()}>
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className={cn(
-                  "flex min-h-[48px] items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-brand-blue-50 text-brand-blue-600 shadow-sm"
-                    : "text-gray-600 hover:bg-brand-blue-50/50 hover:text-brand-blue-600"
-                )}
-              >
-                <span className="relative shrink-0">
-                  <Icon className="h-5 w-5" />
-                  {showCalendarBadge && (
-                    <span
-                      className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white"
-                      aria-label="Rendez-vous bientôt"
-                    />
+
+      <div className="flex min-h-0 flex-1 flex-col">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden p-3">
+          {mainNavItems.map((item) => {
+            const isActive =
+              pathname === item.href ||
+              (item.href !== "/dashboard" &&
+                (item.key === "team"
+                  ? pathname.startsWith("/team") || pathname.startsWith("/employees")
+                  : item.key === "settings"
+                    ? pathname.startsWith("/settings") || pathname.startsWith("/parametres")
+                    : item.key === "clients"
+                      ? pathname === "/clients" || pathname.startsWith("/clients/")
+                    : pathname.startsWith(item.href)));
+            const Icon = item.icon;
+            const label = t(item.key, language);
+            const showCalendarBadge = item.key === "calendar" && appointmentSoon;
+            const showProjectsBadge = item.key === "projects" && staleProjectsCount > 0;
+            return (
+              <Link key={item.href} href={item.href} onClick={() => onCloseMobile?.()}>
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={cn(
+                    "flex min-h-[48px] items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-brand-blue-50 text-brand-blue-600 shadow-sm"
+                      : "text-gray-600 hover:bg-brand-blue-50/50 hover:text-brand-blue-600"
                   )}
-                  {showProjectsBadge && (
-                    <span
-                      className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white ring-2 ring-white"
-                      aria-label={`${staleProjectsCount} projet(s) à relancer`}
-                    >
-                      {staleProjectsCount > 9 ? "9+" : staleProjectsCount}
-                    </span>
-                  )}
-                </span>
-                <AnimatePresence mode="wait">
-                  {expanded && (
-                    <motion.span
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="truncate"
-                    >
-                      {label}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="border-t border-gray-200 p-3 space-y-1">
+                >
+                  <span className="relative shrink-0">
+                    <Icon className="h-5 w-5" />
+                    {showCalendarBadge && (
+                      <span
+                        className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white"
+                        aria-label="Rendez-vous bientôt"
+                      />
+                    )}
+                    {showProjectsBadge && (
+                      <span
+                        className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white ring-2 ring-white"
+                        aria-label={`${staleProjectsCount} projet(s) à relancer`}
+                      >
+                        {staleProjectsCount > 9 ? "9+" : staleProjectsCount}
+                      </span>
+                    )}
+                  </span>
+                  <AnimatePresence mode="wait">
+                    {expanded && (
+                      <motion.span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="truncate"
+                      >
+                        {label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="mt-auto shrink-0 border-t border-gray-200 bg-white px-2 pb-2 pt-1">
+          <Link
+            href="/help"
+            onClick={() => onCloseMobile?.()}
+            className={cn(
+              "flex min-h-[48px] w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
+              pathname === "/help" || pathname.startsWith("/help/")
+                ? "bg-brand-blue-50 text-brand-blue-600 shadow-sm"
+                : "text-gray-600 hover:bg-brand-blue-50/50 hover:text-brand-blue-600"
+            )}
+          >
+            <HelpCircle className="h-5 w-5 shrink-0" />
+            <AnimatePresence mode="wait">
+              {expanded && (
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="truncate"
+                >
+                  {t("helpSupport", language)}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </Link>
+        </div>
+      </div>
+
+      <div className="shrink-0 border-t border-gray-200 p-3 space-y-1">
         <div className="mb-2 flex items-center justify-between rounded-lg bg-gray-50 px-2 py-1.5 text-xs">
           <span className="text-gray-500">
             {online ? "Synchronisé" : "Mode hors-ligne"}
@@ -222,7 +273,6 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
           </Button>
         )}
       </div>
-
     </motion.aside>
   );
 }

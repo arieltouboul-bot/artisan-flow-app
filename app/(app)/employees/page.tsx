@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { useEmployees } from "@/hooks/use-employees";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import { useLanguage } from "@/context/language-context";
+import { useAssistant } from "@/context/assistant-context";
 import { t } from "@/lib/translations";
 import { createClient } from "@/lib/supabase/client";
 import { Users, Plus, Loader2 } from "lucide-react";
@@ -24,6 +25,11 @@ import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 
 export default function EmployeesPage() {
   const { language } = useLanguage();
+  const { setPageContext } = useAssistant();
+  useEffect(() => {
+    setPageContext({ activeSection: "employees" });
+    return () => setPageContext({});
+  }, [setPageContext]);
   const { employees, loading, error, addEmployee, updateEmployee } = useEmployees();
   const [listSearch, setListSearch] = useState("");
   const debouncedListSearch = useDebouncedValue(listSearch, 300);

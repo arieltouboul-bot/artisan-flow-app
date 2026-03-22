@@ -20,7 +20,7 @@ import {
 import { formatDate, formatConvertedCurrency, cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import type { ProjectStatus } from "@/types/database";
-import { FolderKanban, ChevronRight, Loader2, Plus, MoreVertical } from "lucide-react";
+import { FolderKanban, ChevronRight, Loader2, Plus, MoreVertical, Trash2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { OmniTabSearch } from "@/components/ui/omni-tab-search";
@@ -39,6 +39,7 @@ type RowActionsMenuProps = {
 };
 
 function RowActionsMenu({ isOpen, onOpenChange, onEdit, onDelete, isDeleting = false }: RowActionsMenuProps) {
+  const { language } = useLanguage();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!isOpen) return;
@@ -62,8 +63,18 @@ function RowActionsMenu({ isOpen, onOpenChange, onEdit, onDelete, isDeleting = f
       </button>
       {isOpen && !isDeleting && (
         <div className="absolute right-0 top-full z-[100] mt-1 min-w-[140px] rounded-md border border-gray-200 bg-white py-1 shadow-lg" role="menu">
-          <button type="button" className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50" onClick={() => { onOpenChange(false); onEdit(); }}>Modifier</button>
-          <button type="button" className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50" onClick={() => { onOpenChange(false); onDelete(); }}>Supprimer</button>
+          <button type="button" className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50" onClick={() => { onOpenChange(false); onEdit(); }}>
+            {t("edit", language)}
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center justify-center px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+            onClick={() => { onOpenChange(false); onDelete(); }}
+            aria-label={t("deleteProject", language)}
+            title={t("deleteProject", language)}
+          >
+            <Trash2 className="h-5 w-5" strokeWidth={2} aria-hidden />
+          </button>
         </div>
       )}
     </div>
@@ -99,7 +110,7 @@ function ProjetsContent() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { displayCurrency } = useProfile();
   const currency = displayCurrency;
-  const { projects, loading, error, revenuePaidEurByProject } = useProjects();
+  const { projects, loading, error, revenuePaidEurByProject, refetch } = useProjects();
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -225,7 +236,7 @@ function ProjetsContent() {
                       try { await supabase.from("project_tasks").delete().eq("project_id", project.id); } catch { /* ignore */ }
                       const { error } = await supabase.from("projects").delete().eq("id", project.id);
                       if (error) { setDeletingId(null); setDeleteError(error.message); alert("Erreur: " + error.message); }
-                      else location.reload();
+                      else { setDeletingId(null); await refetch(); }
                     };
                     return (
                     <motion.div
@@ -278,7 +289,7 @@ function ProjetsContent() {
                               </div>
                             </button>
                             <div className="flex shrink-0 flex-col items-end gap-1">
-                              {isOverdue && <Badge variant="destructive">En retard</Badge>}
+                              {isOverdue && <Badge variant="destructive">{t("overdue", language)}</Badge>}
                               <Badge variant={statusVariant[project.status]}>{statusLabels[project.status]}</Badge>
                               <span className="text-xs text-gray-500">
                                 {project.start_date ? formatDate(project.start_date) : "—"}
@@ -324,7 +335,7 @@ function ProjetsContent() {
                           </Link>
                           <div className="flex flex-wrap items-center gap-3 sm:flex-nowrap overflow-visible">
                             {isOverdue && (
-                              <Badge variant="destructive" className="shrink-0">En retard</Badge>
+                              <Badge variant="destructive" className="shrink-0">{t("overdue", language)}</Badge>
                             )}
                             <Badge variant={statusVariant[project.status]}>
                               {statusLabels[project.status]}

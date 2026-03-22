@@ -4,7 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Language } from "@/lib/translations";
+import { t, tReplace, type Language } from "@/lib/translations";
 import type { Expense } from "@/types/database";
 import {
   expenseLineTtc,
@@ -36,6 +36,26 @@ function findProjectByName(
   return projects.find((p) => p.name.toLowerCase().includes(q) || q.includes(p.name.toLowerCase()));
 }
 
+function parseEndDateString(raw: string): string | null {
+  const s = raw
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/(\d+)(st|nd|rd|th)\b/gi, "$1");
+  if (!s) return null;
+  const tryDate = new Date(s);
+  if (!Number.isNaN(tryDate.getTime())) return tryDate.toISOString().slice(0, 10);
+  const dm = s.match(/^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?$/);
+  if (dm) {
+    const d = Number(dm[1]);
+    const mo = Number(dm[2]);
+    let y = dm[3] ? Number(dm[3]) : new Date().getFullYear();
+    if (y < 100) y += 2000;
+    const dt = new Date(y, mo - 1, d);
+    if (!Number.isNaN(dt.getTime())) return dt.toISOString().slice(0, 10);
+  }
+  return null;
+}
+
 export async function runExtendedAssistantScenarios(opts: {
   text: string;
   lower: string;
@@ -44,8 +64,104 @@ export async function runExtendedAssistantScenarios(opts: {
   supabase: SupabaseClient;
   appendMessage: Append;
   router: { push: (href: string) => void };
+  pageContext?: {
+    currentProjectId?: string | null;
+    currentProjectName?: string | null;
+    activeSection?: "clients" | "employees" | null;
+  };
 }): Promise<boolean> {
-  const { text, lower, language, userId, supabase, appendMessage, router } = opts;
+  const { text, lower, language, userId, supabase, appendMessage, router, pageContext } = opts;
+
+  // ——— Current project: how much left to pay (needs open project page)
+  const asksLeftToPay =
+    /(?:left|remaining)\s+to\s+pay/i.test(lower) ||
+    /(?:how\s+much|what|combien).{0,50}(?:left|owing|due|remaining|reste|à payer|impayé)/i.test(lower) ||
+    /(?:restant|reste).{0,25}(?:à payer|impayé|due)/i.test(lower);
+  const mentionsThisProject =
+    /(?:current|this|the)\s+project|projet\s+actuel|ce\s+projet|ce\s+chantier|chantier\s+actuel/i.test(lower) ||
+    /(?:on|sur)\s+(?:the\s+)?(?:open\s+)?project/i.test(lower);
+  const leftOnCurrent = pageContext?.currentProjectId && asksLeftToPay && mentionsThisProject;
+  if (leftOnCurrent) {
+    const pid = pageContext!.currentProjectId!;
+    const { data: proj } = await supabase
+      .from("projects")
+      .select("id, name, contract_amount")
+      .eq("user_id", userId)
+      .eq("id", pid)
+      .maybeSingle();
+    if (!proj) {
+      appendMessage("assistant", t("assistantOpenProjectForBalance", language));
+      return true;
+    }
+    const budget = Number((proj as { contract_amount?: number | null }).contract_amount ?? 0);
+    const { data: revs } = await supabase
+      .from("revenues")
+      .select("amount, currency")
+      .eq("user_id", userId)
+      .eq("project_id", pid);
+    let paidEur = 0;
+    for (const r of revs ?? []) {
+      const row = r as { amount: number; currency: string | null };
+      paidEur += amountInCurrencyToEur(Number(row.amount), parseStoredRevenueCurrency(row.currency));
+    }
+    const rest = Math.max(0, budget - paidEur);
+    const name = (proj as { name: string }).name;
+    appendMessage(
+      "assistant",
+      language === "en"
+        ? `**${name}** — remaining to pay (budget − revenue recorded): **${Math.round(rest * 100) / 100} €** (EUR equivalent).`
+        : `**${name}** — restant à payer (budget − revenus enregistrés) : **${Math.round(rest * 100) / 100} €** (équivalent EUR).`
+    );
+    return true;
+  }
+
+  if (asksLeftToPay && mentionsThisProject && !pageContext?.currentProjectId) {
+    appendMessage("assistant", t("assistantOpenProjectForBalance", language));
+    return true;
+  }
+
+  // ——— Set planned end date for project by name
+  const setEndMatch =
+    /(?:set|change|update|put).{0,40}(?:the\s+)?(?:end\s+date|planned\s+end|date\s+de\s+fin).{0,80}(?:for|of|on|pour|du|de)\s+(?:the\s+)?(?:project\s+)?(?:le\s+)?(?:projet\s+)?(.+?)\s+(?:to|on|as|au|le|à|the)\s+(.+)/i.exec(
+      text
+    ) ||
+    /(?:mets|mettre|change|modifie).{0,40}(?:la\s+)?(?:date\s+de\s+)?fin.{0,40}(?:pour|du|de)\s+(?:le\s+)?(?:projet\s+)?(.+?)\s+(?:au|le|à|pour)\s+(.+)/i.exec(
+      text
+    );
+  if (setEndMatch) {
+    const rawName = setEndMatch[1]!.replace(/[.,?]+$/, "").trim();
+    const rawDate = setEndMatch[2]!.trim();
+    const iso = parseEndDateString(rawDate);
+    if (!iso) {
+      appendMessage("assistant", t("assistantEndDateInvalid", language));
+      return true;
+    }
+    const { data: projects } = await supabase.from("projects").select("id, name").eq("user_id", userId);
+    const proj = findProjectByName((projects ?? []) as { id: string; name: string }[], rawName);
+    if (!proj) {
+      appendMessage("assistant", tReplace("assistantEndDateProjectNotFound", language, { name: rawName }));
+      return true;
+    }
+    const { error } = await supabase
+      .from("projects")
+      .update({ end_date: iso, updated_at: new Date().toISOString() })
+      .eq("id", proj.id)
+      .eq("user_id", userId);
+    if (error) {
+      appendMessage("assistant", error.message);
+      return true;
+    }
+    const formatted = new Date(iso + "T12:00:00").toLocaleDateString(language === "fr" ? "fr-FR" : "en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    appendMessage(
+      "assistant",
+      tReplace("assistantEndDateUpdated", language, { name: proj.name, date: formatted })
+    );
+    return true;
+  }
 
   // ——— Revenue tab: open margin detail (merged finance / monthly profit breakdown)
   if (

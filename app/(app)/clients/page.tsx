@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,6 +25,7 @@ import {
 import { useClients } from "@/hooks/use-clients";
 import { useProfile } from "@/hooks/use-profile";
 import { useLanguage } from "@/context/language-context";
+import { useAssistant } from "@/context/assistant-context";
 import { t } from "@/lib/translations";
 import { createClient } from "@/lib/supabase/client";
 import type { Client } from "@/types/database";
@@ -45,6 +46,12 @@ function parseNum(value: string): number | null {
 }
 
 export default function ClientsPage() {
+  const { setPageContext } = useAssistant();
+  useEffect(() => {
+    setPageContext({ activeSection: "clients" });
+    return () => setPageContext({});
+  }, [setPageContext]);
+
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
   const [addOpen, setAddOpen] = useState(false);

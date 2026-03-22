@@ -22,6 +22,7 @@ import { FileText, Loader2, Trash2, Download } from "lucide-react";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import type { Currency } from "@/lib/utils";
 import { generateFacturesPDF } from "@/lib/factures-pdf";
+import { pdfLocaleFromAppLanguage } from "@/lib/finance-pdf-labels";
 import { createClient } from "@/lib/supabase/client";
 import { imageFileToBinarizedBlob } from "@/lib/invoice-ocr";
 import { extractInvoiceDecision } from "@/lib/ocr";
@@ -273,6 +274,7 @@ export default function FacturesPage() {
         headers,
         companyName: profile?.company_name ?? null,
         logoUrl: profile?.logo_url ?? null,
+        locale: pdfLocaleFromAppLanguage(language),
       });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");

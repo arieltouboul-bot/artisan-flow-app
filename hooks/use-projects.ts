@@ -181,5 +181,24 @@ export function useProject(projectId: string | null) {
     fetchProject();
   }, [fetchProject]);
 
+  useEffect(() => {
+    if (!projectId) return;
+    const supabase = createClient();
+    if (!supabase) return;
+    const channel = supabase
+      .channel(`project-row-${projectId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "projects", filter: `id=eq.${projectId}` },
+        () => {
+          fetchProject();
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [projectId, fetchProject]);
+
   return { project, loading, error, refetch: fetchProject };
 }

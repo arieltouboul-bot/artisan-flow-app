@@ -29,6 +29,7 @@ import { useFinanceAnalytics } from "@/hooks/use-finance-analytics";
 import { t, tReplace } from "@/lib/translations";
 import { formatConvertedCurrency } from "@/lib/utils";
 import { generateFinanceSummaryPDF } from "@/lib/finance-summary-pdf";
+import { pdfLocaleFromAppLanguage } from "@/lib/finance-pdf-labels";
 import { cn } from "@/lib/utils";
 import type { CashFlowLine } from "@/lib/finance-analytics-types";
 import { AlertTriangle, Download, TrendingDown, TrendingUp } from "lucide-react";
@@ -122,6 +123,7 @@ export function RevenueFinanceHeader() {
       const blob = await generateFinanceSummaryPDF({
         companyName: profile?.company_name ?? null,
         data,
+        locale: pdfLocaleFromAppLanguage(language),
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -140,11 +142,7 @@ export function RevenueFinanceHeader() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">{t("revenueFinanceOverviewTitle", language)}</h2>
-          <p className="text-sm text-gray-500">{t("revenueFinanceOverviewHint", language)}</p>
-        </div>
+      <div className="flex justify-end">
         <Button
           type="button"
           variant="outline"
@@ -346,6 +344,9 @@ export function RevenueFinanceHeader() {
             <DialogTitle>{t("revenueModalMarginTitle", language)}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-600">{t("revenueModalMarginHint", language)}</p>
+          <p className="text-sm font-semibold text-slate-800 rounded-md bg-violet-50 border border-violet-100 px-3 py-2">
+            {t("revenueModalMarginEquation", language)}
+          </p>
           <div className="rounded-lg bg-slate-50 p-4 space-y-2 text-sm">
             <div className="flex justify-between">
               <span>{t("revenueModalTotalEarned", language)}</span>

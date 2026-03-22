@@ -54,9 +54,11 @@ export type AssistantMessage = {
   modifiedEntities?: ModifiedEntity[];
 };
 
-type AssistantPageContext = {
+export type AssistantPageContext = {
   currentProjectId?: string | null;
   currentProjectName?: string | null;
+  /** Écran Clients ou Équipe — pour contextualiser l’IA */
+  activeSection?: "clients" | "employees" | null;
 };
 
 type AssistantContextValue = {
@@ -1083,7 +1085,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         // ——— Ajoute un employé
         if (lower.startsWith("ajoute un employé") || lower.startsWith("ajoute un employe")) {
           appendMessage("assistant", t("assistantOpeningTeam", language));
-          router.push("/employees");
+          router.push("/team");
           setIsProcessing(false);
           return;
         }
@@ -1293,6 +1295,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           supabase,
           appendMessage,
           router,
+          pageContext,
         });
         if (extended) {
           setIsProcessing(false);

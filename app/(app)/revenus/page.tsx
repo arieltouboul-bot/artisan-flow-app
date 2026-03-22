@@ -148,6 +148,7 @@ export default function RevenusPage() {
     else {
       setAmount("");
       setRevenueNotes("");
+      await refetchProjects();
     }
   };
 
@@ -265,12 +266,14 @@ export default function RevenusPage() {
     else {
       setEditOpen(false);
       setEditRow(null);
+      await refetchProjects();
     }
   };
 
   const handleDelete = async (r: RevenueRow) => {
     if (!window.confirm(t("revenueDeleteConfirm", language))) return;
     await deleteRevenue(r.id);
+    await refetchProjects();
   };
 
   const currencyLabel = (c: RevenueCurrency) => {

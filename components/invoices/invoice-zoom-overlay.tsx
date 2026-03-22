@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Download, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type Props = {
   open: boolean;
@@ -18,7 +20,7 @@ type Props = {
 };
 
 /**
- * Full-screen toggle zoom: tap thumbnail opens; tap image, backdrop, or ✕ closes.
+ * Aperçu plein écran : 1er clic sur la vignette ouvre ; dans l’overlay, clic sur l’image alterne zoom avant / arrière ; fond ou ✕ ferme.
  */
 export function InvoiceZoomOverlay({
   open,
@@ -31,6 +33,12 @@ export function InvoiceZoomOverlay({
   onDownload,
   onDelete,
 }: Props) {
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!open) setExpanded(false);
+  }, [open]);
+
   return (
     <AnimatePresence>
       {open && imageUrl && (
@@ -90,13 +98,13 @@ export function InvoiceZoomOverlay({
                     e.stopPropagation();
                     onDelete();
                   }}
+                  aria-label={language === "en" ? "Delete" : "Supprimer"}
                 >
                   {deleting ? (
                     <span className="h-4 w-4 animate-pulse">…</span>
                   ) : (
                     <Trash2 className="h-4 w-4" />
                   )}
-                  {language === "en" ? "Delete" : "Supprimer"}
                 </Button>
               )}
               <Button
@@ -124,15 +132,29 @@ export function InvoiceZoomOverlay({
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  onClose();
+                  setExpanded((v) => !v);
                 }
               }}
-              className="max-h-[78vh] w-auto max-w-[92vw] cursor-zoom-out rounded-lg object-contain shadow-2xl ring-1 ring-white/20 outline-none focus-visible:ring-2 focus-visible:ring-white"
-              onClick={onClose}
+              className={cn(
+                "w-auto rounded-lg object-contain shadow-2xl ring-1 ring-white/20 outline-none transition-[max-height,max-width,transform] duration-200 ease-out focus-visible:ring-2 focus-visible:ring-white",
+                expanded
+                  ? "max-h-[96vh] max-w-[98vw] cursor-zoom-out scale-[1.02]"
+                  : "max-h-[78vh] max-w-[92vw] cursor-zoom-in"
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded((v) => !v);
+              }}
               transition={{ type: "spring", damping: 28, stiffness: 380 }}
             />
             <p className="mt-2 text-center text-xs text-white/80">
-              {language === "en" ? "Tap the image or background to close" : "Touchez l’image ou le fond pour fermer"}
+              {language === "en"
+                ? expanded
+                  ? "Tap the image again to shrink, or the background to close"
+                  : "Tap the image to enlarge, or the background to close"
+                : expanded
+                  ? "Touchez à nouveau l’image pour réduire, ou le fond pour fermer"
+                  : "Touchez l’image pour agrandir, ou le fond pour fermer"}
             </p>
           </motion.div>
         </motion.div>

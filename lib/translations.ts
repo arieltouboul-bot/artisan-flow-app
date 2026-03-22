@@ -25,7 +25,7 @@ export const translations: Record<string, { fr: string; en: string }> = {
   // Sidebar & nav
   dashboard: { fr: "Dashboard", en: "Dashboard" },
   projects: { fr: "Projets", en: "Projects" },
-  calendar: { fr: "Calendrier", en: "Calendar" },
+  calendar: { fr: "Calendrier", en: "Appointments" },
   newQuote: { fr: "Nouveau devis", en: "New quote" },
   clients: { fr: "Clients", en: "Clients" },
   team: { fr: "Équipe", en: "Team" },
@@ -301,6 +301,34 @@ export const translations: Record<string, { fr: string; en: string }> = {
   projectRemainingBalanceLabel: { fr: "Solde restant", en: "Remaining balance" },
   projectPaymentProgressLabel: { fr: "Progression du paiement (revenus / budget)", en: "Payment progress (revenue / budget)" },
   projectPaidBadge: { fr: "Payé", en: "Paid" },
+  projectPlannedStartDate: { fr: "Date de début prévue", en: "Planned start date" },
+  projectPlannedEndDate: { fr: "Date de fin prévue", en: "Planned end date" },
+  projectDatesTemporalTitle: { fr: "Dates et suivi temporel", en: "Dates & time tracking" },
+  projectTimeProgressLabel: { fr: "Avancement dans le temps", en: "Time progress" },
+  projectTimeOverdueHint: {
+    fr: "Chantier en retard par rapport à la date de fin prévue.",
+    en: "Project is past the planned end date.",
+  },
+  projectPlanningModalHint: {
+    fr: "La barre d’avancement temps se base sur la date du jour.",
+    en: "The time progress bar is based on today’s date.",
+  },
+  assistantOpenProjectForBalance: {
+    fr: "Ouvrez la fiche d’un projet pour que je puisse indiquer le solde restant.",
+    en: "Open a project page so I can tell you the remaining balance to pay.",
+  },
+  assistantEndDateUpdated: {
+    fr: "Date de fin mise à jour pour **{name}** : {date}.",
+    en: "End date updated for **{name}**: {date}.",
+  },
+  assistantEndDateProjectNotFound: {
+    fr: "Je n’ai pas trouvé de projet correspondant à « {name} ».",
+    en: "I couldn’t find a project matching “{name}”.",
+  },
+  assistantEndDateInvalid: {
+    fr: "Je n’ai pas compris la date. Exemple : 15 décembre 2025 ou 2025-12-15.",
+    en: "I couldn’t parse the date. Try e.g. December 15, 2025 or 2025-12-15.",
+  },
   revenueCurrencyOptionEUR: { fr: "Euro (€)", en: "Euro (€)" },
   revenueCurrencyOptionUSD: { fr: "Dollar ($)", en: "Dollar ($)" },
   revenueCurrencyOptionILS: { fr: "Shekel (₪)", en: "Shekel (₪)" },
@@ -326,6 +354,7 @@ export const translations: Record<string, { fr: string; en: string }> = {
   // Buttons & actions
   add: { fr: "Ajouter", en: "Add" },
   edit: { fr: "Modifier", en: "Edit" },
+  actions: { fr: "Actions", en: "Actions" },
   delete: { fr: "Supprimer", en: "Delete" },
   confirmDeleteEmployee: { fr: "Supprimer cet employé ? Il sera retiré de tous les chantiers.", en: "Delete this employee? They will be removed from all projects." },
   remove: { fr: "Retirer", en: "Remove" },
@@ -423,7 +452,7 @@ export const translations: Record<string, { fr: string; en: string }> = {
     fr: "CA, marges, impayés et export comptable.",
     en: "Revenue, margins, outstanding balances and accounting export.",
   },
-  financeExportPdf: { fr: "Exporter le PDF (anglais)", en: "Export PDF (English)" },
+  financeExportPdf: { fr: "Exporter le PDF", en: "Export PDF" },
   financeExporting: { fr: "Export…", en: "Exporting…" },
   financeRetry: { fr: "Réessayer", en: "Retry" },
   financeCardCaMonth: { fr: "CA mois en cours", en: "Cash collected (month)" },
@@ -478,14 +507,14 @@ export const translations: Record<string, { fr: string; en: string }> = {
     fr: "CA, marge nette et impayés — cartes cliquables pour le détail.",
     en: "Revenue, net margin and outstanding — tap a card for details.",
   },
-  revenueCardMonth: { fr: "CA du mois", en: "Monthly revenue" },
-  revenueCardYear: { fr: "CA annuel (YTD)", en: "Yearly revenue (YTD)" },
+  revenueCardMonth: { fr: "CA mensuel", en: "Monthly CA" },
+  revenueCardYear: { fr: "CA annuel (YTD)", en: "Yearly CA (YTD)" },
   revenueCardYearHint: {
     fr: "Cumul depuis le 1er janvier (encaissements).",
     en: "Cumulative from 1 January (cash in).",
   },
-  revenueCardMargin: { fr: "Marge nette", en: "Net profit margin" },
-  revenueCardUnpaid: { fr: "Impayés totaux", en: "Total unpaid" },
+  revenueCardMargin: { fr: "Marge bénéficiaire", en: "Profit margin" },
+  revenueCardUnpaid: { fr: "Impayés", en: "Unpaid" },
   revenueCardTapDetail: { fr: "Voir le détail", en: "View details" },
   revenueModalMonthTitle: { fr: "Détail — mois en cours", en: "Detail — current month" },
   revenueModalMonthSubtitle: {
@@ -508,6 +537,10 @@ export const translations: Record<string, { fr: string; en: string }> = {
   revenueModalMarginFormula: {
     fr: "Les dépenses incluent la table expenses et le champ matériaux du projet.",
     en: "Costs include the expenses table and each project’s materials field.",
+  },
+  revenueModalMarginEquation: {
+    fr: "Total encaissé − Total dépenses = Bénéfice net",
+    en: "Total collected − Total expenses = Net profit",
   },
   revenueModalTopProjects: { fr: "Projets les plus rentables", en: "Most profitable projects" },
   revenueTrackerTitle: { fr: "Suivi des encaissements", en: "Revenue tracker" },
@@ -617,7 +650,10 @@ export const translations: Record<string, { fr: string; en: string }> = {
     en: "I added **{count}** calendar entries for « {title} » ({weekday}).",
   },
   assistantExpensesByProject: { fr: "Répartition des coûts matériaux par projet (total {total} €) :", en: "Material cost breakdown by project (total {total} €):" },
-  assistantDefaultHelp: { fr: "Tu peux me demander : « Qu'est-ce que j'ai de prévu demain ? », « Prends-moi rendez-vous avec le client Leroy mardi à 14h », « Ajoute 1500€ au projet Leroy », « Combien me doit le client Martin ? », « Nouveau projet : Salle de bain 8m² pour Mme Martin », « Répartition des dépenses », ou « Note un rappel Commander carrelage ».", en: "You can ask me: « What do I have tomorrow? », « Book me an appointment with client Leroy on Tuesday at 2pm », « Add 1500€ to project Leroy », « How much does client Martin owe me? », « New project: 8m² bathroom for Mrs Martin », « Expense breakdown », or « Note a reminder: Order tiles ».", },
+  assistantDefaultHelp: {
+    fr: "Tu peux me demander : « Qu'est-ce que j'ai de prévu demain ? », « Détails de ma marge mensuelle », « Prends-moi rendez-vous avec le client Leroy mardi à 14h », « Ajoute 1500€ au projet Leroy », « Combien me doit le client Martin ? », « Nouveau projet : Salle de bain 8m² pour Mme Martin », « Répartition des dépenses », ou « Note un rappel Commander carrelage ».",
+    en: "You can ask me: « What do I have tomorrow? », « Show my monthly profit details », « Book me an appointment with client Leroy on Tuesday at 2pm », « Add 1500€ to project Leroy », « How much does client Martin owe me? », « New project: 8m² bathroom for Mrs Martin », « Expense breakdown », or « Note a reminder: Order tiles ».",
+  },
   typeDevis: { fr: "Devis", en: "Quote" },
   typeChantier: { fr: "Chantier", en: "Site" },
   typeReunion: { fr: "Réunion", en: "Meeting" },
