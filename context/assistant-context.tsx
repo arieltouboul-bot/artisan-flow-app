@@ -12,6 +12,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/context/language-context";
 import { t, tReplace } from "@/lib/translations";
+import {
+  parseAppointmentCommand,
+  parseInvoiceFilterIntent,
+  parseProjectWithBudget,
+} from "@/lib/smart-command-parser";
 
 export type ModifiedEntity = {
   type: "project" | "client" | "employee" | "reminder";
@@ -112,6 +117,105 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       const lower = text.toLowerCase();
 
       try {
+        // ——— Invoice filter: "Show invoices from Castorama this month"
+        const invoiceIntent = parseInvoiceFilterIntent(text);
+        if (invoiceIntent) {
+          if (typeof sessionStorage !== "undefined") {
+            sessionStorage.setItem("artisanflow_invoice_filter", JSON.stringify(invoiceIntent));
+          }
+          router.push("/factures");
+          appendMessage(
+            "assistant",
+            language === "en"
+              ? `Opening Invoices — filter: “${invoiceIntent.vendor}”${invoiceIntent.month === "current" ? " (this month)" : invoiceIntent.month === "previous" ? " (last month)" : ""}.`
+              : `Ouverture de l’onglet Factures — filtre : « ${invoiceIntent.vendor} »${invoiceIntent.month === "current" ? " (ce mois)" : invoiceIntent.month === "previous" ? " (mois dernier)" : ""}.`
+          );
+          setIsProcessing(false);
+          return;
+        }
+
+        // ——— New project with budget: "Add project Kitchen Reno with budget 5000"
+        const projectBudget = parseProjectWithBudget(text);
+        if (projectBudget) {
+          const { data: existingClients } = await supabase
+            .from("clients")
+            .select("id")
+            .eq("user_id", user.id)
+            .limit(1);
+          let clientId: string | null = (existingClients?.[0] as { id: string } | undefined)?.id ?? null;
+          if (!clientId) {
+            const { data: newClient, error: ce } = await supabase
+              .from("clients")
+              .insert({
+                user_id: user.id,
+                name: "General",
+                contract_amount: 0,
+                material_costs: 0,
+                amount_collected: 0,
+              })
+              .select("id")
+              .single();
+            if (ce || !newClient) {
+              appendMessage(
+                "assistant",
+                language === "en"
+                  ? `Could not create client: ${ce?.message ?? "error"}`
+                  : `Impossible de créer le client : ${ce?.message ?? "erreur"}`
+              );
+              setIsProcessing(false);
+              return;
+            }
+            clientId = (newClient as { id: string }).id;
+          }
+          const { data: newProject, error: pe } = await supabase
+            .from("projects")
+            .insert({
+              user_id: user.id,
+              client_id: clientId,
+              name: projectBudget.name.slice(0, 200),
+              status: "en_preparation",
+              address: null,
+              contract_amount: projectBudget.budget,
+              material_costs: 0,
+              amount_collected: 0,
+              start_date: new Date().toISOString().slice(0, 10),
+              started_at: null,
+              ended_at: null,
+            })
+            .select("id")
+            .single();
+          if (pe || !newProject) {
+            appendMessage(
+              "assistant",
+              language === "en"
+                ? `Project not created: ${pe?.message ?? "error"}`
+                : `Projet non créé : ${pe?.message ?? "erreur"}`
+            );
+            setIsProcessing(false);
+            return;
+          }
+          appendMessage(
+            "assistant",
+            language === "en"
+              ? `Project “${projectBudget.name}” created with budget ${Math.round(projectBudget.budget)} €.`
+              : `Projet « ${projectBudget.name} » créé avec un budget de ${Math.round(projectBudget.budget)} €.`,
+            {
+              modifiedEntities: [
+                {
+                  type: "project",
+                  id: (newProject as { id: string }).id,
+                  name: projectBudget.name,
+                  fields: [language === "en" ? "Budget" : "Budget"],
+                  link: `/projets/${(newProject as { id: string }).id}`,
+                },
+              ],
+            }
+          );
+          router.push(`/projets/${(newProject as { id: string }).id}`);
+          setIsProcessing(false);
+          return;
+        }
+
         // ——— "Combien me doit Martin ?" / "Le client Martin vous doit encore 1500€ sur un total de 5000€" (réponse IA)
         const clientDoitMatch = lower.match(/(?:combien\s+me\s+doit|me\s+doit\s+combien|ce\s+que\s+me\s+doit)\s+(?:le\s+client\s+)?(.+?)(?:\.|\?|$)/i)
           || lower.match(/(?:le\s+client|client)\s+(.+?)\s+(?:vous\s+)?doit\s+encore/i)
@@ -639,34 +743,27 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // ——— "Prends-moi rendez-vous avec le client Leroy mardi à 14h"
-        const rdvMatch = lower.match(/(?:prends?-moi?\s+)?(?:un\s+)?rendez-vous\s+(?:avec\s+)?(?:le\s+client\s+)?(.+?)\s+(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(?:à\s+)?(\d{1,2})h?/i);
-        if (rdvMatch) {
-          const clientPart = rdvMatch[1].trim();
-          const dayName = rdvMatch[2].toLowerCase();
-          const hour = parseInt(rdvMatch[3], 10);
-          const dayMap: Record<string, number> = { dimanche: 0, lundi: 1, mardi: 2, mercredi: 3, jeudi: 4, vendredi: 5, samedi: 6 };
-          const targetDay = dayMap[dayName] ?? 2;
-          const now = new Date();
-          let d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          while (d.getDay() !== targetDay) {
-            d.setDate(d.getDate() + 1);
-          }
-          if (d <= now) {
-            d.setDate(d.getDate() + 7);
-          }
-          d.setHours(hour, 0, 0, 0);
-          const end = new Date(d);
-          end.setHours(end.getHours() + 1, 0, 0, 0);
-          const clientName = clientPart.replace(/\s+(?:mardi|lundi|mercredi|jeudi|vendredi|samedi|dimanche).*$/i, "").trim() || "Client";
+        // ——— Appointments (FR + EN): smart parser — "Schedule appointment with Client X next Monday at 2pm"
+        const parsedAppt = parseAppointmentCommand(text);
+        if (parsedAppt) {
+          const d = parsedAppt.start;
+          const end = parsedAppt.end;
+          const clientName =
+            parsedAppt.clientName.replace(/\s+(?:mardi|lundi|mercredi|jeudi|vendredi|samedi|dimanche).*$/i, "").trim() || "Client";
           let projectId: string | null = null;
           const { data: clients } = await supabase.from("clients").select("id, name").eq("user_id", user.id);
           const client = (clients ?? []).find((c: { name: string }) => c.name.toLowerCase().includes(clientName.toLowerCase()));
           if (client) {
-            const { data: proj } = await supabase.from("projects").select("id").eq("user_id", user.id).eq("client_id", client.id).limit(1).single();
+            const { data: proj } = await supabase
+              .from("projects")
+              .select("id")
+              .eq("user_id", user.id)
+              .eq("client_id", client.id)
+              .limit(1)
+              .single();
             if (proj) projectId = (proj as { id: string }).id;
           }
-          const title = `RDV – ${clientName}`;
+          const title = `${language === "en" ? "Appointment" : "RDV"} – ${clientName}`;
           const { error: insertErr } = await supabase.from("appointments").insert({
             user_id: user.id,
             title,
@@ -680,11 +777,23 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             appendMessage("assistant", tReplace("assistantAppointmentError", language, { msg: insertErr.message }));
           } else {
             const locale = language === "fr" ? "fr-FR" : "en-GB";
-            const dateStr = d.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
-            const projectSuffix = projectId ? t("assistantLinkedToProject", language) : "";
-            appendMessage("assistant", tReplace("assistantAppointmentCreated", language, { title, date: dateStr, project: projectSuffix }), {
-              modifiedEntities: [{ type: "reminder", id: "", name: title, fields: [t("appointmentLabel", language)], link: "/calendar" }],
+            const dateStr = d.toLocaleDateString(locale, {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              hour: "2-digit",
+              minute: "2-digit",
             });
+            const projectSuffix = projectId ? t("assistantLinkedToProject", language) : "";
+            appendMessage(
+              "assistant",
+              tReplace("assistantAppointmentCreated", language, { title, date: dateStr, project: projectSuffix }),
+              {
+                modifiedEntities: [
+                  { type: "reminder", id: "", name: title, fields: [t("appointmentLabel", language)], link: "/calendar" },
+                ],
+              }
+            );
           }
           setIsProcessing(false);
           return;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, FormEvent } from "react";
+import { useState, useRef, useEffect, FormEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,6 +11,7 @@ import { useDailyBriefing } from "@/hooks/use-daily-briefing";
 import type { AssistantMessage, ModifiedEntity } from "@/context/assistant-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLanguage } from "@/context/language-context";
 
 const CHART_COLORS = ["#0066FF", "#00a86b", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#64748b"];
 
@@ -21,6 +22,7 @@ function MessageBubble({
   m: AssistantMessage;
   onEntityClick?: () => void;
 }) {
+  const { language } = useLanguage();
   const isUser = m.role === "user";
   return (
     <div className={`mb-1.5 flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -58,7 +60,9 @@ function MessageBubble({
         )}
         {m.modifiedEntities && m.modifiedEntities.length > 0 && (
           <div className="mt-2 space-y-1 border-t border-gray-200 pt-2">
-            <span className="text-[10px] font-medium uppercase text-brand-blue-600">Modifié par l&apos;IA</span>
+            <span className="text-[10px] font-medium uppercase text-brand-blue-600">
+              {language === "en" ? "AI update" : "Modifié par l'IA"}
+            </span>
             {m.modifiedEntities.map((ent: ModifiedEntity, i: number) => (
               <Link
                 key={i}
@@ -79,12 +83,24 @@ function MessageBubble({
 
 export function FloatingAssistant() {
   const pathname = usePathname();
+  const { language } = useLanguage();
   const { messages, sendMessage, isProcessing } = useAssistant();
   const { summary: dailyBriefing } = useDailyBriefing();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
   const isDashboard = pathname === "/dashboard";
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -107,7 +123,7 @@ export function FloatingAssistant() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed bottom-24 right-4 z-40 w-[min(380px,calc(100%-2rem))]"
+            className="fixed bottom-24 right-4 z-[110] w-[min(380px,calc(100%-2rem))]"
           >
             <div className="relative rounded-2xl border border-white/20 bg-white/75 bg-clip-padding p-3 shadow-brand-glow backdrop-blur-xl">
               <div className="mb-2 flex items-center justify-between gap-2">
@@ -115,7 +131,9 @@ export function FloatingAssistant() {
                   <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-blue-500 text-white shadow-brand-glow">
                     <Sparkles className="h-4 w-4" />
                   </div>
-                  <div className="text-sm font-semibold text-gray-900">Agent IA Expert</div>
+                  <div className="text-sm font-semibold text-gray-900">
+                    {language === "en" ? "AI Command Center" : "Centre de commande IA"}
+                  </div>
                 </div>
                 <Button
                   variant="ghost"
@@ -137,14 +155,15 @@ export function FloatingAssistant() {
                     animate={{ opacity: [0.5, 1, 0.5] }}
                     transition={{ duration: 1.2, repeat: Infinity }}
                   >
-                    L&apos;IA analyse votre demande...
+                    {language === "en" ? "Processing your request…" : "L'IA analyse votre demande…"}
                   </motion.span>
                 </motion.div>
               )}
 
               <p className="mb-2 text-xs text-gray-500">
-                Ex. : « Ajoute 1500€ au projet Leroy », « Nouveau projet : Salle de bain 8m² pour Mme Martin »,
-                « Marge moyenne ce mois-ci ? », « Répartition des dépenses ».
+                {language === "en"
+                  ? "e.g. “Schedule appointment with Client X next Monday at 2pm”, “Add project Kitchen with budget 5000”, “Show invoices from Castorama this month”, or ask about margins and KPIs."
+                  : "Ex. : « Prends rendez-vous avec Client X lundi prochain à 14h », « Ajoute le projet Cuisine avec un budget de 5000€ », « Montre-moi les factures Castorama ce mois-ci », marge, CA…"}
               </p>
               <div
                 ref={listRef}
@@ -154,7 +173,9 @@ export function FloatingAssistant() {
                   <p className="text-xs text-gray-700 whitespace-pre-wrap">
                     {isDashboard && dailyBriefing
                       ? dailyBriefing
-                      : "Pose une question ou donnez un ordre : CA, nouveau projet, marge, employés, rappels, graphiques."}
+                      : language === "en"
+                        ? "Ask anything: revenue, projects, margins, team, reminders, or use natural commands (appointments, invoices, budgets)."
+                        : "Pose une question ou donnez un ordre : CA, nouveau projet, marge, employés, rappels, graphiques."}
                   </p>
                 ) : (
                   messages.map((m) => <MessageBubble key={m.id} m={m} />)
@@ -164,7 +185,7 @@ export function FloatingAssistant() {
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Demande à l'agent..."
+                  placeholder={language === "en" ? "Type a command or question…" : "Demande à l'agent…"}
                   className="min-h-[40px] text-sm"
                   disabled={isProcessing}
                 />
@@ -185,10 +206,10 @@ export function FloatingAssistant() {
       <motion.button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-4 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-brand-blue-500 text-white shadow-brand-glow hover:bg-brand-blue-600 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 focus:ring-offset-2"
+        className="fixed bottom-4 right-4 z-[110] flex h-12 w-12 items-center justify-center rounded-full bg-brand-blue-500 text-white shadow-brand-glow hover:bg-brand-blue-600 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 focus:ring-offset-2"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        aria-label="Ouvrir l'assistant IA"
+        aria-label={language === "en" ? "Open AI Command Center" : "Ouvrir le centre de commande IA"}
       >
         <Sparkles className="h-6 w-6" />
       </motion.button>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useIsMobile } from "@/hooks/use-is-mobile";
+import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,6 +41,7 @@ export default function MaterielPage() {
   const { items, loading, error, addItem, updateItem, deleteItem } = useInventory();
   const { suppliers, loading: suppliersLoading, error: suppliersError, addSupplier, updateSupplier, deleteSupplier, refetch: refetchSuppliers } = useSuppliers();
   const { projects } = useProjects();
+  const isMobile = useIsMobile();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -374,6 +377,40 @@ export default function MaterielPage() {
                 </div>
               ) : items.length === 0 ? (
                 <p className="py-12 text-center text-gray-500">{t("noItems", language)}</p>
+              ) : isMobile ? (
+                <div className="space-y-3 px-1">
+                  {items.map((item) => {
+                    const runDel = async () => {
+                      if (!confirm(language === "en" ? "Delete this item?" : "Supprimer cet article ?")) return;
+                      setDeletingId(`item-${item.id}`);
+                      const supabase = createClient();
+                      if (!supabase) { setDeletingId(null); return; }
+                      const { error } = await supabase.from("inventory").delete().eq("id", item.id);
+                      if (error) { setDeletingId(null); alert("Erreur: " + error.message); }
+                      else location.reload();
+                    };
+                    return (
+                      <SwipeActionsRow
+                        key={item.id}
+                        onEdit={() => setEditItem(item)}
+                        onDelete={runDel}
+                        disabled={deletingId === `item-${item.id}`}
+                        editLabel={t("edit", language)}
+                        deleteLabel={t("delete", language)}
+                      >
+                        <div className={cn("p-3", deletingId === `item-${item.id}` && "opacity-60 pointer-events-none")}>
+                          <p className="font-semibold text-gray-900">{item.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {item.category || "—"} · {t("stock", language)}: {item.stock_quantity}
+                          </p>
+                          <p className="mt-1 text-sm">
+                            {formatConvertedCurrency(item.unit_price_ht, currency)} HT · TVA {item.default_tva_rate}%
+                          </p>
+                        </div>
+                      </SwipeActionsRow>
+                    );
+                  })}
+                </div>
               ) : (
                 <div className="overflow-x-auto overflow-y-visible">
                   <table className="w-full text-sm">
@@ -480,6 +517,36 @@ export default function MaterielPage() {
                 </div>
               ) : suppliers.length === 0 ? (
                 <p className="py-8 text-center text-gray-500">{t("noSuppliers", language)}</p>
+              ) : isMobile ? (
+                <div className="space-y-3 px-1">
+                  {suppliers.map((s) => {
+                    const runDel = async () => {
+                      if (!confirm(language === "en" ? "Delete this supplier?" : "Supprimer ce fournisseur ?")) return;
+                      setDeletingId(`supplier-${s.id}`);
+                      const supabase = createClient();
+                      if (!supabase) { setDeletingId(null); return; }
+                      const { error } = await supabase.from("suppliers").delete().eq("id", s.id);
+                      if (error) { setDeletingId(null); alert("Erreur: " + error.message); }
+                      else location.reload();
+                    };
+                    return (
+                      <SwipeActionsRow
+                        key={s.id}
+                        onEdit={() => setEditSupplier(s)}
+                        onDelete={runDel}
+                        disabled={deletingId === `supplier-${s.id}`}
+                        editLabel={t("edit", language)}
+                        deleteLabel={t("deleteSupplier", language)}
+                      >
+                        <div className={cn("p-3", deletingId === `supplier-${s.id}` && "opacity-60 pointer-events-none")}>
+                          <p className="font-semibold text-gray-900">{s.name}</p>
+                          <p className="text-sm text-gray-600">{s.phone || "—"}</p>
+                          <p className="text-xs text-gray-500 truncate">{s.address || "—"}</p>
+                        </div>
+                      </SwipeActionsRow>
+                    );
+                  })}
+                </div>
               ) : (
                 <div className="overflow-x-auto overflow-y-visible">
                   <table className="w-full text-sm">

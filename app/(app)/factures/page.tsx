@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,8 +26,20 @@ import { createClient } from "@/lib/supabase/client";
 import { imageFileToBinarizedBlob } from "@/lib/invoice-ocr";
 import { extractInvoiceDecision } from "@/lib/ocr";
 import type { ExpenseInsertPayload } from "@/lib/types";
+import { useIsMobile } from "@/hooks/use-is-mobile";
+import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
 
 const INVOICE_BUCKET = "factures";
+
+function expenseInMonth(dateStr: string, mode: "current" | "previous"): boolean {
+  const date = new Date(dateStr.includes("T") ? dateStr : `${dateStr}T12:00:00`);
+  const now = new Date();
+  if (mode === "current") {
+    return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+  }
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 15);
+  return date.getMonth() === prev.getMonth() && date.getFullYear() === prev.getFullYear();
+}
 const OCR_VENDOR_MAPPING_KEY = "artisanflow.invoice.vendor.mapping.v1";
 
 export default function FacturesPage() {
@@ -68,13 +80,41 @@ export default function FacturesPage() {
   const [amountConfidence, setAmountConfidence] = useState(1);
   const [dateConfidence, setDateConfidence] = useState(1);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [filterVendor, setFilterVendor] = useState("");
+  const [filterMonth, setFilterMonth] = useState<"all" | "current" | "previous">("all");
+  const isMobile = useIsMobile();
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("artisanflow_invoice_filter");
+      if (!raw) return;
+      const f = JSON.parse(raw) as { vendor?: string; month?: string };
+      if (f.vendor) setFilterVendor(f.vendor);
+      if (f.month === "current" || f.month === "previous") setFilterMonth(f.month);
+      sessionStorage.removeItem("artisanflow_invoice_filter");
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     let list = expenses;
     if (filterProjectId) list = list.filter((e) => e.project_id === filterProjectId);
+    if (filterVendor.trim()) {
+      const q = filterVendor.toLowerCase();
+      list = list.filter((e) => {
+        const vendor = (e.description.split(" — ")[0] || e.description).toLowerCase();
+        return vendor.includes(q);
+      });
+    }
+    if (filterMonth === "current") {
+      list = list.filter((e) => expenseInMonth(e.date, "current"));
+    } else if (filterMonth === "previous") {
+      list = list.filter((e) => expenseInMonth(e.date, "previous"));
+    }
     if (filterCurrency) list = list.filter(() => true);
     return [...list].sort((a, b) => b.date.localeCompare(a.date));
-  }, [expenses, filterProjectId, filterCurrency]);
+  }, [expenses, filterProjectId, filterCurrency, filterVendor, filterMonth]);
 
   const openEdit = (id: string) => {
     const ex = expenses.find((e) => e.id === id);
@@ -508,6 +548,23 @@ export default function FacturesPage() {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
+            <Input
+              value={filterVendor}
+              onChange={(e) => setFilterVendor(e.target.value)}
+              placeholder={t("vendorSearchPlaceholder", language)}
+              className={cn("min-h-[44px] w-[min(100%,220px)]")}
+              aria-label={t("filterByVendor", language)}
+            />
+            <select
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value as "all" | "current" | "previous")}
+              className={cn("min-h-[44px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm")}
+              aria-label={t("filterByMonth", language)}
+            >
+              <option value="all">{t("monthAll", language)}</option>
+              <option value="current">{t("monthThis", language)}</option>
+              <option value="previous">{t("monthPrevious", language)}</option>
+            </select>
             <div
               role="group"
               aria-label="Exports"
@@ -567,6 +624,79 @@ export default function FacturesPage() {
             </div>
           ) : filtered.length === 0 ? (
             <p className={cn("py-12 text-center text-gray-500")}>{t("noInvoices", language)}</p>
+          ) : isMobile ? (
+            <div className="space-y-3 px-1">
+              {filtered.map((e) => {
+                const tvaAmount = e.amount_ht * (e.tva_rate / 100);
+                const ttc = e.amount_ht + tvaAmount;
+                const vendor = e.description.split(" — ")[0] || e.description;
+                const runDelete = async () => {
+                  if (!confirm(language === "en" ? "Delete this invoice?" : "Supprimer cette facture ?")) return;
+                  setDeletingId(e.id);
+                  const supabase = createClient();
+                  if (!supabase) {
+                    setDeletingId(null);
+                    return;
+                  }
+                  const {
+                    data: { user },
+                  } = await supabase.auth.getUser();
+                  if (!user) {
+                    setDeletingId(null);
+                    return;
+                  }
+                  const { error } = await supabase.from("expenses").delete().eq("id", e.id).eq("user_id", user.id);
+                  if (error) {
+                    setDeletingId(null);
+                    alert(language === "en" ? "Error: " + error.message : "Erreur : " + error.message);
+                  } else location.reload();
+                };
+                return (
+                  <SwipeActionsRow
+                    key={e.id}
+                    onEdit={() => openEdit(e.id)}
+                    onDelete={runDelete}
+                    disabled={deletingId === e.id}
+                    editLabel={t("editAmounts", language)}
+                    deleteLabel={t("delete", language)}
+                  >
+                    <div
+                      className={cn(
+                        "flex gap-3 p-3 pr-2",
+                        deletingId === e.id && "opacity-60 pointer-events-none"
+                      )}
+                    >
+                      <div className="shrink-0">
+                        {(e as ExpenseRow).image_url ? (
+                          <button
+                            type="button"
+                            onClick={(ev) => {
+                              ev.preventDefault();
+                              ev.stopPropagation();
+                              setFullscreenImageUrl((e as ExpenseRow).image_url!);
+                              setFullscreenExpenseId(e.id);
+                            }}
+                            className="block h-14 w-14 rounded border border-gray-200 overflow-hidden bg-gray-100"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={(e as ExpenseRow).image_url!} alt="" className="h-full w-full object-cover" />
+                          </button>
+                        ) : (
+                          <span className="flex h-14 w-14 items-center justify-center rounded border border-gray-100 bg-gray-50 text-gray-300">
+                            —
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-gray-900 truncate">{vendor}</p>
+                        <p className="text-xs text-gray-500">{formatDate(e.date)} · {e.project_name ?? "—"}</p>
+                        <p className="mt-1 text-sm font-medium text-brand-blue-700">{formatConvertedCurrency(ttc, currency)} TTC</p>
+                      </div>
+                    </div>
+                  </SwipeActionsRow>
+                );
+              })}
+            </div>
           ) : (
             <div className={cn("overflow-x-auto overflow-y-visible")}>
               <table className={cn("w-full text-sm")}>

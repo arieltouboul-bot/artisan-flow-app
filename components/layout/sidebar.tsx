@@ -26,12 +26,6 @@ import {
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/translations";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/context/language-context";
 
@@ -59,7 +53,6 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
   const width = mobileMode ? 260 : (collapsed ? 72 : 260);
   const pathname = usePathname();
   const router = useRouter();
-  const [supportOpen, setSupportOpen] = useState(false);
   const { language } = useLanguage();
   const appointmentSoon = useAppointmentSoon();
   const staleProjectsCount = useStaleProjectsCount();
@@ -198,11 +191,10 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
             }
           />
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setSupportOpen(true)}
-          className="w-full min-h-[48px] text-brand-blue-600 hover:bg-brand-blue-50 justify-start gap-3"
+        <Link
+          href="/help"
+          onClick={() => onCloseMobile?.()}
+          className="flex w-full min-h-[48px] items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-brand-blue-600 transition-colors hover:bg-brand-blue-50"
         >
           <HelpCircle className="h-5 w-5 shrink-0" />
           <AnimatePresence mode="wait">
@@ -213,11 +205,11 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
                 exit={{ opacity: 0 }}
                 className="truncate"
               >
-                {language === "en" ? "Help & Support" : "Aide & Support"}
+                {t("helpSupport", language)}
               </motion.span>
             )}
           </AnimatePresence>
-        </Button>
+        </Link>
         <Button
           variant="ghost"
           size="sm"
@@ -255,36 +247,6 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
         )}
       </div>
 
-      <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-brand-blue-600">
-              <HelpCircle className="h-5 w-5" />
-              {language === "en" ? "Help & Support" : "Aide & Support"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 text-sm text-gray-600">
-            <p>
-              {language === "en"
-                ? "For any question or assistance about Artisan Flow:"
-                : "Pour toute question ou assistance sur Artisan Flow :"}
-            </p>
-            <ul className="space-y-2">
-              <li>
-                <strong>Email :</strong> support@artisanflow.fr
-              </li>
-              <li>
-                <strong>{language === "en" ? "Phone" : "Tél"} :</strong> 01 23 45 67 89
-              </li>
-            </ul>
-            <p className="text-gray-500">
-              {language === "en"
-                ? "We will get back to you as soon as possible."
-                : "Nous vous répondrons dans les plus brefs délais."}
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
     </motion.aside>
   );
 }

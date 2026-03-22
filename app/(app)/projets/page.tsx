@@ -22,6 +22,8 @@ import { formatDate, formatConvertedCurrency, cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import type { ProjectStatus } from "@/types/database";
 import { Search, FolderKanban, ChevronRight, Loader2, Plus, MoreVertical } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-is-mobile";
+import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
 import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
@@ -95,6 +97,7 @@ function ProjetsContent() {
   const { displayCurrency } = useProfile();
   const currency = displayCurrency;
   const { projects, loading, error } = useProjects();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (filterParam === "unpaid") setFilter("unpaid");
@@ -203,6 +206,16 @@ function ProjetsContent() {
                     const total = project.contract_amount ?? 0;
                     const paid = project.amount_collected ?? 0;
                     const percentPaid = total > 0 ? Math.min(100, (paid / total) * 100) : 0;
+                    const runDelete = async () => {
+                      if (!confirm(t("deleteProjectConfirm", language))) return;
+                      setDeletingId(project.id);
+                      const supabase = createClient();
+                      if (!supabase) { setDeletingId(null); return; }
+                      try { await supabase.from("project_tasks").delete().eq("project_id", project.id); } catch { /* ignore */ }
+                      const { error } = await supabase.from("projects").delete().eq("id", project.id);
+                      if (error) { setDeletingId(null); setDeleteError(error.message); alert("Erreur: " + error.message); }
+                      else location.reload();
+                    };
                     return (
                     <motion.div
                       key={project.id}
@@ -210,56 +223,96 @@ function ProjetsContent() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -8 }}
                       transition={{ delay: i * 0.03 }}
-                      className={cn("flex flex-col gap-4 px-4 py-4 transition-colors hover:bg-brand-blue-50/50 group sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-6", deletingId === project.id && "opacity-60 pointer-events-none")}
+                      className={cn(!isMobile && "group")}
                     >
-                      <Link href={`/projets/${String(project.id)}`} className="flex min-w-0 flex-1 items-center gap-4">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-blue-100 text-brand-blue-600">
-                          <FolderKanban className="h-6 w-6" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-gray-900 truncate">
-                            {project.name}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {project.client?.name} • {project.address ?? project.client?.address ?? "—"}
-                          </p>
-                          <div className="mt-2 max-w-[200px]">
-                            <Progress value={percentPaid} className="h-2" />
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {total > 0 ? `${Math.round(percentPaid)} % payé` : "—"} · {formatConvertedCurrency(paid, currency)} / {formatConvertedCurrency(total, currency)}
-                            </p>
+                      {isMobile ? (
+                        <SwipeActionsRow
+                          onEdit={() => router.push(`/projets/${String(project.id)}`)}
+                          onDelete={runDelete}
+                          disabled={deletingId === project.id}
+                          editLabel={language === "en" ? "Edit project" : "Modifier le projet"}
+                          deleteLabel={t("deleteProject", language)}
+                          className={cn(deletingId === project.id && "opacity-60 pointer-events-none")}
+                        >
+                          <div className="flex flex-row items-start justify-between gap-3 px-4 py-4">
+                            <button
+                              type="button"
+                              className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                              onClick={() => router.push(`/projets/${String(project.id)}`)}
+                            >
+                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-blue-100 text-brand-blue-600">
+                                <FolderKanban className="h-6 w-6" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold text-gray-900 truncate">{project.name}</p>
+                                <p className="text-sm text-gray-500 truncate">
+                                  {project.client?.name} • {project.address ?? project.client?.address ?? "—"}
+                                </p>
+                                <div className="mt-2 max-w-[220px]">
+                                  <Progress value={percentPaid} className="h-2" />
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    {total > 0 ? `${Math.round(percentPaid)} %` : "—"} · {formatConvertedCurrency(paid, currency)} / {formatConvertedCurrency(total, currency)}
+                                  </p>
+                                </div>
+                              </div>
+                            </button>
+                            <div className="flex shrink-0 flex-col items-end gap-1">
+                              {isOverdue && <Badge variant="destructive">En retard</Badge>}
+                              <Badge variant={statusVariant[project.status]}>{statusLabels[project.status]}</Badge>
+                              <span className="text-xs text-gray-500">
+                                {project.start_date ? formatDate(project.start_date) : "—"}
+                              </span>
+                            </div>
+                          </div>
+                        </SwipeActionsRow>
+                      ) : (
+                        <div
+                          className={cn(
+                            "flex flex-col gap-4 px-4 py-4 transition-colors hover:bg-brand-blue-50/50 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-6",
+                            deletingId === project.id && "opacity-60 pointer-events-none"
+                          )}
+                        >
+                          <Link href={`/projets/${String(project.id)}`} className="flex min-w-0 flex-1 items-center gap-4">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-blue-100 text-brand-blue-600">
+                              <FolderKanban className="h-6 w-6" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-gray-900 truncate">
+                                {project.name}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {project.client?.name} • {project.address ?? project.client?.address ?? "—"}
+                              </p>
+                              <div className="mt-2 max-w-[200px]">
+                                <Progress value={percentPaid} className="h-2" />
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  {total > 0 ? `${Math.round(percentPaid)} % payé` : "—"} · {formatConvertedCurrency(paid, currency)} / {formatConvertedCurrency(total, currency)}
+                                </p>
+                              </div>
+                            </div>
+                          </Link>
+                          <div className="flex flex-wrap items-center gap-3 sm:flex-nowrap overflow-visible">
+                            {isOverdue && (
+                              <Badge variant="destructive" className="shrink-0">En retard</Badge>
+                            )}
+                            <Badge variant={statusVariant[project.status]}>
+                              {statusLabels[project.status]}
+                            </Badge>
+                            <span className="text-sm text-gray-500 hidden sm:block">
+                              {project.start_date
+                                ? formatDate(project.start_date)
+                                : "—"}
+                            </span>
+                            <RowActionsMenu
+                              isOpen={openMenuId === project.id}
+                              onOpenChange={(open) => setOpenMenuId(open ? project.id : null)}
+                              onEdit={() => router.push(`/projets/${String(project.id)}`)}
+                              onDelete={runDelete}
+                              isDeleting={deletingId === project.id}
+                            />
                           </div>
                         </div>
-                      </Link>
-                      <div className="flex flex-wrap items-center gap-3 sm:flex-nowrap overflow-visible">
-                        {isOverdue && (
-                          <Badge variant="destructive" className="shrink-0">En retard</Badge>
-                        )}
-                        <Badge variant={statusVariant[project.status]}>
-                          {statusLabels[project.status]}
-                        </Badge>
-                        <span className="text-sm text-gray-500 hidden sm:block">
-                          {project.start_date
-                            ? formatDate(project.start_date)
-                            : "—"}
-                        </span>
-                        <RowActionsMenu
-                          isOpen={openMenuId === project.id}
-                          onOpenChange={(open) => setOpenMenuId(open ? project.id : null)}
-                          onEdit={() => router.push(`/projets/${String(project.id)}`)}
-                          onDelete={async () => {
-                            if (!confirm("Supprimer?")) return;
-                            setDeletingId(project.id);
-                            const supabase = createClient();
-                            if (!supabase) { setDeletingId(null); return; }
-                            try { await supabase.from("project_tasks").delete().eq("project_id", project.id); } catch { /* ignore */ }
-                            const { error } = await supabase.from("projects").delete().eq("id", project.id);
-                            if (error) { setDeletingId(null); setDeleteError(error.message); alert("Erreur: " + error.message); }
-                            else location.reload();
-                          }}
-                          isDeleting={deletingId === project.id}
-                        />
-                      </div>
+                      )}
                     </motion.div>
                     );
                   })

@@ -125,6 +125,12 @@ export const translations: Record<string, { fr: string; en: string }> = {
   filterByCurrency: { fr: "Filtrer par devise", en: "Filter by currency" },
   allProjectsFilter: { fr: "Tous les projets", en: "All projects" },
   allCurrenciesFilter: { fr: "Toutes les devises", en: "All currencies" },
+  filterByVendor: { fr: "Fournisseur", en: "Vendor" },
+  filterByMonth: { fr: "Période", en: "Period" },
+  monthAll: { fr: "Toutes périodes", en: "All periods" },
+  monthThis: { fr: "Ce mois", en: "This month" },
+  monthPrevious: { fr: "Mois dernier", en: "Last month" },
+  vendorSearchPlaceholder: { fr: "Rechercher un fournisseur…", en: "Search vendor…" },
   imageNotAvailable: { fr: "Image non disponible", en: "Image not available" },
   saveChanges: { fr: "Enregistrer les modifications", en: "Save changes" },
 
