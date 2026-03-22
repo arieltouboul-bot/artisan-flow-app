@@ -26,6 +26,9 @@ import { useProjectExpenses, EXPENSE_CATEGORIES } from "@/hooks/use-project-expe
 import { useEmployees } from "@/hooks/use-employees";
 import { useProjectEmployees } from "@/hooks/use-project-employees";
 import { createClient } from "@/lib/supabase/client";
+import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
+import { Skeleton } from "@/components/ui/skeleton";
 import { projectMarge, projectRestantDu, type ProjectStatus } from "@/types/database";
 import {
   ArrowLeft,
@@ -58,11 +61,27 @@ const statusVariant: Record<ProjectStatus, "gray" | "default" | "destructive" | 
   termine: "success",
 };
 
+function ProjectDetailSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Loading">
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-12 w-12 rounded-lg" />
+        <div className="space-y-2 flex-1">
+          <Skeleton className="h-8 w-2/3 max-w-md" />
+          <Skeleton className="h-4 w-1/3" />
+        </div>
+      </div>
+      <Skeleton className="h-40 w-full rounded-xl" />
+      <Skeleton className="h-64 w-full rounded-xl" />
+    </div>
+  );
+}
+
 export default function ProjetDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { language } = useLanguage();
   const id = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : String(params?.id ?? "");
-  if (typeof window !== "undefined") console.log("ID du projet:", id, "params.id:", params?.id);
   const { project, loading: projectLoading, error: projectError, refetch: refetchProject } = useProject(id || null);
   const { tasks, loading: tasksLoading, addTask, toggleTask, deleteTask } = useProjectTasks(id);
   const { transactions, loading: transactionsLoading, addTransaction } = useProjectTransactions(id);
@@ -99,7 +118,6 @@ export default function ProjetDetailPage() {
 
   const supabase = createClient();
 
-  const isLoaded = project !== undefined;
   const currentProject = project ?? null;
 
   useEffect(() => {
@@ -206,16 +224,40 @@ export default function ProjetDetailPage() {
     setExpenseDate(new Date().toISOString().slice(0, 10));
   };
 
-  if (!id || (isLoaded && !currentProject)) {
+  if (!id) {
     return (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="flex flex-col items-center justify-center py-16"
       >
-        <p className="text-gray-500">Projet introuvable</p>
+        <p className="text-gray-500">{t("projectNotFoundTitle", language)}</p>
         <Link href="/projets">
-          <Button className="mt-4 min-h-[48px]">Retour aux projets</Button>
+          <Button className="mt-4 min-h-[48px]">{t("backToProjects", language)}</Button>
+        </Link>
+      </motion.div>
+    );
+  }
+
+  if (projectLoading) {
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+        <ProjectDetailSkeleton />
+      </motion.div>
+    );
+  }
+
+  if (!currentProject) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex flex-col items-center justify-center py-16 px-4 text-center"
+      >
+        <p className="text-gray-900 font-medium">{t("projectNotFoundTitle", language)}</p>
+        <p className="text-gray-500 mt-2 max-w-md">{t("projectNotFoundHint", language)}</p>
+        <Link href="/projets">
+          <Button className="mt-6 min-h-[48px]">{t("backToProjects", language)}</Button>
         </Link>
       </motion.div>
     );
@@ -247,7 +289,7 @@ export default function ProjetDetailPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              {projectLoading ? "Chargement..." : currentProject?.name ?? "—"}
+              {currentProject?.name ?? "—"}
             </h1>
             <p className="text-gray-500">
               {currentProject?.client?.name} • {currentProject?.address ?? "—"}
@@ -280,17 +322,8 @@ export default function ProjetDetailPage() {
         </div>
       </div>
 
-      {projectError && (
+      {projectError && currentProject && (
         <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{projectError}</div>
-      )}
-
-      {!projectLoading && !currentProject && (
-        <Card className="p-8 text-center">
-          <p className="text-gray-600 mb-4">Projet introuvable.</p>
-          <Link href="/projets">
-            <Button className="z-50 bg-blue-600 text-white">Retour aux projets</Button>
-          </Link>
-        </Card>
       )}
 
       {currentProject && (

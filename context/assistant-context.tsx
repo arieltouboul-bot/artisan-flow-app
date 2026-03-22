@@ -18,6 +18,7 @@ import {
   parseProjectWithBudget,
   parseWeeklyRecurrenceCommand,
   buildWeeklySeriesDates,
+  parseNewProjectRevenueCommand,
 } from "@/lib/smart-command-parser";
 import { runExtendedAssistantScenarios } from "@/lib/assistant-scenarios";
 
@@ -170,6 +171,116 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
       try {
         // ——— Invoice filter: "Show invoices from Castorama this month"
+        const newProjectRevenue = parseNewProjectRevenueCommand(text);
+        if (newProjectRevenue) {
+          try {
+            const { data: projectRows } = await supabase
+              .from("projects")
+              .select("id, name")
+              .eq("user_id", user.id);
+            const list = (projectRows ?? []) as { id: string; name: string }[];
+            let target = list.find(
+              (p) =>
+                p.name.toLowerCase().includes(newProjectRevenue.projectName.toLowerCase()) ||
+                newProjectRevenue.projectName.toLowerCase().includes(p.name.toLowerCase())
+            );
+            if (!target) {
+              const { data: nc, error: cErr } = await supabase
+                .from("clients")
+                .insert({
+                  user_id: user.id,
+                  name: newProjectRevenue.projectName.slice(0, 200),
+                  contract_amount: 0,
+                  material_costs: 0,
+                  amount_collected: 0,
+                })
+                .select("id")
+                .single();
+              if (cErr || !nc) {
+                appendMessage(
+                  "assistant",
+                  tReplace("assistantClientCreateError", language, {
+                    name: newProjectRevenue.projectName,
+                    msg: cErr?.message ?? "",
+                  })
+                );
+                setIsProcessing(false);
+                return;
+              }
+              const { data: np, error: pErr } = await supabase
+                .from("projects")
+                .insert({
+                  user_id: user.id,
+                  client_id: (nc as { id: string }).id,
+                  name: newProjectRevenue.projectName.slice(0, 200),
+                  status: "en_preparation",
+                  address: null,
+                  contract_amount: 0,
+                  material_costs: 0,
+                  amount_collected: 0,
+                  start_date: new Date().toISOString().slice(0, 10),
+                  started_at: null,
+                  ended_at: null,
+                  notes: null,
+                })
+                .select("id, name")
+                .single();
+              if (pErr || !np) {
+                appendMessage(
+                  "assistant",
+                  tReplace("assistantProjectNotCreated", language, { msg: pErr?.message ?? t("assistantErrorGeneric", language) })
+                );
+                setIsProcessing(false);
+                return;
+              }
+              target = { id: (np as { id: string }).id, name: (np as { name: string }).name };
+            }
+            const today = new Date().toISOString().slice(0, 10);
+            const { error: revErr } = await supabase.from("revenues").insert({
+              user_id: user.id,
+              project_id: target!.id,
+              amount: newProjectRevenue.amount,
+              received_at: today,
+              notes: language === "en" ? "Voice assistant" : "Assistant vocal",
+            });
+            if (revErr) {
+              console.error("[assistant] revenues.insert:", revErr.message, revErr);
+              appendMessage("assistant", tReplace("assistantRevenueError", language, { msg: revErr.message }));
+              setIsProcessing(false);
+              return;
+            }
+            appendMessage(
+              "assistant",
+              tReplace("assistantRevenueCreated", language, {
+                amount: Math.round(newProjectRevenue.amount),
+                project: target!.name,
+              }),
+              {
+                modifiedEntities: [
+                  {
+                    type: "project",
+                    id: target!.id,
+                    name: target!.name,
+                    fields: [t("revenues", language)],
+                    link: `/revenus`,
+                  },
+                ],
+              }
+            );
+            router.push("/revenus");
+          } catch (err) {
+            console.error("[assistant] parseNewProjectRevenue:", err);
+            appendMessage(
+              "assistant",
+              tReplace("assistantError", language, {
+                msg: err instanceof Error ? err.message : t("assistantErrorGeneric", language),
+              })
+            );
+          }
+          setIsProcessing(false);
+          return;
+        }
+
         const invoiceIntent = parseInvoiceFilterIntent(text);
         if (invoiceIntent) {
           if (typeof sessionStorage !== "undefined") {

@@ -22,6 +22,7 @@ import {
   X,
   Package,
   Receipt,
+  Banknote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/translations";
@@ -31,6 +32,7 @@ import { useLanguage } from "@/context/language-context";
 
 const navItems = [
   { href: "/dashboard", key: "dashboard", icon: LayoutDashboard },
+  { href: "/revenus", key: "revenues", icon: Banknote },
   { href: "/projets", key: "projects", icon: FolderKanban },
   { href: "/calendar", key: "calendar", icon: Calendar },
   { href: "/devis/nouveau", key: "newQuote", icon: FileText },

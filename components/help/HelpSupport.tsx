@@ -17,9 +17,11 @@ export function resolveHelpLanguage(opts: {
 }): "fr" | "en" {
   const p = opts.profilePreferred;
   if (p === "fr" || p === "en") return p;
+  const nav = opts.navigatorLanguage?.toLowerCase() ?? "";
+  if (nav.startsWith("fr")) return "fr";
+  if (nav.startsWith("en")) return "en";
   const ctx = opts.contextLanguage;
   if (ctx === "fr" || ctx === "en") return ctx;
-  if (opts.navigatorLanguage?.toLowerCase().startsWith("fr")) return "fr";
   return "en";
 }
 

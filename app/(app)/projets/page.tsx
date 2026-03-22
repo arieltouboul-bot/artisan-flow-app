@@ -26,6 +26,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 
@@ -180,9 +181,17 @@ function ProjetsContent() {
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-              <Loader2 className="h-12 w-12 mb-2 animate-spin opacity-50" />
-              <p>Chargement des projets...</p>
+            <div className="space-y-0 divide-y divide-gray-100 px-4 py-2" aria-busy="true">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center gap-4 py-4">
+                  <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-5 w-48 max-w-full" />
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                  <Skeleton className="h-8 w-20 shrink-0" />
+                </div>
+              ))}
             </div>
           ) : (
             <div className="divide-y divide-gray-200 overflow-visible">

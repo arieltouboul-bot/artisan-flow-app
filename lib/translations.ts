@@ -383,6 +383,42 @@ export const translations: Record<string, { fr: string; en: string }> = {
   revenues: { fr: "Revenus", en: "Revenue" },
   expensesLabel: { fr: "Dépenses", en: "Expenses" },
 
+  revenuePageSubtitle: {
+    fr: "Enregistrez les encaissements liés à vos chantiers (table Supabase « revenues »).",
+    en: "Record payments linked to your projects (Supabase « revenues » table).",
+  },
+  revenueAddForm: { fr: "Ajouter un encaissement", en: "Add a payment" },
+  revenueAmountLabel: { fr: "Montant", en: "Amount" },
+  revenueDateLabel: { fr: "Date de réception", en: "Received on" },
+  revenueProjectLabel: { fr: "Projet", en: "Project" },
+  revenueNotesLabel: { fr: "Notes (optionnel)", en: "Notes (optional)" },
+  revenueAddButton: { fr: "Enregistrer le revenu", en: "Save revenue" },
+  revenueNewProjectBtn: { fr: "+ Nouveau projet", en: "+ New project" },
+  revenueModalTitle: { fr: "Nouveau projet rapide", en: "Quick new project" },
+  revenueModalProjectName: { fr: "Nom du projet", en: "Project name" },
+  revenueModalClientLabel: { fr: "Client", en: "Client" },
+  revenueModalNewClientName: { fr: "Nom du nouveau client", en: "New client name" },
+  revenueModalSubmit: { fr: "Créer le projet", en: "Create project" },
+  revenueModalPickClient: { fr: "Sélectionnez un client.", en: "Pick a client." },
+  revenueListTitle: { fr: "Historique", en: "History" },
+  revenueTableProject: { fr: "Projet", en: "Project" },
+  revenueEmpty: { fr: "Aucun revenu enregistré.", en: "No revenue recorded yet." },
+  revenueSearchPlaceholder: { fr: "Filtrer par projet ou note…", en: "Filter by project or note…" },
+  projectNotFoundTitle: { fr: "Projet introuvable", en: "Project not found" },
+  projectNotFoundHint: {
+    fr: "Ce chantier n’existe pas ou vous n’y avez pas accès.",
+    en: "This project does not exist or you don’t have access.",
+  },
+  backToProjects: { fr: "Retour aux projets", en: "Back to projects" },
+  assistantRevenueCreated: {
+    fr: "J’ai enregistré **{amount} €** sur le projet « **{project}** » (revenu lié).",
+    en: "I recorded **{amount} €** on project « **{project}** » (revenue entry).",
+  },
+  assistantRevenueError: {
+    fr: "Impossible d’enregistrer le revenu : {msg}",
+    en: "Could not save revenue: {msg}",
+  },
+
   // Assistant AI (bilingual responses)
   assistantCannotConnect: { fr: "Impossible de se connecter à la base de données.", en: "Cannot connect to the database." },
   assistantMustBeLoggedIn: { fr: "Tu dois être connecté pour que je puisse agir.", en: "You must be logged in for me to act." },

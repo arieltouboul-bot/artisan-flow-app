@@ -266,6 +266,41 @@ export function parseProjectWithBudget(raw: string): ParsedProjectBudget | null 
   return null;
 }
 
+export type NewProjectRevenueParsed = {
+  amount: number;
+  projectName: string;
+};
+
+/**
+ * "Add 2000€ for a new project Villa Herzliya"
+ * "Ajoute 2000€ pour un nouveau projet Villa Herzliya"
+ */
+export function parseNewProjectRevenueCommand(raw: string): NewProjectRevenueParsed | null {
+  const text = raw.trim();
+
+  const fr =
+    /^(?:ajoute|ajouter|enregistre)\s+(\d+(?:[.,]\d+)?)\s*€?\s+pour\s+(?:un\s+)?(?:nouveau\s+)?(?:projet\s+)?(.+)$/i.exec(
+      text
+    );
+  if (fr) {
+    const amount = parseFloat(fr[1].replace(",", "."));
+    const projectName = fr[2].trim().replace(/[.,]$/, "");
+    if (!Number.isNaN(amount) && amount > 0 && projectName.length >= 2) return { amount, projectName };
+  }
+
+  const en =
+    /^(?:add|record)\s+(\d+(?:[.,]\d+)?)\s*(?:€|eur|euros?)?\s+for\s+(?:a\s+)?(?:new\s+)?(?:project\s+)?(.+)$/i.exec(
+      text
+    );
+  if (en) {
+    const amount = parseFloat(en[1].replace(",", "."));
+    const projectName = en[2].trim().replace(/[.,]$/, "");
+    if (!Number.isNaN(amount) && amount > 0 && projectName.length >= 2) return { amount, projectName };
+  }
+
+  return null;
+}
+
 export type InvoiceFilterIntent = {
   vendor: string;
   month: "current" | "previous" | "all";

@@ -116,9 +116,18 @@ export function InvoiceZoomOverlay({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <motion.img
               layoutId={layoutId || undefined}
+              layout
               src={imageUrl}
               alt=""
-              className="max-h-[78vh] w-auto max-w-[92vw] cursor-zoom-out rounded-lg object-contain shadow-2xl ring-1 ring-white/20"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onClose();
+                }
+              }}
+              className="max-h-[78vh] w-auto max-w-[92vw] cursor-zoom-out rounded-lg object-contain shadow-2xl ring-1 ring-white/20 outline-none focus-visible:ring-2 focus-visible:ring-white"
               onClick={onClose}
               transition={{ type: "spring", damping: 28, stiffness: 380 }}
             />
