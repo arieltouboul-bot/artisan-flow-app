@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,6 +35,8 @@ import { formatConvertedCurrency, cn, type Currency } from "@/lib/utils";
 import Link from "next/link";
 import { User, Mail, Phone, MapPin, ExternalLink, UserPlus, Loader2 } from "lucide-react";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
+import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 
 function buildMapsUrl(address: string | null): string | null {
   if (!address || !address.trim()) return null;
@@ -77,6 +80,8 @@ export default function ClientsPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const router = useRouter();
+  const isMobile = useIsMobile();
   const { clients, loading, error, refetch, updateClient } = useClients();
   const { displayCurrency } = useProfile();
   const { language } = useLanguage();
@@ -151,13 +156,13 @@ export default function ClientsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer?")) return;
+    if (!confirm(t("deleteClientConfirm", language))) return;
     setDeletingId(id);
     const supabase = createClient();
     if (!supabase) { setDeletingId(null); return; }
     const { error } = await supabase.from("clients").delete().eq("id", id);
-    if (error) { setDeletingId(null); alert("Erreur: " + error.message); }
-    else location.reload();
+    if (error) { setDeletingId(null); alert(error.message); }
+    else { setDeletingId(null); await refetch(); }
   };
 
   const margeBruteForm = (() => {
@@ -214,6 +219,53 @@ export default function ClientsPage() {
             </div>
           ) : (
             <>
+              {isMobile ? (
+                <div className="divide-y divide-gray-100 px-2 pb-2">
+                  <AnimatePresence mode="popLayout">
+                    {filtered.map((client, i) => {
+                      const restant = clientRestantDu(client);
+                      return (
+                        <motion.div
+                          key={client.id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, x: -8 }}
+                          transition={{ delay: i * 0.02 }}
+                        >
+                          <SwipeActionsRow
+                            onEdit={() => openEdit(client)}
+                            onDelete={() => handleDelete(client.id)}
+                            disabled={deletingId === client.id}
+                            editLabel={t("edit", language)}
+                            deleteLabel={t("delete", language)}
+                            className={cn(deletingId === client.id && "opacity-60 pointer-events-none")}
+                          >
+                            <div className="flex flex-row items-start justify-between gap-3 px-3 py-4">
+                              <button
+                                type="button"
+                                className="flex min-w-0 flex-1 flex-col text-left"
+                                onClick={() => router.push(`/clients/${client.id}`)}
+                              >
+                                <span className="flex items-center gap-2 font-semibold text-gray-900">
+                                  <User className="h-4 w-4 shrink-0 text-brand-blue-500" />
+                                  {client.name}
+                                </span>
+                                <span className="mt-1 text-xs text-gray-500 line-clamp-2">{client.phone ?? "—"} · {client.email ?? "—"}</span>
+                                <div className="mt-2 flex flex-wrap gap-3 text-xs tabular-nums">
+                                  <span className="text-gray-600">{t("contractAmount", language)}: {formatConvertedCurrency(client.contract_amount ?? 0, currency)}</span>
+                                  <span className={restant > 0 ? "text-red-600" : "text-emerald-600"}>
+                                    {t("projectRemainingBalanceLabel", language)}: {formatConvertedCurrency(restant, currency)}
+                                  </span>
+                                </div>
+                              </button>
+                            </div>
+                          </SwipeActionsRow>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              ) : (
               <div className="overflow-x-auto overflow-y-visible">
                 <Table>
                   <TableHeader>
@@ -247,6 +299,7 @@ export default function ClientsPage() {
                   </TableBody>
                 </Table>
               </div>
+              )}
               {filtered.length === 0 && (
                 <motion.div
                   initial={{ opacity: 0 }}

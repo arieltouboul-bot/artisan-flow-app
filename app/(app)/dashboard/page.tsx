@@ -17,7 +17,7 @@ import {
   Legend,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OmniTabSearch } from "@/components/ui/omni-tab-search";
@@ -26,8 +26,6 @@ import {
   formatConvertedCurrency,
   convertCurrency,
   getCurrencySymbol,
-  formatAmountInCurrency,
-  type RevenueCurrency,
 } from "@/lib/utils";
 import { useDashboardStats, type DashboardView } from "@/hooks/use-dashboard-stats";
 import { useReminders } from "@/hooks/use-reminders";
@@ -37,7 +35,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { useLanguage } from "@/context/language-context";
 import { t, tReplace } from "@/lib/translations";
 import { projectRestantDu } from "@/types/database";
-import { TrendingUp, AlertCircle, Euro, Percent, FolderKanban, ArrowRight, X, Bell, CheckSquare, Square, Trash2, Plus, CalendarClock, MapPin, Loader2, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertCircle, Euro, Percent, FolderKanban, ArrowRight, X, Bell, CheckSquare, Square, Trash2, Plus, CalendarClock, MapPin, Loader2, AlertTriangle } from "lucide-react";
 import { formatTime } from "@/lib/utils";
 import {
   Dialog,
@@ -87,21 +85,6 @@ const item = {
 const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
-function formatRevenueCurrencySplit(
-  breakdown: Partial<Record<RevenueCurrency, number>>,
-  language: string
-): string | null {
-  const parts = (["EUR", "USD", "ILS"] as const)
-    .map((c) => {
-      const v = breakdown[c];
-      if (v == null || v <= 0) return null;
-      return formatAmountInCurrency(v, c);
-    })
-    .filter(Boolean) as string[];
-  if (parts.length === 0) return null;
-  return parts.join(language === "fr" ? " · " : " · ");
-}
-
 export default function DashboardPage() {
   const router = useRouter();
   const [dashboardView, setDashboardView] = useState<DashboardView>("all");
@@ -143,9 +126,6 @@ export default function DashboardPage() {
     (mq as any).addListener(update);
     return () => (mq as any).removeListener(update);
   }, []);
-
-  const progressValue =
-    stats.caAnnuel > 0 ? Math.min(100, (stats.caMensuel / (stats.caAnnuel / 12)) * 100) : 0;
 
   const dateLocale = language === "fr" ? fr : enUS;
   const localizedChartData = useMemo(
@@ -205,6 +185,16 @@ export default function DashboardPage() {
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const yearCaDisplay =
+    selectedYear === currentYear ? financeData.caYtdEur : stats.caAnnuel;
+  const yearCaPending =
+    (financeAnalyticsLoading && selectedYear === currentYear) ||
+    (loading && selectedYear !== currentYear);
+  const momPct = financeData.caMonthMomPct;
+  const momUp = momPct != null && momPct > 0;
+  const momDown = momPct != null && momPct < 0;
+  const nbOutstandingProjects = financeData.outstandingRows.length;
+
   return (
     <motion.div
       variants={container}
@@ -233,6 +223,143 @@ export default function DashboardPage() {
           {error}
         </motion.div>
       )}
+
+      <motion.div
+        variants={container}
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        aria-label={language === "fr" ? "Indicateurs financiers" : "Financial KPIs"}
+      >
+        <motion.div variants={item}>
+          <Link href="/revenus?detail=month" className="block">
+            <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 focus:ring-offset-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">{t("caMonth", language)}</CardTitle>
+                <Euro className="h-4 w-4 text-brand-blue-500" />
+              </CardHeader>
+              <CardContent>
+                {financeAnalyticsLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-9 w-36 max-w-full" />
+                    <Skeleton className="h-3 w-28" />
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold text-brand-blue-600 tabular-nums">
+                      {formatConvertedCurrency(financeData.caMonthEur, currency)}
+                    </p>
+                    <p
+                      className={cn(
+                        "mt-1 text-xs flex items-center gap-1",
+                        momUp && "text-emerald-600",
+                        momDown && "text-rose-600"
+                      )}
+                    >
+                      {momPct != null ? (
+                        <>
+                          {momUp ? <TrendingUp className="h-3.5 w-3.5" /> : momDown ? <TrendingDown className="h-3.5 w-3.5" /> : null}
+                          {tReplace("financeMomPct", language, { pct: Math.round(momPct * 10) / 10 })}
+                        </>
+                      ) : (
+                        <span className="text-slate-400">{t("financeMomNa", language)}</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-indigo-600 font-medium mt-2">{t("revenueCardTapDetail", language)}</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </Link>
+        </motion.div>
+
+        <motion.div variants={item}>
+          <Link href="/revenus?detail=year" className="block">
+            <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 focus:ring-offset-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">
+                  {selectedYear === currentYear ? t("revenueCardYear", language) : t("caYear", language)}
+                </CardTitle>
+                <TrendingUp className="h-4 w-4 text-brand-blue-500" />
+              </CardHeader>
+              <CardContent>
+                {yearCaPending ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-9 w-36 max-w-full" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold text-gray-900 tabular-nums">
+                      {formatConvertedCurrency(yearCaDisplay, currency)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {tReplace("dashboardRevenueDetailYear", language, { year: String(selectedYear) })}
+                    </p>
+                    <p className="text-xs text-emerald-700 font-medium mt-2">{t("revenueCardTapDetail", language)}</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </Link>
+        </motion.div>
+
+        <motion.div variants={item}>
+          <Link href="/revenus?detail=margin" className="block">
+            <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">{t("revenueCardMargin", language)}</CardTitle>
+                <Percent className="h-4 w-4 text-violet-500" />
+              </CardHeader>
+              <CardContent>
+                {financeAnalyticsLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-9 w-36 max-w-full" />
+                    <Skeleton className="h-3 w-40" />
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold text-violet-700 tabular-nums">
+                      {formatConvertedCurrency(financeData.companyMarginEur, currency)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {tReplace("financeMarginPctLabel", language, { pct: Math.round(financeData.companyMarginPct * 10) / 10 })}
+                    </p>
+                    <p className="text-xs text-violet-700 font-medium mt-2">{t("revenueCardTapDetail", language)}</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </Link>
+        </motion.div>
+
+        <motion.div variants={item}>
+          <Link href="/revenus?detail=unpaid" className="block">
+            <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 border-red-200 bg-red-50/50">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-red-700">{t("revenueCardUnpaid", language)}</CardTitle>
+                <AlertCircle className="h-4 w-4 text-red-500" />
+              </CardHeader>
+              <CardContent>
+                {financeAnalyticsLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-9 w-36 max-w-full" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold text-red-600 tabular-nums">
+                      {formatConvertedCurrency(financeData.totalOutstandingEur, currency)}
+                    </p>
+                    <p className="text-xs text-red-600 mt-1">
+                      {nbOutstandingProjects} {t("unpaidCount", language)}
+                    </p>
+                    <p className="text-xs text-rose-700 font-medium mt-2">{t("revenueCardTapDetail", language)}</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </Link>
+        </motion.div>
+      </motion.div>
 
       {!financeAnalyticsLoading && financeData.materialAlerts.length > 0 && (
         <motion.div
@@ -309,149 +436,6 @@ export default function DashboardPage() {
             ))}
           </select>
         </div>
-      </motion.div>
-
-      <motion.div
-        variants={container}
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-      >
-        <motion.div variants={item}>
-          <Link href="/projets?view=ca" className="block">
-            <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 focus:ring-offset-2">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">
-                  {t("caMonth", language)}
-                </CardTitle>
-                <Euro className="h-4 w-4 text-brand-blue-500" />
-              </CardHeader>
-              <CardContent>
-                <motion.p
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="text-2xl font-bold text-brand-blue-600"
-                >
-                  {loading ? "—" : formatConvertedCurrency(stats.caMensuel, currency)}
-                </motion.p>
-                {(() => {
-                  const split = formatRevenueCurrencySplit(stats.revenueMonthByCurrency, language);
-                  const show =
-                    split &&
-                    ((["EUR", "USD", "ILS"] as const).filter((c) => (stats.revenueMonthByCurrency[c] ?? 0) > 0).length >
-                      1 ||
-                      (stats.revenueMonthByCurrency.USD ?? 0) > 0 ||
-                      (stats.revenueMonthByCurrency.ILS ?? 0) > 0);
-                  if (!show || !split) return null;
-                  return (
-                    <p className="text-xs text-gray-500 mt-2 leading-snug">
-                      <span className="font-medium text-gray-600">{t("dashboardRevenueDetailMonth", language)}</span>
-                      <br />
-                      {split}
-                    </p>
-                  );
-                })()}
-                <Progress value={progressValue} className="mt-2 h-2" />
-                <p className="text-xs text-gray-500 mt-1">{t("clickToSeeProjects", language)}</p>
-              </CardContent>
-            </Card>
-          </Link>
-        </motion.div>
-
-        <motion.div variants={item}>
-          <Link href="/projets?view=ca" className="block">
-            <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 focus:ring-offset-2">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">
-                  {t("caYear", language)}
-                </CardTitle>
-                <TrendingUp className="h-4 w-4 text-brand-blue-500" />
-              </CardHeader>
-              <CardContent>
-                <motion.p
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="text-2xl font-bold text-gray-900"
-                >
-                  {loading ? "—" : formatConvertedCurrency(stats.caAnnuel, currency)}
-                </motion.p>
-                {(() => {
-                  const split = formatRevenueCurrencySplit(stats.revenueYearByCurrency, language);
-                  const show =
-                    split &&
-                    ((["EUR", "USD", "ILS"] as const).filter((c) => (stats.revenueYearByCurrency[c] ?? 0) > 0).length >
-                      1 ||
-                      (stats.revenueYearByCurrency.USD ?? 0) > 0 ||
-                      (stats.revenueYearByCurrency.ILS ?? 0) > 0);
-                  if (!show || !split) return null;
-                  return (
-                    <p className="text-xs text-gray-500 mt-2 leading-snug">
-                      <span className="font-medium text-gray-600">
-                        {tReplace("dashboardRevenueDetailYear", language, { year: String(selectedYear) })}
-                      </span>
-                      <br />
-                      {split}
-                    </p>
-                  );
-                })()}
-                <p className="text-xs text-gray-500 mt-1">{t("clickToSeeProjects", language)}</p>
-              </CardContent>
-            </Card>
-          </Link>
-        </motion.div>
-
-        <motion.div variants={item}>
-          <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500">
-                {t("profitMargin", language)}
-              </CardTitle>
-              <Percent className="h-4 w-4 text-emerald-500" />
-            </CardHeader>
-            <CardContent>
-              <motion.p
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 }}
-                className="text-2xl font-bold text-emerald-600"
-              >
-                {loading ? "—" : `${stats.tauxMargeMoyen} %`}
-              </motion.p>
-              <p className="text-xs text-gray-500 mt-1">
-                {loading ? "—" : formatConvertedCurrency(stats.margeTotale, currency)} ({t("contractsMinusMaterials", language)})
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {t("totalMaterialFees", language)} : {loading ? "—" : formatConvertedCurrency(stats.totalMaterialCosts, currency)}
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={item}>
-          <Link href="/projets?filter=unpaid" className="block">
-            <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 border-red-200 bg-red-50/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-red-700">
-                  {t("unpaid", language)}
-                </CardTitle>
-                <AlertCircle className="h-4 w-4 text-red-500" />
-              </CardHeader>
-              <CardContent>
-                <motion.p
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5 }}
-                  className="text-2xl font-bold text-red-600"
-                >
-                  {loading ? "—" : formatConvertedCurrency(stats.facturesImpayees, currency)}
-                </motion.p>
-                <p className="text-xs text-red-600 mt-1">
-                  {stats.nbProjetsImpayes} {t("unpaidCount", language)}
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-        </motion.div>
       </motion.div>
 
       <motion.div variants={item}>

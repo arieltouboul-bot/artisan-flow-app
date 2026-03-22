@@ -76,7 +76,7 @@ export function SwipeActionsRow({
     hapticDone.current = false;
     const cur = offset.get();
     const target = cur < -REVEAL / 2 ? -REVEAL : 0;
-    animate(offset, target, { type: "spring", stiffness: 420, damping: 32 });
+    animate(offset, target, { type: "spring", stiffness: 320, damping: 22, mass: 0.85 });
   };
 
   return (
@@ -95,7 +95,7 @@ export function SwipeActionsRow({
           className="flex w-[60px] shrink-0 items-center justify-center bg-brand-blue-500 text-white active:bg-brand-blue-600"
           onClick={(e) => {
             e.stopPropagation();
-            animate(offset, 0, { type: "spring", stiffness: 420, damping: 32 });
+            animate(offset, 0, { type: "spring", stiffness: 320, damping: 22, mass: 0.85 });
             onEdit();
           }}
           disabled={disabled}
@@ -109,7 +109,7 @@ export function SwipeActionsRow({
           className="flex w-[60px] shrink-0 items-center justify-center bg-red-500 text-white active:bg-red-600"
           onClick={(e) => {
             e.stopPropagation();
-            animate(offset, 0, { type: "spring", stiffness: 420, damping: 32 });
+            animate(offset, 0, { type: "spring", stiffness: 320, damping: 22, mass: 0.85 });
             onDelete();
           }}
           disabled={disabled}

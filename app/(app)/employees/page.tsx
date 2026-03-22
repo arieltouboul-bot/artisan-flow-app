@@ -18,10 +18,11 @@ import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import { useLanguage } from "@/context/language-context";
 import { useAssistant } from "@/context/assistant-context";
 import { t } from "@/lib/translations";
-import { createClient } from "@/lib/supabase/client";
 import { Users, Plus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
+import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 
 export default function EmployeesPage() {
   const { language } = useLanguage();
@@ -30,7 +31,8 @@ export default function EmployeesPage() {
     setPageContext({ activeSection: "employees" });
     return () => setPageContext({});
   }, [setPageContext]);
-  const { employees, loading, error, addEmployee, updateEmployee } = useEmployees();
+  const { employees, loading, error, addEmployee, updateEmployee, deleteEmployee } = useEmployees();
+  const isMobile = useIsMobile();
   const [listSearch, setListSearch] = useState("");
   const debouncedListSearch = useDebouncedValue(listSearch, 300);
   const filteredEmployees = useMemo(() => {
@@ -70,13 +72,11 @@ export default function EmployeesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer?")) return;
+    if (!confirm(t("confirmDeleteEmployee", language))) return;
     setDeletingId(id);
-    const supabase = createClient();
-    if (!supabase) { setDeletingId(null); return; }
-    const { error } = await supabase.from("employees").delete().eq("id", id);
-    if (error) { setDeletingId(null); alert("Erreur: " + error.message); }
-    else location.reload();
+    const { error } = await deleteEmployee(id);
+    setDeletingId(null);
+    if (error) alert(error instanceof Error ? error.message : String(error));
   };
 
   return (
@@ -144,6 +144,38 @@ export default function EmployeesPage() {
                   <div className="flex flex-col items-center justify-center py-12 text-sm text-gray-500">
                     {t("noSearchResults", language)}
                   </div>
+                ) : isMobile ? (
+                  filteredEmployees.map((emp, i) => (
+                    <motion.div
+                      key={emp.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: -8 }}
+                      transition={{ delay: i * 0.03 }}
+                      className="px-2"
+                    >
+                      <SwipeActionsRow
+                        onEdit={() => {
+                          setEditId(emp.id);
+                          setEditFirstName(emp.first_name);
+                          setEditLastName(emp.last_name);
+                          setEditRole(emp.role ?? "");
+                        }}
+                        onDelete={() => handleDelete(emp.id)}
+                        disabled={deletingId === emp.id}
+                        editLabel={t("edit", language)}
+                        deleteLabel={t("delete", language)}
+                        className={cn(deletingId === emp.id && "opacity-60 pointer-events-none")}
+                      >
+                        <div className="px-4 py-4">
+                          <p className="font-semibold text-gray-900">
+                            {emp.first_name} {emp.last_name}
+                          </p>
+                          <p className="text-sm text-gray-500">{emp.role || "—"}</p>
+                        </div>
+                      </SwipeActionsRow>
+                    </motion.div>
+                  ))
                 ) : (
                   filteredEmployees.map((emp, i) => (
                     <motion.div

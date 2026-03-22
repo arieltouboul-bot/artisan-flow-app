@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Bar,
   BarChart,
@@ -75,23 +75,22 @@ function cumulativeByDay(lines: CashFlowLine[]): { day: string; cum: number }[] 
   });
 }
 
-export function RevenueFinanceHeader() {
+function RevenueFinanceHeaderInner() {
   const { language } = useLanguage();
   const { profile, displayCurrency } = useProfile();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data, loading, error, refetch } = useFinanceAnalytics();
   const [open, setOpen] = useState<DetailKey | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const d = params.get("detail");
+    const d = searchParams.get("detail");
     if (d === "month" || d === "year" || d === "margin" || d === "unpaid") {
       setOpen(d);
       router.replace("/revenus", { scroll: false });
     }
-  }, [router]);
+  }, [searchParams, router]);
 
   const linesMonth = useMemo(
     () => data.cashFlowLines.filter((l) => inCurrentMonth(l.date)),
@@ -421,5 +420,21 @@ export function RevenueFinanceHeader() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export function RevenueFinanceHeader() {
+  return (
+    <Suspense
+      fallback={
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-busy="true">
+          {[0, 1, 2, 3].map((i) => (
+            <StatSkeleton key={i} />
+          ))}
+        </div>
+      }
+    >
+      <RevenueFinanceHeaderInner />
+    </Suspense>
   );
 }
