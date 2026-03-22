@@ -32,18 +32,18 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
   const pageHeight = doc.internal.pageSize.getHeight();
   let y = 20;
 
-  // En-tête principal
+  // Main header
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("Récapitulatif des Dépenses", 14, y);
+  doc.text("Expense Summary", 14, y);
   y += 8;
 
-  // Sous-titre avec date du jour
+  // Subtitle with generation date
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(80, 80, 80);
   doc.text(
-    `Généré le ${new Date().toLocaleDateString("fr-FR", {
+    `Generated on ${new Date().toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -54,7 +54,7 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
   doc.setTextColor(0, 0, 0);
   y += 10;
 
-  // En-tête société (logo si fourni)
+  // Company header (logo if provided)
   if (opts.logoUrl) {
     try {
       const logoDataUrl = await loadImageAsDataUrl(opts.logoUrl);
@@ -86,7 +86,7 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
   ]);
 
   const totalTtc = opts.rows.reduce((sum, r) => sum + Number(r.ttc || 0), 0);
-  tableData.push(["", "TOTAL GÉNÉRAL", fmt(totalTtc)]);
+  tableData.push(["", "GRAND TOTAL", fmt(totalTtc)]);
 
   const availableWidth = pageWidth - 28;
   const colWidths = {
@@ -114,9 +114,9 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
 
   doc.setFontSize(7);
   doc.setTextColor(120, 120, 120);
-  doc.text("ArtisanFlow — Liste des factures / dépenses — À remettre au comptable", pageWidth / 2, pageHeight - 12, { align: "center" });
+  doc.text("ArtisanFlow — Invoices / Expenses — Accountant Export", pageWidth / 2, pageHeight - 12, { align: "center" });
 
-  // Annexes : photos des factures en fin de document
+  // Appendices: invoice photos at the end
   const rowsWithPhotos = opts.rows.filter((r) => r.image_url && r.image_url.trim());
   for (let i = 0; i < rowsWithPhotos.length; i++) {
     const row = rowsWithPhotos[i];
@@ -128,11 +128,11 @@ export async function generateFacturesPDF(opts: FacturesPDFOptions): Promise<Blo
       doc.addPage();
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.text(`Annexe ${i + 1} — ${row.date} — ${row.vendor}`, 14, 14);
+      doc.text(`Appendix ${i + 1} — ${row.date} — ${row.vendor}`, 14, 14);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(100, 100, 100);
-      doc.text(`Montant TTC : ${fmt(Number(row.ttc))} €`, 14, 20);
+      doc.text(`Total Amount: ${fmt(Number(row.ttc))} €`, 14, 20);
       doc.setTextColor(0, 0, 0);
       const margin = 14;
       const imgStartY = 30;

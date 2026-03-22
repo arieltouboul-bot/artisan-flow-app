@@ -14,11 +14,11 @@ function mapRow(row: Record<string, unknown>): ExpenseWithProject {
     id: row.id as string,
     project_id: row.project_id as string,
     user_id: row.user_id as string,
-    description: (row.description as string) ?? "",
+    description: ((row.vendor as string) ?? (row.description as string)) ?? "",
     amount_ht: Number(row.amount_ht ?? 0),
     tva_rate: Number(row.tva_rate ?? 20),
     category: (row.category as ExpenseCategory) ?? "achat_materiel",
-    date: row.date as string,
+    date: ((row.invoice_date as string) ?? (row.date as string)) as string,
     created_at: row.created_at as string | undefined,
     project_name: project ? (project.name as string) : null,
     image_url: (row.image_url as string | null) ?? null,
@@ -46,7 +46,7 @@ export function useAllExpenses() {
     setLoading(true);
     const { data, error } = await supabase
       .from("expenses")
-      .select("id, project_id, user_id, description, amount_ht, tva_rate, category, date, created_at, image_url, amount_ttc, projects(name)")
+      .select("id, project_id, user_id, description, vendor, amount_ht, tva_rate, category, date, invoice_date, created_at, image_url, amount_ttc, projects(name)")
       .eq("user_id", user.id)
       .order("date", { ascending: false });
     if (error) {

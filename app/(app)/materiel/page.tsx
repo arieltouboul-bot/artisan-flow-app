@@ -26,6 +26,7 @@ import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import type { InventoryItem } from "@/hooks/use-inventory";
 import type { Supplier } from "@/hooks/use-suppliers";
 import { parseInvoiceText, imageFileToBinarizedBlob, type ScanInvoiceResult } from "@/lib/invoice-ocr";
+import type { ExpenseInsertPayload } from "@/lib/types";
 
 const VAT_OPTIONS = [0, 5.5, 10, 20];
 const GOOGLE_MAPS_SEARCH_URL = "https://www.google.com/maps/search/magasin+de+bricolage+materiaux+hardware+store/";
@@ -245,9 +246,10 @@ export default function MaterielPage() {
       imageUrl = urlData?.publicUrl ?? null;
     }
 
-    const { error: insertError } = await supabase.from("expenses").insert({
+    const expensePayload: ExpenseInsertPayload = {
       project_id: scanProjectId,
       user_id: user.id,
+      vendor: scanVendor || undefined,
       description,
       amount_ht: amountHt,
       tva_rate: Math.round(tvaRate * 10) / 10,
@@ -257,7 +259,9 @@ export default function MaterielPage() {
       image_url: imageUrl,
       category: "achat_materiel",
       date: scanDate || new Date().toISOString().slice(0, 10),
-    });
+      invoice_date: scanDate || new Date().toISOString().slice(0, 10),
+    };
+    const { error: insertError } = await supabase.from("expenses").insert(expensePayload);
     setSaveExpenseLoading(false);
     if (insertError) {
       setSaveExpenseError(insertError.message);

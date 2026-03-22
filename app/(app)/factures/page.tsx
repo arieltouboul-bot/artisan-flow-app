@@ -23,9 +23,12 @@ import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import type { Currency } from "@/lib/utils";
 import { generateFacturesPDF } from "@/lib/factures-pdf";
 import { createClient } from "@/lib/supabase/client";
-import { imageFileToBinarizedBlob, parseInvoiceText } from "@/lib/invoice-ocr";
+import { imageFileToBinarizedBlob } from "@/lib/invoice-ocr";
+import { extractInvoiceDecision } from "@/lib/ocr";
+import type { ExpenseInsertPayload } from "@/lib/types";
 
 const INVOICE_BUCKET = "factures";
+const OCR_VENDOR_MAPPING_KEY = "artisanflow.invoice.vendor.mapping.v1";
 
 export default function FacturesPage() {
   const { language } = useLanguage();
@@ -60,6 +63,10 @@ export default function FacturesPage() {
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [ocrUncertain, setOcrUncertain] = useState(false);
+  const [ocrRawVendor, setOcrRawVendor] = useState("");
+  const [vendorConfidence, setVendorConfidence] = useState(1);
+  const [amountConfidence, setAmountConfidence] = useState(1);
+  const [dateConfidence, setDateConfidence] = useState(1);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const filtered = useMemo(() => {
@@ -201,6 +208,28 @@ export default function FacturesPage() {
 
   const today = new Date().toISOString().slice(0, 10);
 
+  const readVendorMapping = (): Record<string, string> => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = window.localStorage.getItem(OCR_VENDOR_MAPPING_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as Record<string, string>;
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const saveVendorMapping = (detectedVendor: string, correctedVendor: string) => {
+    if (typeof window === "undefined") return;
+    const detected = detectedVendor.trim().toLowerCase();
+    const corrected = correctedVendor.trim();
+    if (!detected || !corrected) return;
+    const map = readVendorMapping();
+    map[detected] = corrected;
+    window.localStorage.setItem(OCR_VENDOR_MAPPING_KEY, JSON.stringify(map));
+  };
+
   const extractStoragePathFromPublicUrl = (publicUrl: string): string | null => {
     const marker = `/storage/v1/object/public/${INVOICE_BUCKET}/`;
     const idx = publicUrl.indexOf(marker);
@@ -308,6 +337,38 @@ export default function FacturesPage() {
     setPendingImageUrl(publicUrl);
     setAddPhotoOpen(true);
     setImporting(false);
+
+    // OCR assist (non bloquant) avec extraction fuzzy et score de confiance.
+    setOcrLoading(true);
+    setOcrError(null);
+    setOcrUncertain(false);
+    try {
+      const processedBlob = await imageFileToBinarizedBlob(file);
+      const Tesseract = (await import("tesseract.js")).default;
+      const lang = (language as string).toLowerCase();
+      const tesseractLang = lang.startsWith("fr") ? "fra+eng" : "eng";
+      const { data } = await Tesseract.recognize(processedBlob, tesseractLang);
+      const decision = extractInvoiceDecision(data.text);
+
+      const mapping = readVendorMapping();
+      const mappedVendor = decision.vendor ? mapping[decision.vendor.trim().toLowerCase()] : undefined;
+
+      setOcrRawVendor(decision.vendor || "");
+      setFormVendor(mappedVendor || decision.vendor || "");
+      setFormDate(decision.date || today);
+      setFormTtc(decision.total_amount > 0 ? String(decision.total_amount) : "");
+
+      setVendorConfidence(decision.confidence.vendor);
+      setAmountConfidence(decision.confidence.total_amount);
+      setDateConfidence(decision.confidence.date);
+      setOcrUncertain(decision.confidence.overall < 0.7);
+    } catch (err) {
+      console.error("Factures OCR helper failed:", err);
+      setOcrError("OCR assist unavailable. Please fill fields manually.");
+      setOcrUncertain(true);
+    } finally {
+      setOcrLoading(false);
+    }
   };
 
   const handleSubmitPhotoForm = async (ev: React.FormEvent) => {
@@ -351,17 +412,20 @@ export default function FacturesPage() {
 
     setFormSaving(true);
     setFormError(null);
-    const payload: Record<string, unknown> = {
+    const payload: ExpenseInsertPayload = {
       user_id: user.id,
       description: vendor,
+      vendor,
       amount_ttc: ttc,
       amount_ht: amountHt,
       tva_amount: tvaAmount,
       tva_rate: 20,
       category: "achat_materiel",
       date: safeDate,
+      invoice_date: safeDate,
       image_url: pendingImageUrl,
       project_id: projectId,
+      confidence_score: ocrUncertain ? 0.5 : 0.9,
     };
     console.log("Données envoyées:", payload);
     console.log("user_id:", user.id, "project_id:", projectId, "image_url:", pendingImageUrl);
@@ -392,6 +456,9 @@ export default function FacturesPage() {
       return;
     }
     alert("Facture enregistrée !");
+    if (ocrRawVendor && ocrRawVendor.trim().toLowerCase() !== vendor.toLowerCase()) {
+      saveVendorMapping(ocrRawVendor, vendor);
+    }
     setAddPhotoOpen(false);
     setPendingImageUrl(null);
     setFormVendor("");
@@ -600,7 +667,7 @@ export default function FacturesPage() {
                 type="date"
                 value={formDate}
                 onChange={(e) => setFormDate(e.target.value)}
-                className="min-h-[44px]"
+                className={cn("min-h-[44px]", dateConfidence < 0.7 && "border-amber-400 bg-amber-50")}
                 required
                 disabled={ocrLoading || formSaving}
               />
@@ -611,7 +678,7 @@ export default function FacturesPage() {
                 value={formVendor}
                 onChange={(e) => setFormVendor(e.target.value)}
                 placeholder="Nom du fournisseur"
-                className="min-h-[44px]"
+                className={cn("min-h-[44px]", vendorConfidence < 0.7 && "border-amber-400 bg-amber-50")}
                 required
                 disabled={ocrLoading || formSaving}
               />
@@ -625,7 +692,7 @@ export default function FacturesPage() {
                 value={formTtc}
                 onChange={(e) => setFormTtc(e.target.value)}
                 placeholder="0,00"
-                className="min-h-[44px]"
+                className={cn("min-h-[44px]", amountConfidence < 0.7 && "border-amber-400 bg-amber-50")}
                 required
                 disabled={ocrLoading || formSaving}
               />
