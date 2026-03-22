@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Expense } from "@/types/database";
 import type {
+  CashFlowLine,
   FinanceAnalytics,
   FinanceYtdMonth,
   MaterialBudgetAlert,
@@ -12,6 +13,7 @@ import type {
 } from "@/lib/finance-analytics-types";
 
 export type {
+  CashFlowLine,
   FinanceAnalytics,
   FinanceYtdMonth,
   MaterialBudgetAlert,
@@ -28,6 +30,7 @@ import {
   totalProjectRevenueEur,
 } from "@/lib/project-finance";
 import { mapProjectRow } from "@/hooks/use-projects";
+import { amountInCurrencyToEur, parseStoredRevenueCurrency } from "@/lib/utils";
 
 function num(v: number | null | undefined): number {
   return v == null || Number.isNaN(Number(v)) ? 0 : Number(v);
@@ -39,6 +42,8 @@ function emptyAnalytics(): FinanceAnalytics {
     caPrevMonthEur: 0,
     caMonthMomPct: null,
     caYtdEur: 0,
+    companyTotalRevenueEur: 0,
+    companyTotalExpensesEur: 0,
     companyMarginEur: 0,
     companyMarginPct: 0,
     totalOutstandingEur: 0,
@@ -46,6 +51,7 @@ function emptyAnalytics(): FinanceAnalytics {
     projectMargins: [],
     ytdByMonth: [],
     materialAlerts: [],
+    cashFlowLines: [],
   };
 }
 
@@ -83,19 +89,30 @@ export function useFinanceAnalytics() {
 
       const projectIds = projects.map((p) => p.id);
       const tx: { project_id: string; amount: number; payment_date: string }[] = [];
+      const txRowsFull: { id: string; project_id: string; amount: number; payment_date: string }[] = [];
       if (projectIds.length) {
         const { data: txData } = await supabase
           .from("project_transactions")
-          .select("project_id, amount, payment_date")
+          .select("id, project_id, amount, payment_date")
           .in("project_id", projectIds);
-        tx.push(...((txData ?? []) as typeof tx));
+        for (const row of txData ?? []) {
+          const r = row as { id: string; project_id: string; amount: number; payment_date: string };
+          tx.push({ project_id: r.project_id, amount: Number(r.amount), payment_date: r.payment_date });
+          txRowsFull.push(r);
+        }
       }
 
       const { data: revData } = await supabase
         .from("revenues")
-        .select("project_id, amount, date, currency")
+        .select("id, project_id, amount, date, currency")
         .eq("user_id", user.id);
-      const revenues = (revData ?? []) as { project_id: string; amount: number; date: string; currency: string | null }[];
+      const revenues = (revData ?? []) as {
+        id: string;
+        project_id: string;
+        amount: number;
+        date: string;
+        currency: string | null;
+      }[];
 
       const { data: expData } = await supabase
         .from("expenses")
@@ -171,6 +188,7 @@ export function useFinanceAnalytics() {
       }
 
       let companyMarginEur = 0;
+      let companyTotalExpensesEur = 0;
       const projectMargins: ProjectMarginRow[] = [];
       const outstandingRows: OutstandingRow[] = [];
       const materialAlerts: MaterialBudgetAlert[] = [];
@@ -182,6 +200,7 @@ export function useFinanceAnalytics() {
         const revEur = totalProjectRevenueEur(pTx, pRev);
         const marginEur = projectNetProfitEur(num(p.material_costs), pEx, pTx, pRev);
         companyMarginEur += marginEur;
+        companyTotalExpensesEur += totalProjectExpensesEur(num(p.material_costs), pEx);
 
         const clientName = p.client?.name ?? "—";
         const marginPct = revEur !== 0 ? (marginEur / Math.abs(revEur)) * 100 : 0;
@@ -229,20 +248,55 @@ export function useFinanceAnalytics() {
       });
       projectMargins.sort((a, b) => Math.abs(b.marginEur) - Math.abs(a.marginEur));
 
-      const totalRevCompany = projects.reduce((s, p) => {
+      const companyTotalRevenueEur = projects.reduce((s, p) => {
         const pTx = txByProject.get(p.id) ?? [];
         const pRev = revByProject.get(p.id) ?? [];
         return s + totalProjectRevenueEur(pTx, pRev);
       }, 0);
-      const companyMarginPct = totalRevCompany > 0 ? (companyMarginEur / totalRevCompany) * 100 : 0;
+      const companyMarginPct = companyTotalRevenueEur > 0 ? (companyMarginEur / companyTotalRevenueEur) * 100 : 0;
 
       const totalOutstandingEur = outstandingRows.reduce((s, r) => s + r.balanceEur, 0);
+
+      const projectNameById = new Map(projects.map((p) => [p.id, p.name]));
+      const cashFlowLines: CashFlowLine[] = [];
+      for (const t of txRowsFull) {
+        const d = t.payment_date.includes("T") ? t.payment_date.slice(0, 10) : t.payment_date;
+        cashFlowLines.push({
+          id: `tx-${t.id}`,
+          kind: "transaction",
+          date: d,
+          projectId: t.project_id,
+          projectName: projectNameById.get(t.project_id) ?? "—",
+          amountEur: Number(t.amount),
+          amountOriginal: Number(t.amount),
+          currency: "EUR",
+        });
+      }
+      for (const r of revenues) {
+        const cur = parseStoredRevenueCurrency(r.currency);
+        const amt = Number(r.amount);
+        const eur = amountInCurrencyToEur(amt, cur);
+        const d = r.date.includes("T") ? r.date.slice(0, 10) : r.date;
+        cashFlowLines.push({
+          id: `rev-${r.id}`,
+          kind: "revenue",
+          date: d,
+          projectId: r.project_id,
+          projectName: projectNameById.get(r.project_id) ?? "—",
+          amountEur: eur,
+          amountOriginal: amt,
+          currency: cur,
+        });
+      }
+      cashFlowLines.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       setData({
         caMonthEur,
         caPrevMonthEur,
         caMonthMomPct,
         caYtdEur,
+        companyTotalRevenueEur,
+        companyTotalExpensesEur,
         companyMarginEur,
         companyMarginPct,
         totalOutstandingEur,
@@ -250,6 +304,7 @@ export function useFinanceAnalytics() {
         projectMargins,
         ytdByMonth,
         materialAlerts,
+        cashFlowLines,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

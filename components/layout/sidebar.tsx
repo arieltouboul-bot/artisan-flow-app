@@ -9,13 +9,9 @@ import { useStaleProjectsCount } from "@/hooks/use-sidebar-badges";
 import {
   LayoutDashboard,
   FolderKanban,
-  FileText,
-  Users,
-  UsersRound,
   ChevronLeft,
   ChevronRight,
   Hammer,
-  Settings,
   LogOut,
   Calendar,
   HelpCircle,
@@ -23,7 +19,6 @@ import {
   Package,
   Receipt,
   Banknote,
-  PieChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/translations";
@@ -33,16 +28,12 @@ import { useLanguage } from "@/context/language-context";
 
 const navItems = [
   { href: "/dashboard", key: "dashboard", icon: LayoutDashboard },
-  { href: "/finance", key: "finance", icon: PieChart },
-  { href: "/revenus", key: "revenues", icon: Banknote },
   { href: "/projets", key: "projects", icon: FolderKanban },
-  { href: "/calendar", key: "calendar", icon: Calendar },
-  { href: "/devis/nouveau", key: "newQuote", icon: FileText },
-  { href: "/clients", key: "clients", icon: Users },
-  { href: "/materiel", key: "material", icon: Package },
+  { href: "/revenus", key: "revenues", icon: Banknote },
   { href: "/factures", key: "invoices", icon: Receipt },
-  { href: "/employees", key: "team", icon: UsersRound },
-  { href: "/parametres", key: "settings", icon: Settings },
+  { href: "/materiel", key: "material", icon: Package },
+  { href: "/calendar", key: "calendar", icon: Calendar },
+  { href: "/help", key: "helpSupport", icon: HelpCircle },
 ];
 
 type SidebarProps = {
@@ -195,25 +186,6 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
             }
           />
         </div>
-        <Link
-          href="/help"
-          onClick={() => onCloseMobile?.()}
-          className="flex w-full min-h-[48px] items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-brand-blue-600 transition-colors hover:bg-brand-blue-50"
-        >
-          <HelpCircle className="h-5 w-5 shrink-0" />
-          <AnimatePresence mode="wait">
-            {expanded && (
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="truncate"
-              >
-                {t("helpSupport", language)}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </Link>
         <Button
           variant="ghost"
           size="sm"

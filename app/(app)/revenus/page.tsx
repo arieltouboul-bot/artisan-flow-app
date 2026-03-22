@@ -18,14 +18,40 @@ import { useRevenues, type RevenueRow } from "@/hooks/use-revenues";
 import { useProjects } from "@/hooks/use-projects";
 import { useClients } from "@/hooks/use-clients";
 import { createClient } from "@/lib/supabase/client";
-import { formatAmountInCurrency, formatDate, cn, type RevenueCurrency } from "@/lib/utils";
+import {
+  amountInCurrencyToEur,
+  formatAmountInCurrency,
+  formatDate,
+  getCurrencySymbol,
+  cn,
+  type RevenueCurrency,
+} from "@/lib/utils";
 import { Banknote, Loader2 } from "lucide-react";
 import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { RevenueFinanceHeader } from "@/components/revenues/revenue-finance-header";
 
 const REV_CURRENCIES: RevenueCurrency[] = ["EUR", "USD", "ILS"];
+
+type PayStatus = "paid" | "partial" | "pending" | "na" | "overpaid";
+
+const PAY_STATUS_CLASS: Record<PayStatus, string> = {
+  paid: "bg-emerald-100 text-emerald-800",
+  partial: "bg-amber-100 text-amber-900",
+  pending: "bg-slate-100 text-slate-700",
+  na: "bg-slate-100 text-slate-500",
+  overpaid: "bg-sky-100 text-sky-900",
+};
+
+const PAY_STATUS_TKEY: Record<PayStatus, string> = {
+  paid: "revenuePaymentStatusPaid",
+  partial: "revenuePaymentStatusPartial",
+  pending: "revenuePaymentStatusPending",
+  na: "revenuePaymentStatusNa",
+  overpaid: "revenuePaymentStatusOverpaid",
+};
 
 export default function RevenusPage() {
   const { language } = useLanguage();
@@ -69,6 +95,26 @@ export default function RevenusPage() {
       return pn.includes(q) || n.includes(q);
     });
   }, [rows, debouncedSearch]);
+
+  const paidEurByProject = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      const eur = amountInCurrencyToEur(r.amount, r.currency);
+      m.set(r.project_id, (m.get(r.project_id) ?? 0) + eur);
+    }
+    return m;
+  }, [rows]);
+
+  const paymentStatus = (pid: string): PayStatus => {
+    const p = projects.find((x) => x.id === pid);
+    const contract = Number(p?.contract_amount ?? 0);
+    const paid = paidEurByProject.get(pid) ?? 0;
+    if (contract <= 0) return "na";
+    if (paid > contract + 0.5) return "overpaid";
+    if (paid >= contract - 0.5) return "paid";
+    if (paid > 0.02) return "partial";
+    return "pending";
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,6 +289,8 @@ export default function RevenusPage() {
         <p className="mt-1 text-gray-500">{t("revenuePageSubtitle", language)}</p>
       </div>
 
+      <RevenueFinanceHeader />
+
       {revenuesError && (
         <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900 border border-amber-200">
           {revenuesError}
@@ -361,7 +409,8 @@ export default function RevenusPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">{t("revenueListTitle", language)}</CardTitle>
+          <CardTitle className="text-lg">{t("revenueTrackerTitle", language)}</CardTitle>
+          <p className="text-sm text-gray-500 font-normal">{t("revenueTrackerHint", language)}</p>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -374,7 +423,9 @@ export default function RevenusPage() {
             <p className="text-sm text-gray-500 py-4">{t("revenueEmpty", language)}</p>
           ) : (
             <ul className="space-y-2">
-              {filteredRows.map((r) => (
+              {filteredRows.map((r) => {
+                const st = paymentStatus(r.project_id);
+                return (
                 <li key={r.id}>
                   <SwipeActionsRow
                     onEdit={() => openEdit(r)}
@@ -382,15 +433,33 @@ export default function RevenusPage() {
                     editLabel={t("revenueSwipeEdit", language)}
                     deleteLabel={t("revenueSwipeDelete", language)}
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm min-h-[56px]">
-                      <span className="font-medium text-gray-900">{r.project?.name ?? "—"}</span>
-                      <span className="text-emerald-700 font-semibold">{formatAmountInCurrency(r.amount, r.currency)}</span>
-                      <span className="text-gray-500 w-full sm:w-auto">{formatDate(r.date)}</span>
-                      {r.notes && <span className="text-gray-600 w-full text-xs">{r.notes}</span>}
+                    <div className="flex flex-wrap items-center gap-2 py-3 text-sm min-h-[56px]">
+                      <div className="min-w-0 flex-1">
+                        <span className="font-medium text-gray-900 block">{r.project?.name ?? "—"}</span>
+                        <span className="text-gray-500 text-xs">{formatDate(r.date)}</span>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className="flex items-center gap-1.5 text-emerald-700 font-semibold tabular-nums">
+                          <span className="text-gray-500 text-base leading-none" aria-hidden>
+                            {getCurrencySymbol(r.currency)}
+                          </span>
+                          {formatAmountInCurrency(r.amount, r.currency)}
+                        </span>
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                            PAY_STATUS_CLASS[st]
+                          )}
+                        >
+                          {t(PAY_STATUS_TKEY[st], language)}
+                        </span>
+                      </div>
+                      {r.notes && <span className="text-gray-600 w-full text-xs basis-full">{r.notes}</span>}
                     </div>
                   </SwipeActionsRow>
                 </li>
-              ))}
+              );
+              })}
             </ul>
           )}
         </CardContent>

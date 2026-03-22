@@ -57,7 +57,9 @@ export async function generateFinanceSummaryPDF(opts: FinanceSummaryPDFOptions):
     `Cash collected (current month): ${fmt(data.caMonthEur)} EUR`,
     `Previous month (reference): ${fmt(data.caPrevMonthEur)} EUR — MoM: ${mom}`,
     `Year-to-date (1 Jan — today, current year): ${fmt(data.caYtdEur)} EUR`,
-    `Company margin (revenue − materials & tools): ${fmt(data.companyMarginEur)} EUR (${fmt(data.companyMarginPct)} % of revenue)`,
+    `Total revenue (EUR equivalent): ${fmt(data.companyTotalRevenueEur)} EUR`,
+    `Total project costs (materials field + expense lines): ${fmt(data.companyTotalExpensesEur)} EUR`,
+    `Net margin (revenue − costs): ${fmt(data.companyMarginEur)} EUR (${fmt(data.companyMarginPct)} % of revenue)`,
     `Total outstanding (contract − revenue rows recorded): ${fmt(data.totalOutstandingEur)} EUR`,
   ];
   for (const line of lines) {

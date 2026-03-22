@@ -246,7 +246,7 @@ export default function DashboardPage() {
             <p className="text-sm font-medium">{t("dashboardMaterialBudgetBanner", language)}</p>
           </div>
           <Link
-            href="/finance"
+            href="/revenus?detail=margin"
             className={cn(buttonVariants({ variant: "outline" }), "shrink-0 border-amber-400 bg-white")}
           >
             {t("dashboardMaterialBudgetCta", language)}

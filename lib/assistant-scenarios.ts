@@ -47,6 +47,23 @@ export async function runExtendedAssistantScenarios(opts: {
 }): Promise<boolean> {
   const { text, lower, language, userId, supabase, appendMessage, router } = opts;
 
+  // ——— Revenue tab: open margin detail (merged finance / monthly profit breakdown)
+  if (
+    /(?:show|show me|open|display).{0,30}(?:my\s+)?(?:monthly\s+)?(?:profit|margin).{0,40}(?:details|detail|breakdown)/i.test(
+      lower
+    ) ||
+    /(?:détails|detail|répartition).{0,40}(?:du\s+)?(?:profit|marge|bénéfice).{0,25}(?:mensuel|mois|du mois)?/i.test(lower)
+  ) {
+    router.push("/revenus?detail=margin");
+    appendMessage(
+      "assistant",
+      language === "en"
+        ? "Opening **Revenue** with the **margin** detail (total revenue − project materials & expense lines)."
+        : "Ouverture de **Revenus** avec le détail de la **marge** (revenus totaux − matériaux chantier et lignes de dépenses)."
+    );
+    return true;
+  }
+
   // ——— Total spending this month
   if (
     (/(total|combien).{0,40}(spending|dépenses|dépense|spent|payé)/i.test(text) ||
@@ -395,8 +412,8 @@ export async function runExtendedAssistantScenarios(opts: {
       appendMessage(
         "assistant",
         language === "en"
-          ? `**${yy} finances (EUR equivalent):** cash collected in **${yy}**: **${Math.round(caYear * 100) / 100} €**. **Outstanding** today (contract − revenue rows): **${Math.round(outstanding * 100) / 100} €**. Open **Finance** for charts and PDF export.`
-          : `**Finances ${yy}** (équivalent EUR) : encaissements en **${yy}** : **${Math.round(caYear * 100) / 100} €**. **Impayés** aujourd’hui (contrat − lignes revenus) : **${Math.round(outstanding * 100) / 100} €**. Onglet **Finance** pour graphiques et export PDF.`
+          ? `**${yy} finances (EUR equivalent):** cash collected in **${yy}**: **${Math.round(caYear * 100) / 100} €**. **Outstanding** today (contract − revenue rows): **${Math.round(outstanding * 100) / 100} €**. Open **Revenue** for charts and PDF export.`
+          : `**Finances ${yy}** (équivalent EUR) : encaissements en **${yy}** : **${Math.round(caYear * 100) / 100} €**. **Impayés** aujourd’hui (contrat − lignes revenus) : **${Math.round(outstanding * 100) / 100} €**. Onglet **Revenus** pour graphiques et export PDF.`
       );
       return true;
     }
