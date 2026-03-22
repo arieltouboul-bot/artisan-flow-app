@@ -50,11 +50,11 @@ const FR: FinancePdfLabels = {
   totalRevenue: "Total revenus (équivalent EUR)",
   totalCosts: "Total charges chantier (matériaux saisis + lignes dépenses)",
   netMargin: "Marge nette (revenus − charges)",
-  totalOutstanding: "Total impayés (contrat − lignes revenus)",
-  tableOutstandingHead: ["Client / projet", "Budget EUR", "Encaissé (revenus) EUR", "Solde EUR"],
+  totalOutstanding: "Total impayés (contrat − encaissements)",
+  tableOutstandingHead: ["Client / projet", "Budget EUR", "Encaissé (total) EUR", "Solde EUR"],
   tableMarginHead: ["Marge par projet", "CA EUR", "Marge EUR", "Marge %"],
   footerNote:
-    "Impayé = montant contrat moins somme des lignes revenus (converties EUR). Marge = revenus et dépenses matériel/outillage enregistrés.",
+    "Impayé = contrat moins encaissements (transactions + lignes revenus, EUR). Marge = revenus et dépenses matériel/outillage enregistrés.",
 };
 
 const EN: FinancePdfLabels = {
@@ -70,11 +70,11 @@ const EN: FinancePdfLabels = {
   totalRevenue: "Total revenue (EUR equivalent)",
   totalCosts: "Total project costs (materials field + expense lines)",
   netMargin: "Net margin (revenue − costs)",
-  totalOutstanding: "Total outstanding (contract − revenue rows)",
-  tableOutstandingHead: ["Client / project", "Budget EUR", "Paid (revenues) EUR", "Balance EUR"],
+  totalOutstanding: "Total outstanding (contract − collected)",
+  tableOutstandingHead: ["Client / project", "Budget EUR", "Paid (total) EUR", "Balance EUR"],
   tableMarginHead: ["Project margin", "Revenue EUR", "Margin EUR", "Margin %"],
   footerNote:
-    "Outstanding = contract amount minus sum of revenue entries (EUR equivalent). Margin uses recorded revenues and material/tool expenses.",
+    "Outstanding = contract minus collections (transactions + revenue rows, EUR equivalent). Margin uses recorded revenues and material/tool expenses.",
 };
 
 export function getFinancePdfLabels(locale: FinancePdfLocale): FinancePdfLabels {

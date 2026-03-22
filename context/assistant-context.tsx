@@ -54,11 +54,26 @@ export type AssistantMessage = {
   modifiedEntities?: ModifiedEntity[];
 };
 
+/** Snapshot KPIs affichés sur le Dashboard (pour commentaires IA). */
+export type DashboardKpisSnapshot = {
+  caMonthEur: number;
+  caPrevMonthEur: number;
+  caMonthMomPct: number | null;
+  caYearEur: number;
+  caYearLabel: string;
+  marginEur: number;
+  marginPct: number;
+  unpaidEur: number;
+  unpaidProjectCount: number;
+};
+
 export type AssistantPageContext = {
   currentProjectId?: string | null;
   currentProjectName?: string | null;
-  /** Écran Clients ou Équipe — pour contextualiser l’IA */
-  activeSection?: "clients" | "employees" | null;
+  /** Écran Clients, Équipe ou Dashboard — pour contextualiser l’IA */
+  activeSection?: "clients" | "employees" | "dashboard" | null;
+  /** Renseigné sur le Dashboard pour synthèse vocale / texte des indicateurs */
+  dashboardKpis?: DashboardKpisSnapshot | null;
 };
 
 type AssistantContextValue = {
@@ -1296,6 +1311,9 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           appendMessage,
           router,
           pageContext,
+          displayCurrency,
+          dashboardKpis: pageContext.dashboardKpis ?? null,
+          activeSection: pageContext.activeSection ?? null,
         });
         if (extended) {
           setIsProcessing(false);

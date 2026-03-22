@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import Link from "next/link";
 import { useFinanceAnalytics } from "@/hooks/use-finance-analytics";
 import { useRouter } from "next/navigation";
+import { DashboardTopKpis } from "@/components/dashboard/dashboard-top-kpis";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart,
@@ -18,7 +19,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import {
@@ -35,7 +36,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { useLanguage } from "@/context/language-context";
 import { t, tReplace } from "@/lib/translations";
 import { projectRestantDu } from "@/types/database";
-import { TrendingUp, TrendingDown, AlertCircle, Euro, Percent, FolderKanban, ArrowRight, X, Bell, CheckSquare, Square, Trash2, Plus, CalendarClock, MapPin, Loader2, AlertTriangle } from "lucide-react";
+import { FolderKanban, ArrowRight, X, Bell, CheckSquare, Square, Trash2, Plus, CalendarClock, MapPin, Loader2 } from "lucide-react";
 import { formatTime } from "@/lib/utils";
 import {
   Dialog,
@@ -190,10 +191,22 @@ export default function DashboardPage() {
   const yearCaPending =
     (financeAnalyticsLoading && selectedYear === currentYear) ||
     (loading && selectedYear !== currentYear);
-  const momPct = financeData.caMonthMomPct;
-  const momUp = momPct != null && momPct > 0;
-  const momDown = momPct != null && momPct < 0;
-  const nbOutstandingProjects = financeData.outstandingRows.length;
+
+  const kpiFallback = (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-busy="true">
+      {[0, 1, 2, 3].map((i) => (
+        <Card key={i}>
+          <CardHeader className="pb-2">
+            <Skeleton className="h-4 w-24" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-9 w-36" />
+            <Skeleton className="mt-2 h-3 w-28" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
 
   return (
     <motion.div
@@ -224,162 +237,19 @@ export default function DashboardPage() {
         </motion.div>
       )}
 
-      <motion.div
-        variants={container}
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-        aria-label={language === "fr" ? "Indicateurs financiers" : "Financial KPIs"}
-      >
-        <motion.div variants={item}>
-          <Link href="/revenus?detail=month" className="block">
-            <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 focus:ring-offset-2">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">{t("caMonth", language)}</CardTitle>
-                <Euro className="h-4 w-4 text-brand-blue-500" />
-              </CardHeader>
-              <CardContent>
-                {financeAnalyticsLoading ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-9 w-36 max-w-full" />
-                    <Skeleton className="h-3 w-28" />
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-2xl font-bold text-brand-blue-600 tabular-nums">
-                      {formatConvertedCurrency(financeData.caMonthEur, currency)}
-                    </p>
-                    <p
-                      className={cn(
-                        "mt-1 text-xs flex items-center gap-1",
-                        momUp && "text-emerald-600",
-                        momDown && "text-rose-600"
-                      )}
-                    >
-                      {momPct != null ? (
-                        <>
-                          {momUp ? <TrendingUp className="h-3.5 w-3.5" /> : momDown ? <TrendingDown className="h-3.5 w-3.5" /> : null}
-                          {tReplace("financeMomPct", language, { pct: Math.round(momPct * 10) / 10 })}
-                        </>
-                      ) : (
-                        <span className="text-slate-400">{t("financeMomNa", language)}</span>
-                      )}
-                    </p>
-                    <p className="text-xs text-indigo-600 font-medium mt-2">{t("revenueCardTapDetail", language)}</p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </Link>
-        </motion.div>
-
-        <motion.div variants={item}>
-          <Link href="/revenus?detail=year" className="block">
-            <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-brand-blue-500 focus:ring-offset-2">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">
-                  {selectedYear === currentYear ? t("revenueCardYear", language) : t("caYear", language)}
-                </CardTitle>
-                <TrendingUp className="h-4 w-4 text-brand-blue-500" />
-              </CardHeader>
-              <CardContent>
-                {yearCaPending ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-9 w-36 max-w-full" />
-                    <Skeleton className="h-3 w-32" />
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-2xl font-bold text-gray-900 tabular-nums">
-                      {formatConvertedCurrency(yearCaDisplay, currency)}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {tReplace("dashboardRevenueDetailYear", language, { year: String(selectedYear) })}
-                    </p>
-                    <p className="text-xs text-emerald-700 font-medium mt-2">{t("revenueCardTapDetail", language)}</p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </Link>
-        </motion.div>
-
-        <motion.div variants={item}>
-          <Link href="/revenus?detail=margin" className="block">
-            <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">{t("revenueCardMargin", language)}</CardTitle>
-                <Percent className="h-4 w-4 text-violet-500" />
-              </CardHeader>
-              <CardContent>
-                {financeAnalyticsLoading ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-9 w-36 max-w-full" />
-                    <Skeleton className="h-3 w-40" />
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-2xl font-bold text-violet-700 tabular-nums">
-                      {formatConvertedCurrency(financeData.companyMarginEur, currency)}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {tReplace("financeMarginPctLabel", language, { pct: Math.round(financeData.companyMarginPct * 10) / 10 })}
-                    </p>
-                    <p className="text-xs text-violet-700 font-medium mt-2">{t("revenueCardTapDetail", language)}</p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </Link>
-        </motion.div>
-
-        <motion.div variants={item}>
-          <Link href="/revenus?detail=unpaid" className="block">
-            <Card className="cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 border-red-200 bg-red-50/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-red-700">{t("revenueCardUnpaid", language)}</CardTitle>
-                <AlertCircle className="h-4 w-4 text-red-500" />
-              </CardHeader>
-              <CardContent>
-                {financeAnalyticsLoading ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-9 w-36 max-w-full" />
-                    <Skeleton className="h-3 w-24" />
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-2xl font-bold text-red-600 tabular-nums">
-                      {formatConvertedCurrency(financeData.totalOutstandingEur, currency)}
-                    </p>
-                    <p className="text-xs text-red-600 mt-1">
-                      {nbOutstandingProjects} {t("unpaidCount", language)}
-                    </p>
-                    <p className="text-xs text-rose-700 font-medium mt-2">{t("revenueCardTapDetail", language)}</p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </Link>
-        </motion.div>
+      <motion.div variants={item}>
+        <Suspense fallback={kpiFallback}>
+          <DashboardTopKpis
+            financeData={financeData}
+            financeAnalyticsLoading={financeAnalyticsLoading}
+            selectedYear={selectedYear}
+            currentYear={currentYear}
+            yearCaDisplay={yearCaDisplay}
+            yearCaPending={yearCaPending}
+            displayCurrency={currency}
+          />
+        </Suspense>
       </motion.div>
-
-      {!financeAnalyticsLoading && financeData.materialAlerts.length > 0 && (
-        <motion.div
-          variants={item}
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-amber-950 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div className="flex gap-3 min-w-0">
-            <AlertTriangle className="h-6 w-6 shrink-0 text-amber-600" aria-hidden />
-            <p className="text-sm font-medium">{t("dashboardMaterialBudgetBanner", language)}</p>
-          </div>
-          <Link
-            href="/revenus?detail=margin"
-            className={cn(buttonVariants({ variant: "outline" }), "shrink-0 border-amber-400 bg-white")}
-          >
-            {t("dashboardMaterialBudgetCta", language)}
-          </Link>
-        </motion.div>
-      )}
 
       {nextAppointment && (
         <motion.div

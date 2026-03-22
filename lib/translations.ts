@@ -461,8 +461,8 @@ export const translations: Record<string, { fr: string; en: string }> = {
   financeCardMargin: { fr: "Marge totale", en: "Total margin" },
   financeCardOutstanding: { fr: "Total impayés", en: "Total outstanding" },
   financeCardOutstandingHint: {
-    fr: "Budget contrat − revenus enregistrés (table Revenus).",
-    en: "Contract budget − recorded revenue rows.",
+    fr: "Budget contrat − encaissements (transactions + lignes revenus).",
+    en: "Contract budget − collections (transactions + revenue rows).",
   },
   financeMomPct: { fr: "vs mois précédent : {pct} %", en: "vs previous month: {pct} %" },
   financeMomNa: { fr: "Pas de base pour comparer", en: "No prior month to compare" },
@@ -474,12 +474,12 @@ export const translations: Record<string, { fr: string; en: string }> = {
   financeNoProjects: { fr: "Aucun projet à afficher.", en: "No projects to show." },
   financeOutstandingTitle: { fr: "Impayés par client et projet", en: "Outstanding by client and project" },
   financeOutstandingHint: {
-    fr: "Priorisé par montant restant (contrat − somme des lignes Revenus).",
-    en: "Prioritized by balance (contract − sum of revenue entries).",
+    fr: "Priorisé par montant restant (contrat − encaissements totaux).",
+    en: "Prioritized by remaining balance (contract − total collected).",
   },
   financeOutstandingRowMeta: {
-    fr: "Budget {budget} · Encaissé (revenus) {paid}",
-    en: "Budget {budget} · Paid (revenues) {paid}",
+    fr: "Budget {budget} · Encaissé (total) {paid}",
+    en: "Budget {budget} · Paid (total) {paid}",
   },
   financeNoOutstanding: { fr: "Aucun solde restant dû sur les contrats.", en: "No contract balance outstanding." },
   financeMaterialOverrunTitle: {
@@ -491,10 +491,22 @@ export const translations: Record<string, { fr: string; en: string }> = {
     en: "line expenses {spent} vs budget {budget}",
   },
   dashboardMaterialBudgetBanner: {
-    fr: "Un ou plusieurs chantiers dépassent le budget matériaux. Voir Revenus.",
-    en: "One or more projects exceed the materials budget. See Revenue.",
+    fr: "Un ou plusieurs chantiers dépassent le budget matériaux.",
+    en: "One or more projects exceed the materials budget.",
   },
-  dashboardMaterialBudgetCta: { fr: "Ouvrir Revenus", en: "Open Revenue" },
+  dashboardMaterialBudgetCta: { fr: "Voir le détail marge", en: "View margin detail" },
+  dashboardKpiOpenDetailHere: {
+    fr: "Voir le détail (sans quitter la page)",
+    en: "View details (stay on this page)",
+  },
+  dashboardKpiYearModalNote: {
+    fr: "Détail des encaissements pour l’année {year} (graphique et liste).",
+    en: "Cash collected in {year} (chart and list).",
+  },
+  dashboardOutstandingCount: {
+    fr: "{n} projet(s) avec solde",
+    en: "{n} project(s) with balance",
+  },
   revenueSwipeEdit: { fr: "Modifier", en: "Edit" },
   revenueSwipeDelete: { fr: "Supprimer", en: "Delete" },
   revenueEditTitle: { fr: "Modifier l’encaissement", en: "Edit payment" },

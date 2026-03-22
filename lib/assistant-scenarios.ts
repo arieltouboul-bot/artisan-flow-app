@@ -12,7 +12,7 @@ import {
   totalProjectRevenueEur,
 } from "@/lib/project-finance";
 import { caInRangeEur } from "@/lib/finance-metrics";
-import { amountInCurrencyToEur, parseStoredRevenueCurrency } from "@/lib/utils";
+import { amountInCurrencyToEur, formatConvertedCurrency, parseStoredRevenueCurrency, type Currency } from "@/lib/utils";
 
 type Append = (
   role: "user" | "assistant",
@@ -67,10 +67,72 @@ export async function runExtendedAssistantScenarios(opts: {
   pageContext?: {
     currentProjectId?: string | null;
     currentProjectName?: string | null;
-    activeSection?: "clients" | "employees" | null;
+    activeSection?: "clients" | "employees" | "dashboard" | null;
   };
+  displayCurrency?: Currency;
+  dashboardKpis?: {
+    caMonthEur: number;
+    caPrevMonthEur: number;
+    caMonthMomPct: number | null;
+    caYearEur: number;
+    caYearLabel: string;
+    marginEur: number;
+    marginPct: number;
+    unpaidEur: number;
+    unpaidProjectCount: number;
+  } | null;
+  activeSection?: "clients" | "employees" | "dashboard" | null;
 }): Promise<boolean> {
-  const { text, lower, language, userId, supabase, appendMessage, router, pageContext } = opts;
+  const {
+    text,
+    lower,
+    language,
+    userId,
+    supabase,
+    appendMessage,
+    router,
+    pageContext,
+    displayCurrency = "EUR",
+    dashboardKpis,
+    activeSection: activeSectionOpt,
+  } = opts;
+
+  const activeSection = activeSectionOpt ?? pageContext?.activeSection;
+
+  // ——— Dashboard: commentaire sur les KPI affichés
+  if (activeSection === "dashboard" && dashboardKpis) {
+    const asksDashboardInsight =
+      (/(?:résume|resume|analyse|analyze|commente|comment|explain|aperçu|overview)/i.test(lower) &&
+        /(?:dashboard|tableau|kpi|chiffres|indicateurs|financ|numbers|situation)/i.test(lower)) ||
+      /(?:vue\s+d'?ensemble|situation\s+financière|financial\s+snapshot|how\s+are\s+my\s+numbers)/i.test(lower);
+    if (asksDashboardInsight) {
+      const k = dashboardKpis;
+      const fmt = (n: number) => formatConvertedCurrency(n, displayCurrency);
+      const mom =
+        k.caMonthMomPct != null
+          ? `${k.caMonthMomPct >= 0 ? "+" : ""}${Math.round(k.caMonthMomPct * 10) / 10} %`
+          : language === "fr"
+            ? "n/d"
+            : "n/a";
+      appendMessage(
+        "assistant",
+        language === "en"
+          ? `**Dashboard snapshot** (${displayCurrency}):\n` +
+            `• **Monthly CA**: ${fmt(k.caMonthEur)} (vs previous month: ${mom}).\n` +
+            `• **CA (${k.caYearLabel})**: ${fmt(k.caYearEur)}.\n` +
+            `• **Net margin**: ${fmt(k.marginEur)} (${Math.round(k.marginPct * 10) / 10}% of revenue).\n` +
+            `• **Outstanding**: ${fmt(k.unpaidEur)} across **${k.unpaidProjectCount}** project(s) with a balance.\n\n` +
+            `Tap the KPI cards on the Dashboard to open details without leaving the page.`
+          : `**Vue tableau de bord** (équivalents ${displayCurrency}) :\n` +
+            `• **CA du mois** : ${fmt(k.caMonthEur)} (vs mois précédent : ${mom}).\n` +
+            `• **CA (${k.caYearLabel})** : ${fmt(k.caYearEur)}.\n` +
+            `• **Marge nette** : ${fmt(k.marginEur)} (${Math.round(k.marginPct * 10) / 10} % du CA).\n` +
+            `• **Impayés** : ${fmt(k.unpaidEur)} sur **${k.unpaidProjectCount}** projet(s) avec solde.\n\n` +
+            `Touchez les cartes KPI sur le tableau de bord pour le détail sans changer de page.`
+      );
+      return true;
+    }
+  }
 
   // ——— Current project: how much left to pay (needs open project page)
   const asksLeftToPay =
@@ -170,12 +232,12 @@ export async function runExtendedAssistantScenarios(opts: {
     ) ||
     /(?:détails|detail|répartition).{0,40}(?:du\s+)?(?:profit|marge|bénéfice).{0,25}(?:mensuel|mois|du mois)?/i.test(lower)
   ) {
-    router.push("/revenus?detail=margin");
+    router.push("/dashboard?detail=margin");
     appendMessage(
       "assistant",
       language === "en"
-        ? "Opening **Revenue** with the **margin** detail (total revenue − project materials & expense lines)."
-        : "Ouverture de **Revenus** avec le détail de la **marge** (revenus totaux − matériaux chantier et lignes de dépenses)."
+        ? "Opening the **Dashboard** margin detail (total revenue − project materials & expense lines)."
+        : "Ouverture du détail **marge** sur le **tableau de bord** (revenus totaux − matériaux chantier et lignes de dépenses)."
     );
     return true;
   }

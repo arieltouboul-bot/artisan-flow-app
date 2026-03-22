@@ -25,7 +25,6 @@ import { caInRangeEur } from "@/lib/finance-metrics";
 import {
   projectNetProfitEur,
   sumMaterialToolExpensesTtc,
-  sumRevenueRowsEur,
   totalProjectExpensesEur,
   totalProjectRevenueEur,
 } from "@/lib/project-finance";
@@ -214,16 +213,17 @@ export function useFinanceAnalytics() {
           marginPct: Number.isFinite(marginPct) ? marginPct : 0,
         });
 
-        const paidEur = sumRevenueRowsEur(pRev);
+        /** Budget contrat − encaissements totaux (transactions + lignes revenus), équivalent EUR. */
+        const collectedEur = totalProjectRevenueEur(pTx, pRev);
         const budgetEur = num(p.contract_amount);
-        const balanceEur = Math.max(0, budgetEur - paidEur);
+        const balanceEur = Math.max(0, budgetEur - collectedEur);
         if (balanceEur > 0.005) {
           outstandingRows.push({
             projectId: p.id,
             projectName: p.name,
             clientName,
             budgetEur,
-            paidEur,
+            paidEur: collectedEur,
             balanceEur,
           });
         }
