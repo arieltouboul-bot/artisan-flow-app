@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS public.revenues (
   project_id uuid NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   amount numeric NOT NULL CHECK (amount > 0),
   date date NOT NULL DEFAULT (CURRENT_DATE),
-  notes text,
+  currency text NOT NULL DEFAULT 'EUR' CHECK (currency IN ('EUR', 'USD', 'ILS')),
+  description text,
   created_at timestamptz DEFAULT now()
 );
 

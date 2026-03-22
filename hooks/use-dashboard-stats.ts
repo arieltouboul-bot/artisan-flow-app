@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Project } from "@/types/database";
 import { projectRestantDu } from "@/types/database";
+import { amountInCurrencyToEur, type RevenueCurrency, parseStoredRevenueCurrency } from "@/lib/utils";
 
 export type DashboardView = "all" | "impayes" | "ca_detail" | "marge";
 
@@ -25,6 +26,10 @@ export interface DashboardStats {
   facturesImpayees: number;
   nbProjetsImpayes: number;
   chartData: { month: string; ca: number; cout: number }[];
+  /** Totaux bruts des encaissements directs (table revenus), par devise — mois civil en cours */
+  revenueMonthByCurrency: Partial<Record<RevenueCurrency, number>>;
+  /** Même chose sur l'année sélectionnée */
+  revenueYearByCurrency: Partial<Record<RevenueCurrency, number>>;
 }
 
 const MOIS: string[] = [
@@ -109,6 +114,7 @@ interface TransactionRow {
 interface RevenueDashboardRow {
   amount: number;
   date: string;
+  currency: string | null;
 }
 
 /** Gestion des null/undefined : traiter comme 0 pour les totaux. */
@@ -129,6 +135,8 @@ function computeStats(
   const yearStart = new Date(selectedYear, 0, 1);
   const yearEnd = new Date(selectedYear, 11, 31, 23, 59, 59);
   const monthStart = new Date(currentYear, currentMonth, 1);
+  const revenueMonthByCurrency: Partial<Record<RevenueCurrency, number>> = {};
+  const revenueYearByCurrency: Partial<Record<RevenueCurrency, number>> = {};
 
   // Frais matériaux : somme de tous les material_costs (null/undefined → 0)
   const totalMaterialCosts = projects.reduce((sum, p) => sum + num(p.material_costs), 0);
@@ -175,7 +183,20 @@ function computeStats(
   }
 
   for (const rev of revenues) {
-    addCashToMonth(rev.date, num(rev.amount));
+    const cur = parseStoredRevenueCurrency(rev.currency);
+    const eurEq = amountInCurrencyToEur(num(rev.amount), cur);
+    addCashToMonth(rev.date, eurEq);
+
+    const d = new Date(rev.date.includes("T") ? rev.date : `${rev.date}T12:00:00`);
+    if (!Number.isNaN(d.getTime())) {
+      const raw = num(rev.amount);
+      if (selectedYear === currentYear && d >= monthStart) {
+        revenueMonthByCurrency[cur] = (revenueMonthByCurrency[cur] ?? 0) + raw;
+      }
+      if (d >= yearStart && d <= yearEnd) {
+        revenueYearByCurrency[cur] = (revenueYearByCurrency[cur] ?? 0) + raw;
+      }
+    }
   }
 
   let margeAnnuelle = 0;
@@ -217,6 +238,8 @@ function computeStats(
     facturesImpayees,
     nbProjetsImpayes,
     chartData,
+    revenueMonthByCurrency,
+    revenueYearByCurrency,
   };
 }
 
@@ -260,23 +283,7 @@ export function useDashboardStats(selectedYear?: number) {
       return;
     }
     const raw = (projectsData ?? []) as Record<string, unknown>[];
-    if (typeof console !== "undefined" && console.log) {
-      console.log("[Dashboard] Projets bruts Supabase:", raw.map((p) => ({
-        name: p.name,
-        contract_amount: p.contract_amount,
-        material_costs: p.material_costs,
-        amount_collected: p.amount_collected,
-      })));
-    }
     const projectList = raw.map(mapProjectRow);
-    if (typeof console !== "undefined" && console.log) {
-      console.log("[Dashboard] Projets mappés (stats):", projectList.map((p) => ({
-        name: p.name,
-        contract_amount: p.contract_amount,
-        material_costs: p.material_costs,
-        amount_collected: p.amount_collected,
-      })));
-    }
     setProjects(projectList);
 
     const projectIds = projectList.map((p) => p.id);
@@ -292,7 +299,7 @@ export function useDashboardStats(selectedYear?: number) {
 
     const { data: revData, error: revErr } = await supabase
       .from("revenues")
-      .select("amount, date")
+      .select("amount, date, currency")
       .eq("user_id", user.id);
     if (revErr) {
       console.error("[dashboard] revenues fetch:", revErr.message, revErr);

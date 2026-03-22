@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
-import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
+import { motion, useMotionValue, useTransform, animate, useMotionValueEvent } from "framer-motion";
+import { Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const REVEAL = 120;
@@ -18,7 +18,7 @@ type SwipeActionsRowProps = {
 };
 
 /**
- * Swipe left reveals edit/delete; actions stay hidden (opacity 0) until the row moves.
+ * Swipe left reveals edit/delete; actions stay fully hidden until the row moves enough.
  */
 export function SwipeActionsRow({
   children,
@@ -32,7 +32,11 @@ export function SwipeActionsRow({
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0);
   const offset = useMotionValue(0);
-  const actionsOpacity = useTransform(offset, [0, -20, -REVEAL], [0, 0.4, 1]);
+  const actionsOpacity = useTransform(offset, [0, -24, -REVEAL], [0, 0, 1]);
+  const [actionsInteractive, setActionsInteractive] = useState(false);
+  useMotionValueEvent(offset, "change", (v) => {
+    setActionsInteractive(v < -22);
+  });
 
   const hapticDone = useRef(false);
 
@@ -76,7 +80,10 @@ export function SwipeActionsRow({
   return (
     <div className={cn("relative overflow-hidden rounded-lg border border-gray-100 bg-white", className)}>
       <motion.div
-        className="absolute right-0 top-0 z-0 flex h-full min-h-[72px] items-stretch"
+        className={cn(
+          "absolute right-0 top-0 z-0 flex h-full min-h-[72px] items-stretch",
+          !actionsInteractive && "pointer-events-none"
+        )}
         style={{ opacity: actionsOpacity }}
         aria-hidden={true}
       >
@@ -111,20 +118,19 @@ export function SwipeActionsRow({
       <motion.div
         className="relative z-10 touch-pan-y border-r border-transparent bg-white [touch-action:pan-y]"
         style={{ x: offset }}
-        transition={dragging ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         onPointerLeave={endDrag}
       >
-        <div className="relative pr-8">
+        <div className="relative pr-7">
           {children}
           <span
-            className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-gray-300"
+            className="pointer-events-none absolute right-0.5 top-1/2 -translate-y-1/2 select-none text-[13px] font-light leading-none text-gray-400/85"
             aria-hidden
           >
-            <ChevronLeft className="h-4 w-4 opacity-50" strokeWidth={2} />
+            &lt;
           </span>
         </div>
       </motion.div>

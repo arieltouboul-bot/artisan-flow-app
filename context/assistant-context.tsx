@@ -27,6 +27,14 @@ import {
   buildTomorrowAt,
 } from "@/lib/smart-command-parser";
 import { runExtendedAssistantScenarios } from "@/lib/assistant-scenarios";
+import { useProfile } from "@/hooks/use-profile";
+import {
+  amountInCurrencyToEur,
+  formatAmountInCurrency,
+  formatConvertedCurrency,
+  parseStoredRevenueCurrency,
+  type RevenueCurrency,
+} from "@/lib/utils";
 
 export type ModifiedEntity = {
   type: "project" | "client" | "employee" | "reminder";
@@ -135,6 +143,7 @@ async function resolveProjectIdForClient(
 
 export function AssistantProvider({ children }: { children: ReactNode }) {
   const { language } = useLanguage();
+  const { displayCurrency } = useProfile();
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [pageContext, setPageContextState] = useState<AssistantPageContext>({});
   const [isProcessing, setIsProcessing] = useState(false);
@@ -185,7 +194,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           const end = `${y}-${String(m + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
           const { data: revs, error: rErr } = await supabase
             .from("revenues")
-            .select("amount")
+            .select("amount, currency")
             .eq("user_id", user.id)
             .gte("date", start)
             .lte("date", end);
@@ -193,10 +202,16 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             console.error("[assistant] revenues month sum:", rErr);
             appendMessage("assistant", tReplace("assistantRevenueError", language, { msg: rErr.message }));
           } else {
-            const total = (revs ?? []).reduce((s, r) => s + Number((r as { amount: number }).amount || 0), 0);
+            const totalEur = (revs ?? []).reduce((s, r) => {
+              const row = r as { amount: number; currency?: string | null };
+              const cur = parseStoredRevenueCurrency(row.currency);
+              return s + amountInCurrencyToEur(Number(row.amount) || 0, cur);
+            }, 0);
             appendMessage(
               "assistant",
-              tReplace("assistantTotalRevenueMonth", language, { total: Math.round(total) })
+              tReplace("assistantTotalRevenueMonth", language, {
+                total: formatConvertedCurrency(totalEur, displayCurrency),
+              })
             );
           }
           setIsProcessing(false);
@@ -311,7 +326,8 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             project_id: target.id,
             amount: existingRev.amount,
             date: today,
-            notes: language === "en" ? "Voice assistant" : "Assistant vocal",
+            currency: existingRev.currency as RevenueCurrency,
+            description: language === "en" ? "Voice assistant" : "Assistant vocal",
           });
           if (revErr) {
             console.error("[assistant] revenues.insert:", revErr.message, revErr);
@@ -322,7 +338,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           appendMessage(
             "assistant",
             tReplace("assistantRevenueCreated", language, {
-              amount: Math.round(existingRev.amount),
+              amountFormatted: formatAmountInCurrency(existingRev.amount, existingRev.currency as RevenueCurrency),
               project: target.name,
             })
           );
@@ -433,7 +449,8 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
               project_id: target!.id,
               amount: newProjectRevenue.amount,
               date: today,
-              notes: language === "en" ? "Voice assistant" : "Assistant vocal",
+              currency: newProjectRevenue.currency as RevenueCurrency,
+              description: language === "en" ? "Voice assistant" : "Assistant vocal",
             });
             if (revErr) {
               console.error("[assistant] revenues.insert:", revErr.message, revErr);
@@ -444,7 +461,10 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             appendMessage(
               "assistant",
               tReplace("assistantRevenueCreated", language, {
-                amount: Math.round(newProjectRevenue.amount),
+                amountFormatted: formatAmountInCurrency(
+                  newProjectRevenue.amount,
+                  newProjectRevenue.currency as RevenueCurrency
+                ),
                 project: target!.name,
               }),
               {
@@ -1287,7 +1307,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         setIsProcessing(false);
       }
     },
-    [appendMessage, pageContext, router, language]
+    [appendMessage, pageContext, router, language, displayCurrency]
   );
 
   const value = useMemo<AssistantContextValue>(

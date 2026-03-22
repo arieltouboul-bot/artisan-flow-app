@@ -35,6 +35,26 @@ export function convertCurrency(amountEur: number, toCurrency: Currency): number
   return rate != null ? amountEur * rate : amountEur;
 }
 
+/** Montant saisi dans `currency` → équivalent EUR (pour agrégation dashboard / graphiques). */
+export function amountInCurrencyToEur(amount: number, currency: Currency): number {
+  const rate = EUR_TO_CURRENCY_RATES[currency];
+  if (!rate || rate === 0) return amount;
+  return amount / rate;
+}
+
+/** Affiche un montant dans la devise de la ligne (pas de conversion). */
+export function formatAmountInCurrency(amount: number, currency: Currency): string {
+  return formatCurrencyWithSymbol(amount, currency);
+}
+
+/** Devise enregistrée pour une ligne revenu (EUR / USD / ILS). */
+export type RevenueCurrency = Extract<Currency, "EUR" | "USD" | "ILS">;
+
+export function parseStoredRevenueCurrency(c: string | null | undefined): RevenueCurrency {
+  if (c === "USD" || c === "ILS" || c === "EUR") return c;
+  return "EUR";
+}
+
 export function getCurrencySymbol(currency: Currency = "EUR"): string {
   return CURRENCY_SYMBOLS[currency];
 }

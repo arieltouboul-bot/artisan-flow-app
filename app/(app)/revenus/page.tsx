@@ -18,16 +18,15 @@ import { useRevenues } from "@/hooks/use-revenues";
 import { useProjects } from "@/hooks/use-projects";
 import { useClients } from "@/hooks/use-clients";
 import { createClient } from "@/lib/supabase/client";
-import { useProfile } from "@/hooks/use-profile";
-import { formatConvertedCurrency, formatDate, cn } from "@/lib/utils";
+import { formatAmountInCurrency, formatDate, cn, type RevenueCurrency } from "@/lib/utils";
 import { Banknote, Loader2 } from "lucide-react";
 import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
+const REV_CURRENCIES: RevenueCurrency[] = ["EUR", "USD", "ILS"];
+
 export default function RevenusPage() {
   const { language } = useLanguage();
-  const { displayCurrency } = useProfile();
-  const currency = displayCurrency;
   const { rows, loading, error: revenuesError, insertRevenue } = useRevenues();
   const { projects, refetch: refetchProjects } = useProjects();
   const { clients, refetch: refetchClients } = useClients();
@@ -36,9 +35,10 @@ export default function RevenusPage() {
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const [amount, setAmount] = useState("");
+  const [revenueCurrency, setRevenueCurrency] = useState<RevenueCurrency>("EUR");
   const [receivedAt, setReceivedAt] = useState(() => new Date().toISOString().slice(0, 10));
   const [projectId, setProjectId] = useState("");
-  const [notes, setNotes] = useState("");
+  const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -53,7 +53,7 @@ export default function RevenusPage() {
     if (!q) return rows;
     return rows.filter((r) => {
       const pn = r.project?.name?.toLowerCase() ?? "";
-      const n = (r.notes ?? "").toLowerCase();
+      const n = (r.description ?? "").toLowerCase();
       return pn.includes(q) || n.includes(q);
     });
   }, [rows, debouncedSearch]);
@@ -82,13 +82,14 @@ export default function RevenusPage() {
       project_id: projectId,
       amount: n,
       date: receivedAt,
-      notes: notes.trim() || null,
+      currency: revenueCurrency,
+      description: description.trim() || null,
     });
     setSubmitting(false);
     if (error) setFormError(error);
     else {
       setAmount("");
-      setNotes("");
+      setDescription("");
     }
   };
 
@@ -169,6 +170,12 @@ export default function RevenusPage() {
     }
   };
 
+  const currencyLabel = (c: RevenueCurrency) => {
+    if (c === "EUR") return t("revenueCurrencyOptionEUR", language);
+    if (c === "USD") return t("revenueCurrencyOptionUSD", language);
+    return t("revenueCurrencyOptionILS", language);
+  };
+
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
@@ -199,18 +206,37 @@ export default function RevenusPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">{t("revenueAmountLabel", language)}</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="min-h-[44px]"
-                  required
-                  disabled={submitting}
-                />
+              <div className="sm:col-span-2 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("revenueAmountLabel", language)}</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="min-h-[44px]"
+                    required
+                    disabled={submitting}
+                  />
+                </div>
+                <div className="min-w-[140px]">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("revenueCurrencyLabel", language)}</label>
+                  <select
+                    value={revenueCurrency}
+                    onChange={(e) => setRevenueCurrency(e.target.value as RevenueCurrency)}
+                    className={cn(
+                      "w-full min-h-[44px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
+                    )}
+                    disabled={submitting}
+                  >
+                    {REV_CURRENCIES.map((c) => (
+                      <option key={c} value={c}>
+                        {currencyLabel(c)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">{t("revenueDateLabel", language)}</label>
@@ -260,8 +286,13 @@ export default function RevenusPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">{t("revenueNotesLabel", language)}</label>
-              <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-[44px]" disabled={submitting} />
+              <label className="mb-1 block text-sm font-medium text-gray-700">{t("revenueDescriptionLabel", language)}</label>
+              <Input
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="min-h-[44px]"
+                disabled={submitting}
+              />
             </div>
             {formError && <p className="text-sm text-red-600">{formError}</p>}
             <Button type="submit" disabled={submitting} className="min-h-[44px]">
@@ -285,9 +316,9 @@ export default function RevenusPage() {
               {filteredRows.map((r) => (
                 <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
                   <span className="font-medium text-gray-900">{r.project?.name ?? "—"}</span>
-                  <span className="text-emerald-700 font-semibold">{formatConvertedCurrency(r.amount, currency)}</span>
+                  <span className="text-emerald-700 font-semibold">{formatAmountInCurrency(r.amount, r.currency)}</span>
                   <span className="text-gray-500 w-full sm:w-auto">{formatDate(r.date)}</span>
-                  {r.notes && <span className="text-gray-600 w-full text-xs">{r.notes}</span>}
+                  {r.description && <span className="text-gray-600 w-full text-xs">{r.description}</span>}
                 </li>
               ))}
             </ul>

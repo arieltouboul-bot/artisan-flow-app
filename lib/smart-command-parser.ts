@@ -266,57 +266,92 @@ export function parseProjectWithBudget(raw: string): ParsedProjectBudget | null 
   return null;
 }
 
+export type RevenueCurrencyCode = "EUR" | "USD" | "ILS";
+
 export type NewProjectRevenueParsed = {
   amount: number;
   projectName: string;
+  currency: RevenueCurrencyCode;
 };
+
+/** Devise déduite du texte (dollars, shekels, euros, symboles). */
+export function inferRevenueCurrencyFromText(text: string): RevenueCurrencyCode {
+  const lower = text.toLowerCase();
+  if (/\b(dollar|dollars|usd)\b/.test(lower) || /\$\s*\d|\d[\d.,]*\s*\$/.test(text)) return "USD";
+  if (/\b(shekel|shekels|nis)\b/.test(lower) || /₪/.test(text)) return "ILS";
+  if (/\b(euro|euros|eur)\b/.test(lower) || /€/.test(text)) return "EUR";
+  return "EUR";
+}
+
+function stripTrailingCurrencyWords(name: string): string {
+  return name
+    .replace(/\s+(€|eur|euros?|usd|dollars?|\$|₪|shekels?|nis)\s*$/i, "")
+    .replace(/[.,]$/, "")
+    .trim();
+}
 
 /**
  * "Add 2000€ for a new project Villa Herzliya"
  * "Ajoute 2000€ pour un nouveau projet Villa Herzliya"
+ * "Add 500 dollars for a new project Test"
  */
 export function parseNewProjectRevenueCommand(raw: string): NewProjectRevenueParsed | null {
   const text = raw.trim();
+  const currency = inferRevenueCurrencyFromText(text);
 
   const fr =
-    /^(?:ajoute|ajouter|enregistre)\s+(\d+(?:[.,]\d+)?)\s*€?\s+pour\s+(?:un\s+)?(?:nouveau\s+)?(?:projet\s+)?(.+)$/i.exec(
+    /^(?:ajoute|ajouter|enregistre)\s+(\d+(?:[.,]\d+)?)\s*(?:€|eur|euros?|usd|dollars?|\$|₪|shekels?)?\s+pour\s+(?:un\s+)?(?:nouveau\s+)?(?:projet\s+)?(.+)$/i.exec(
       text
     );
   if (fr) {
     const amount = parseFloat(fr[1].replace(",", "."));
-    const projectName = fr[2].trim().replace(/[.,]$/, "");
-    if (!Number.isNaN(amount) && amount > 0 && projectName.length >= 2) return { amount, projectName };
+    let projectName = fr[2].trim();
+    projectName = stripTrailingCurrencyWords(projectName);
+    if (!Number.isNaN(amount) && amount > 0 && projectName.length >= 2)
+      return { amount, projectName, currency };
   }
 
   const en =
-    /^(?:add|record)\s+(\d+(?:[.,]\d+)?)\s*(?:€|eur|euros?)?\s+for\s+(?:a\s+)?(?:new\s+)?(?:project\s+)?(.+)$/i.exec(
+    /^(?:add|record)\s+(\d+(?:[.,]\d+)?)\s*(?:€|eur|euros?|usd|dollars?|\$|₪|shekels?)?\s+for\s+(?:a\s+)?(?:new\s+)?(?:project\s+)?(.+)$/i.exec(
       text
     );
   if (en) {
     const amount = parseFloat(en[1].replace(",", "."));
-    const projectName = en[2].trim().replace(/[.,]$/, "");
-    if (!Number.isNaN(amount) && amount > 0 && projectName.length >= 2) return { amount, projectName };
+    let projectName = en[2].trim();
+    projectName = stripTrailingCurrencyWords(projectName);
+    if (!Number.isNaN(amount) && amount > 0 && projectName.length >= 2)
+      return { amount, projectName, currency };
   }
 
   return null;
 }
 
-/** "Add 1500€ revenue for Villa Cohen" / "Ajoute 1500€ de revenu pour Villa Cohen" */
+/** "Add 1500€ revenue for Villa Cohen" / "Add 500 dollars revenue for Villa Cohen" */
 export function parseExistingProjectRevenueCommand(raw: string): NewProjectRevenueParsed | null {
   const text = raw.trim();
+  const currency = inferRevenueCurrencyFromText(text);
+
   const en =
-    /^(?:add|record)\s+(\d+(?:[.,]\d+)?)\s*(?:€|eur|euros?)?\s+revenue\s+for\s+(.+)$/i.exec(text);
+    /^(?:add|record)\s+(\d+(?:[.,]\d+)?)\s*(?:€|eur|euros?|usd|dollars?|\$|₪|shekels?)?\s+revenue\s+for\s+(.+)$/i.exec(
+      text
+    );
   if (en) {
     const amount = parseFloat(en[1].replace(",", "."));
-    const projectName = en[2].trim().replace(/[.,]$/, "");
-    if (!Number.isNaN(amount) && amount > 0 && projectName.length >= 2) return { amount, projectName };
+    let projectName = en[2].trim();
+    projectName = stripTrailingCurrencyWords(projectName);
+    if (!Number.isNaN(amount) && amount > 0 && projectName.length >= 2)
+      return { amount, projectName, currency };
   }
   const fr =
-    /^(?:ajoute|ajouter|enregistre)\s+(\d+(?:[.,]\d+)?)\s*€?\s+(?:de\s+)?revenu\s+pour\s+(.+)$/i.exec(text);
+    /^(?:ajoute|ajouter|enregistre)\s+(\d+(?:[.,]\d+)?)\s*(?:€|eur|euros?|usd|dollars?|\$|₪|shekels?)?\s+(?:de\s+)?revenu\s+pour\s+(.+)$/i.exec(
+      text
+    );
   if (fr) {
     const amount = parseFloat(fr[1].replace(",", "."));
-    const projectName = fr[2].trim().replace(/[.,]$/, "");
-    if (!Number.isNaN(amount) && amount > 0 && projectName.length >= 2) return { amount, projectName };
+    let projectName = fr[2].trim();
+    projectName = stripTrailingCurrencyWords(projectName);
+    if (!Number.isNaN(amount) && amount > 0 && projectName.length >= 2)
+      return { amount, projectName, currency };
   }
   return null;
 }

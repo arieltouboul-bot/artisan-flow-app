@@ -20,14 +20,21 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OmniTabSearch } from "@/components/ui/omni-tab-search";
-import { formatCurrency, formatConvertedCurrency, convertCurrency, getCurrencySymbol } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatConvertedCurrency,
+  convertCurrency,
+  getCurrencySymbol,
+  formatAmountInCurrency,
+  type RevenueCurrency,
+} from "@/lib/utils";
 import { useDashboardStats, type DashboardView } from "@/hooks/use-dashboard-stats";
 import { useReminders } from "@/hooks/use-reminders";
 import { useTodayAppointments } from "@/hooks/use-appointments";
 import { useUser } from "@/hooks/use-user";
 import { useProfile } from "@/hooks/use-profile";
 import { useLanguage } from "@/context/language-context";
-import { t } from "@/lib/translations";
+import { t, tReplace } from "@/lib/translations";
 import { projectRestantDu } from "@/types/database";
 import { TrendingUp, AlertCircle, Euro, Percent, FolderKanban, ArrowRight, X, Bell, CheckSquare, Square, Trash2, Plus, CalendarClock, MapPin, Loader2 } from "lucide-react";
 import { formatTime } from "@/lib/utils";
@@ -78,6 +85,21 @@ const item = {
 
 const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+function formatRevenueCurrencySplit(
+  breakdown: Partial<Record<RevenueCurrency, number>>,
+  language: string
+): string | null {
+  const parts = (["EUR", "USD", "ILS"] as const)
+    .map((c) => {
+      const v = breakdown[c];
+      if (v == null || v <= 0) return null;
+      return formatAmountInCurrency(v, c);
+    })
+    .filter(Boolean) as string[];
+  if (parts.length === 0) return null;
+  return parts.join(language === "fr" ? " · " : " · ");
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -289,6 +311,23 @@ export default function DashboardPage() {
                 >
                   {loading ? "—" : formatConvertedCurrency(stats.caMensuel, currency)}
                 </motion.p>
+                {(() => {
+                  const split = formatRevenueCurrencySplit(stats.revenueMonthByCurrency, language);
+                  const show =
+                    split &&
+                    ((["EUR", "USD", "ILS"] as const).filter((c) => (stats.revenueMonthByCurrency[c] ?? 0) > 0).length >
+                      1 ||
+                      (stats.revenueMonthByCurrency.USD ?? 0) > 0 ||
+                      (stats.revenueMonthByCurrency.ILS ?? 0) > 0);
+                  if (!show || !split) return null;
+                  return (
+                    <p className="text-xs text-gray-500 mt-2 leading-snug">
+                      <span className="font-medium text-gray-600">{t("dashboardRevenueDetailMonth", language)}</span>
+                      <br />
+                      {split}
+                    </p>
+                  );
+                })()}
                 <Progress value={progressValue} className="mt-2 h-2" />
                 <p className="text-xs text-gray-500 mt-1">{t("clickToSeeProjects", language)}</p>
               </CardContent>
@@ -314,6 +353,25 @@ export default function DashboardPage() {
                 >
                   {loading ? "—" : formatConvertedCurrency(stats.caAnnuel, currency)}
                 </motion.p>
+                {(() => {
+                  const split = formatRevenueCurrencySplit(stats.revenueYearByCurrency, language);
+                  const show =
+                    split &&
+                    ((["EUR", "USD", "ILS"] as const).filter((c) => (stats.revenueYearByCurrency[c] ?? 0) > 0).length >
+                      1 ||
+                      (stats.revenueYearByCurrency.USD ?? 0) > 0 ||
+                      (stats.revenueYearByCurrency.ILS ?? 0) > 0);
+                  if (!show || !split) return null;
+                  return (
+                    <p className="text-xs text-gray-500 mt-2 leading-snug">
+                      <span className="font-medium text-gray-600">
+                        {tReplace("dashboardRevenueDetailYear", language, { year: String(selectedYear) })}
+                      </span>
+                      <br />
+                      {split}
+                    </p>
+                  );
+                })()}
                 <p className="text-xs text-gray-500 mt-1">{t("clickToSeeProjects", language)}</p>
               </CardContent>
             </Card>
@@ -518,6 +576,7 @@ export default function DashboardPage() {
                   <p className="text-sm text-gray-500 mt-1">
                     {t("revenueAndMaterials", language)}
                   </p>
+                  <p className="text-xs text-gray-400 mt-1">{t("dashboardChartMixedCurrencyNote", language)}</p>
                 </div>
                 <Button
                   variant="ghost"
@@ -674,6 +733,7 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle>{t("profitabilityChart", language)}</CardTitle>
               <p className="text-sm text-gray-500">{t("revenueGreenMaterialsRed", language)}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{t("dashboardChartMixedCurrencyNote", language)}</p>
               <p className="text-xs text-brand-blue-600">{t("clickChartForDetails", language)}</p>
             </CardHeader>
             <CardContent>
@@ -714,6 +774,7 @@ export default function DashboardPage() {
         <DialogContent className={cn("max-w-4xl max-h-[90vh] overflow-y-auto")}>
           <DialogHeader>
             <DialogTitle>{t("chartDetailFullscreen", language)}</DialogTitle>
+            <p className="text-xs text-gray-400 font-normal">{t("dashboardChartMixedCurrencyNote", language)}</p>
           </DialogHeader>
           <div className="space-y-6">
             <div className={cn("h-[360px] w-full", isMobile && "h-[350px]")}>

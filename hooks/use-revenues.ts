@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { parseStoredRevenueCurrency, type RevenueCurrency } from "@/lib/utils";
 
 export type RevenueRow = {
   id: string;
@@ -10,7 +11,8 @@ export type RevenueRow = {
   amount: number;
   /** Colonne Supabase : date (jour du revenu) */
   date: string;
-  notes: string | null;
+  currency: RevenueCurrency;
+  description: string | null;
   created_at?: string;
   project?: { id: string; name: string } | null;
 };
@@ -47,7 +49,9 @@ export function useRevenues() {
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from(TABLE)
-        .select("id, user_id, project_id, amount, date, notes, created_at, project:projects(id, name)")
+        .select(
+          "id, user_id, project_id, amount, date, currency, description, created_at, project:projects(id, name)"
+        )
         .eq("user_id", user.id)
         .order("date", { ascending: false });
 
@@ -67,7 +71,8 @@ export function useRevenues() {
               project_id: row.project_id as string,
               amount: Number(row.amount),
               date: String(row.date),
-              notes: (row.notes as string | null) ?? null,
+              currency: parseStoredRevenueCurrency(row.currency as string | null | undefined),
+              description: (row.description as string | null) ?? null,
               created_at: row.created_at as string | undefined,
               project: project ? { id: project.id, name: project.name } : null,
             };
@@ -92,7 +97,8 @@ export function useRevenues() {
       project_id: string;
       amount: number;
       date: string;
-      notes?: string | null;
+      currency: RevenueCurrency;
+      description?: string | null;
       user_id: string;
     }) => {
       const supabase = createClient();
@@ -106,7 +112,8 @@ export function useRevenues() {
           project_id: payload.project_id,
           amount: payload.amount,
           date: payload.date,
-          notes: payload.notes?.trim() || null,
+          currency: payload.currency,
+          description: payload.description?.trim() || null,
         };
         const { error: insertError } = await supabase.from(TABLE).insert(insertPayload);
         if (insertError) {
