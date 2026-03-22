@@ -1,0 +1,2 @@
+-- Si votre table existante utilise encore received_at, exécutez une fois :
+-- ALTER TABLE public.revenues RENAME COLUMN received_at TO date;

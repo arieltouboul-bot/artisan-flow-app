@@ -301,6 +301,97 @@ export function parseNewProjectRevenueCommand(raw: string): NewProjectRevenuePar
   return null;
 }
 
+/** "Add 1500€ revenue for Villa Cohen" / "Ajoute 1500€ de revenu pour Villa Cohen" */
+export function parseExistingProjectRevenueCommand(raw: string): NewProjectRevenueParsed | null {
+  const text = raw.trim();
+  const en =
+    /^(?:add|record)\s+(\d+(?:[.,]\d+)?)\s*(?:€|eur|euros?)?\s+revenue\s+for\s+(.+)$/i.exec(text);
+  if (en) {
+    const amount = parseFloat(en[1].replace(",", "."));
+    const projectName = en[2].trim().replace(/[.,]$/, "");
+    if (!Number.isNaN(amount) && amount > 0 && projectName.length >= 2) return { amount, projectName };
+  }
+  const fr =
+    /^(?:ajoute|ajouter|enregistre)\s+(\d+(?:[.,]\d+)?)\s*€?\s+(?:de\s+)?revenu\s+pour\s+(.+)$/i.exec(text);
+  if (fr) {
+    const amount = parseFloat(fr[1].replace(",", "."));
+    const projectName = fr[2].trim().replace(/[.,]$/, "");
+    if (!Number.isNaN(amount) && amount > 0 && projectName.length >= 2) return { amount, projectName };
+  }
+  return null;
+}
+
+export function parseTotalRevenueThisMonthIntent(raw: string): boolean {
+  const lower = raw.toLowerCase();
+  if (!/(this\s+month|ce\s+mois|cette\s+mois-ci|du\s+mois)/i.test(lower)) return false;
+  if (!/(revenue|revenu|revenues|ca\b|chiffre|turnover|sales|total|encais)/i.test(lower)) return false;
+  if (!/(what|quel|combien|how|total|my|mon|ma\s+|is\s+my|de\s+mon)/i.test(lower)) return false;
+  return true;
+}
+
+export function parseShowActiveProjectsIntent(raw: string): boolean {
+  const lower = raw.toLowerCase();
+  if (!/(project|projet|chantier)/i.test(lower)) return false;
+  if (!/(show|liste|list|affiche|montre|display|see|give)/i.test(lower)) return false;
+  if (!/(active|actifs?|actives?|en\s+cours|current|ongoing|ouverts?)/i.test(lower)) return false;
+  return true;
+}
+
+export type CreateProjectForClientParsed = { clientName: string };
+
+/** "Create a new project for Client X" / "Crée un projet pour Martin" */
+export function parseCreateProjectForClientCommand(raw: string): CreateProjectForClientParsed | null {
+  const text = raw.trim();
+  const en1 = /^create\s+a\s+new\s+project\s+for\s+(.+)$/i.exec(text);
+  if (en1) {
+    const clientName = en1[1].trim().replace(/[.,]$/, "");
+    if (clientName.length >= 2) return { clientName };
+  }
+  const en =
+    /^(?:create|make|add)\s+(?:a\s+)?(?:new\s+)?(?:project|chantier)\s+(?:for|with)\s+(.+)$/i.exec(text);
+  if (en) {
+    const clientName = en[1].trim().replace(/[.,]$/, "");
+    if (clientName.length >= 2) return { clientName };
+  }
+  const fr =
+    /^(?:crée|cree|créer)\s+(?:un\s+)?(?:nouveau\s+)?projet\s+pour\s+(?:le\s+)?(?:client\s+)?(.+)$/i.exec(text);
+  if (fr) {
+    const clientName = fr[1].trim().replace(/[.,]$/, "");
+    if (clientName.length >= 2) return { clientName };
+  }
+  return null;
+}
+
+/** "Schedule a meeting tomorrow at 10am" / "RDV demain à 10h" */
+export function buildTomorrowAt(hour: number, minute: number): { start: Date; end: Date } {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, hour, minute, 0, 0);
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  return { start, end };
+}
+
+export function parseTomorrowMeetingCommand(raw: string): { hour: number; minute: number } | null {
+  const lower = raw.toLowerCase();
+  if (!/(tomorrow|demain)/.test(lower)) return null;
+  if (!/(meeting|appointment|rendez|schedule|réunion|rdv|book)/.test(lower)) return null;
+  const en = /(?:at|@)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?/i.exec(raw);
+  if (en) {
+    let hour = parseInt(en[1], 10);
+    const minute = en[2] ? parseInt(en[2], 10) : 0;
+    const ampm = (en[3] || "").toLowerCase();
+    if (ampm === "pm" || ampm === "p.m.") {
+      if (hour < 12) hour += 12;
+    }
+    if ((ampm === "am" || ampm === "a.m.") && hour === 12) hour = 0;
+    return { hour, minute };
+  }
+  const fr = /(?:à\s+)?(\d{1,2})h(?::(\d{2}))?/i.exec(raw);
+  if (fr) {
+    return { hour: parseInt(fr[1], 10), minute: fr[2] ? parseInt(fr[2], 10) : 0 };
+  }
+  return null;
+}
+
 export type InvoiceFilterIntent = {
   vendor: string;
   month: "current" | "previous" | "all";

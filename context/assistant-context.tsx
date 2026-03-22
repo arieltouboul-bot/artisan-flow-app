@@ -19,6 +19,12 @@ import {
   parseWeeklyRecurrenceCommand,
   buildWeeklySeriesDates,
   parseNewProjectRevenueCommand,
+  parseExistingProjectRevenueCommand,
+  parseTotalRevenueThisMonthIntent,
+  parseShowActiveProjectsIntent,
+  parseCreateProjectForClientCommand,
+  parseTomorrowMeetingCommand,
+  buildTomorrowAt,
 } from "@/lib/smart-command-parser";
 import { runExtendedAssistantScenarios } from "@/lib/assistant-scenarios";
 
@@ -170,7 +176,193 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       const lower = text.toLowerCase();
 
       try {
-        // ——— Invoice filter: "Show invoices from Castorama this month"
+        if (parseTotalRevenueThisMonthIntent(text)) {
+          const now = new Date();
+          const y = now.getFullYear();
+          const m = now.getMonth();
+          const start = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+          const lastDay = new Date(y, m + 1, 0).getDate();
+          const end = `${y}-${String(m + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+          const { data: revs, error: rErr } = await supabase
+            .from("revenues")
+            .select("amount")
+            .eq("user_id", user.id)
+            .gte("date", start)
+            .lte("date", end);
+          if (rErr) {
+            console.error("[assistant] revenues month sum:", rErr);
+            appendMessage("assistant", tReplace("assistantRevenueError", language, { msg: rErr.message }));
+          } else {
+            const total = (revs ?? []).reduce((s, r) => s + Number((r as { amount: number }).amount || 0), 0);
+            appendMessage(
+              "assistant",
+              tReplace("assistantTotalRevenueMonth", language, { total: Math.round(total) })
+            );
+          }
+          setIsProcessing(false);
+          return;
+        }
+
+        if (parseShowActiveProjectsIntent(text)) {
+          const { data: projs } = await supabase
+            .from("projects")
+            .select("id, name, status, client:clients(name)")
+            .eq("user_id", user.id)
+            .eq("status", "en_cours");
+          const list = ((projs ?? []) as Record<string, unknown>[]).map((r) => {
+            const c = r.client as { name: string } | { name: string }[] | null | undefined;
+            const client = Array.isArray(c) ? c[0] ?? null : c ?? null;
+            return {
+              id: r.id as string,
+              name: r.name as string,
+              client,
+            };
+          });
+          if (list.length === 0) {
+            appendMessage("assistant", t("assistantNoActiveProjects", language));
+          } else {
+            const lines = list.map((p) => `• **${p.name}**${p.client?.name ? ` (${p.client.name})` : ""}`);
+            appendMessage("assistant", t("assistantActiveProjectsHeader", language) + "\n\n" + lines.join("\n"));
+          }
+          setIsProcessing(false);
+          return;
+        }
+
+        const createForClient = parseCreateProjectForClientCommand(text);
+        if (createForClient) {
+          const { data: clients } = await supabase.from("clients").select("id, name").eq("user_id", user.id);
+          const client = (clients ?? []).find((c: { name: string }) =>
+            c.name.toLowerCase().includes(createForClient.clientName.toLowerCase())
+          );
+          if (!client) {
+            appendMessage(
+              "assistant",
+              tReplace("assistantNoClientFound", language, { name: createForClient.clientName })
+            );
+            setIsProcessing(false);
+            return;
+          }
+          const projName = createForClient.clientName.trim().slice(0, 200);
+          const { data: np, error: pErr } = await supabase
+            .from("projects")
+            .insert({
+              user_id: user.id,
+              client_id: client.id,
+              name: projName,
+              status: "en_preparation",
+              address: null,
+              contract_amount: 0,
+              material_costs: 0,
+              amount_collected: 0,
+              start_date: new Date().toISOString().slice(0, 10),
+              started_at: null,
+              ended_at: null,
+              notes: null,
+            })
+            .select("id, name")
+            .single();
+          if (pErr || !np) {
+            appendMessage(
+              "assistant",
+              tReplace("assistantProjectNotCreated", language, { msg: pErr?.message ?? t("assistantErrorGeneric", language) })
+            );
+          } else {
+            appendMessage(
+              "assistant",
+              tReplace("assistantProjectCreatedForClient", language, {
+                name: (np as { name: string }).name,
+                client: client.name,
+              }),
+              {
+                modifiedEntities: [
+                  {
+                    type: "project",
+                    id: (np as { id: string }).id,
+                    name: (np as { name: string }).name,
+                    fields: [],
+                    link: `/projets/${(np as { id: string }).id}`,
+                  },
+                ],
+              }
+            );
+            router.push(`/projets/${(np as { id: string }).id}`);
+          }
+          setIsProcessing(false);
+          return;
+        }
+
+        const existingRev = parseExistingProjectRevenueCommand(text);
+        if (existingRev) {
+          const { data: projectRows } = await supabase.from("projects").select("id, name").eq("user_id", user.id);
+          const list = (projectRows ?? []) as { id: string; name: string }[];
+          const target = list.find(
+            (p) =>
+              p.name.toLowerCase().includes(existingRev.projectName.toLowerCase()) ||
+              existingRev.projectName.toLowerCase().includes(p.name.toLowerCase())
+          );
+          if (!target) {
+            appendMessage("assistant", tReplace("assistantNoProjectFound", language, { name: existingRev.projectName }));
+            setIsProcessing(false);
+            return;
+          }
+          const today = new Date().toISOString().slice(0, 10);
+          const { error: revErr } = await supabase.from("revenues").insert({
+            user_id: user.id,
+            project_id: target.id,
+            amount: existingRev.amount,
+            date: today,
+            notes: language === "en" ? "Voice assistant" : "Assistant vocal",
+          });
+          if (revErr) {
+            console.error("[assistant] revenues.insert:", revErr.message, revErr);
+            appendMessage("assistant", tReplace("assistantRevenueError", language, { msg: revErr.message }));
+            setIsProcessing(false);
+            return;
+          }
+          appendMessage(
+            "assistant",
+            tReplace("assistantRevenueCreated", language, {
+              amount: Math.round(existingRev.amount),
+              project: target.name,
+            })
+          );
+          router.push("/revenus");
+          setIsProcessing(false);
+          return;
+        }
+
+        const tomorrowMeet = parseTomorrowMeetingCommand(text);
+        if (tomorrowMeet) {
+          const { start, end } = buildTomorrowAt(tomorrowMeet.hour, tomorrowMeet.minute);
+          const overlapAppt = await fetchOverlappingAppointments(supabase, user.id, start, end);
+          if (overlapAppt.length) {
+            const conflictStart = new Date(overlapAppt[0]!.start_at);
+            const { existingTime, alt1Time, alt2Day } = formatConflictAlternatives(start, conflictStart, language);
+            appendMessage("assistant", tReplace("assistantAppointmentConflict", language, { existingTime, alt1Time, alt2Day }));
+            setIsProcessing(false);
+            return;
+          }
+          const title = language === "en" ? "Meeting" : "Réunion";
+          const { error: insertErr } = await supabase.from("appointments").insert({
+            user_id: user.id,
+            title,
+            project_id: null,
+            start_at: start.toISOString(),
+            end_at: end.toISOString(),
+            type: "reunion",
+            updated_at: new Date().toISOString(),
+          });
+          if (insertErr) {
+            appendMessage("assistant", tReplace("assistantAppointmentError", language, { msg: insertErr.message }));
+          } else {
+            appendMessage("assistant", t("assistantTomorrowMeetingCreated", language));
+            router.push("/calendar");
+          }
+          setIsProcessing(false);
+          return;
+        }
+
+        // ——— "Add 2000€ for a new project…" (revenue + création si besoin)
         const newProjectRevenue = parseNewProjectRevenueCommand(text);
         if (newProjectRevenue) {
           try {
@@ -240,7 +432,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
               user_id: user.id,
               project_id: target!.id,
               amount: newProjectRevenue.amount,
-              received_at: today,
+              date: today,
               notes: language === "en" ? "Voice assistant" : "Assistant vocal",
             });
             if (revErr) {

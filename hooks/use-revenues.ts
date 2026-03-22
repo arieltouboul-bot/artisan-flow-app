@@ -8,7 +8,8 @@ export type RevenueRow = {
   user_id: string;
   project_id: string;
   amount: number;
-  received_at: string;
+  /** Colonne Supabase : date (jour du revenu) */
+  date: string;
   notes: string | null;
   created_at?: string;
   project?: { id: string; name: string } | null;
@@ -46,9 +47,9 @@ export function useRevenues() {
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from(TABLE)
-        .select("id, user_id, project_id, amount, received_at, notes, created_at, project:projects(id, name)")
+        .select("id, user_id, project_id, amount, date, notes, created_at, project:projects(id, name)")
         .eq("user_id", user.id)
-        .order("received_at", { ascending: false });
+        .order("date", { ascending: false });
 
       if (fetchError) {
         logRevenuesError("select", fetchError);
@@ -65,7 +66,7 @@ export function useRevenues() {
               user_id: row.user_id as string,
               project_id: row.project_id as string,
               amount: Number(row.amount),
-              received_at: String(row.received_at),
+              date: String(row.date),
               notes: (row.notes as string | null) ?? null,
               created_at: row.created_at as string | undefined,
               project: project ? { id: project.id, name: project.name } : null,
@@ -90,7 +91,7 @@ export function useRevenues() {
     async (payload: {
       project_id: string;
       amount: number;
-      received_at: string;
+      date: string;
       notes?: string | null;
       user_id: string;
     }) => {
@@ -104,7 +105,7 @@ export function useRevenues() {
           user_id: payload.user_id,
           project_id: payload.project_id,
           amount: payload.amount,
-          received_at: payload.received_at,
+          date: payload.date,
           notes: payload.notes?.trim() || null,
         };
         const { error: insertError } = await supabase.from(TABLE).insert(insertPayload);

@@ -81,7 +81,7 @@ export default function RevenusPage() {
       user_id: user.id,
       project_id: projectId,
       amount: n,
-      received_at: receivedAt,
+      date: receivedAt,
       notes: notes.trim() || null,
     });
     setSubmitting(false);
@@ -286,7 +286,7 @@ export default function RevenusPage() {
                 <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
                   <span className="font-medium text-gray-900">{r.project?.name ?? "—"}</span>
                   <span className="text-emerald-700 font-semibold">{formatConvertedCurrency(r.amount, currency)}</span>
-                  <span className="text-gray-500 w-full sm:w-auto">{formatDate(r.received_at)}</span>
+                  <span className="text-gray-500 w-full sm:w-auto">{formatDate(r.date)}</span>
                   {r.notes && <span className="text-gray-600 w-full text-xs">{r.notes}</span>}
                 </li>
               ))}

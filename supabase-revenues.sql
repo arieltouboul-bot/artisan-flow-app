@@ -6,14 +6,14 @@ CREATE TABLE IF NOT EXISTS public.revenues (
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   project_id uuid NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   amount numeric NOT NULL CHECK (amount > 0),
-  received_at date NOT NULL DEFAULT (CURRENT_DATE),
+  date date NOT NULL DEFAULT (CURRENT_DATE),
   notes text,
   created_at timestamptz DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_revenues_user_id ON public.revenues(user_id);
 CREATE INDEX IF NOT EXISTS idx_revenues_project_id ON public.revenues(project_id);
-CREATE INDEX IF NOT EXISTS idx_revenues_received_at ON public.revenues(received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_revenues_date ON public.revenues(date DESC);
 
 ALTER TABLE public.revenues ENABLE ROW LEVEL SECURITY;
 

@@ -106,15 +106,21 @@ interface TransactionRow {
   payment_date: string;
 }
 
+interface RevenueDashboardRow {
+  amount: number;
+  date: string;
+}
+
 /** Gestion des null/undefined : traiter comme 0 pour les totaux. */
 function num(v: number | null | undefined): number {
   return v == null || Number.isNaN(Number(v)) ? 0 : Number(v);
 }
 
-/** CA par mois depuis project_transactions. Cartes : .reduce() sur projets avec null → 0. */
+/** CA par mois : project_transactions + table revenues (colonne date). */
 function computeStats(
   projects: Project[],
   transactions: TransactionRow[],
+  revenues: RevenueDashboardRow[],
   selectedYear: number
 ): DashboardStats {
   const now = new Date();
@@ -152,17 +158,24 @@ function computeStats(
 
   let caAnnuel = 0;
   let caMensuel = 0;
-  for (const tx of transactions) {
-    const d = new Date(tx.payment_date);
-    if (Number.isNaN(d.getTime())) continue;
-    if (d < yearStart || d > yearEnd) continue;
+  const addCashToMonth = (paymentDateStr: string, amt: number) => {
+    const d = new Date(paymentDateStr.includes("T") ? paymentDateStr : `${paymentDateStr}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return;
+    if (d < yearStart || d > yearEnd) return;
     const key = getMonthKey(d);
     const cell = byMonth.get(key) ?? { ca: 0, cout: 0 };
-    const amt = num(tx.amount as number);
     cell.ca += amt;
     byMonth.set(key, cell);
     caAnnuel += amt;
     if (selectedYear === currentYear && d >= monthStart) caMensuel += amt;
+  };
+
+  for (const tx of transactions) {
+    addCashToMonth(tx.payment_date, num(tx.amount as number));
+  }
+
+  for (const rev of revenues) {
+    addCashToMonth(rev.date, num(rev.amount));
   }
 
   let margeAnnuelle = 0;
@@ -210,6 +223,7 @@ function computeStats(
 export function useDashboardStats(selectedYear?: number) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
+  const [revenues, setRevenues] = useState<RevenueDashboardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const year = selectedYear ?? new Date().getFullYear();
@@ -228,6 +242,7 @@ export function useDashboardStats(selectedYear?: number) {
     if (!user) {
       setProjects([]);
       setTransactions([]);
+      setRevenues([]);
       setLoading(false);
       return;
     }
@@ -240,6 +255,7 @@ export function useDashboardStats(selectedYear?: number) {
       setError(fetchError.message);
       setProjects([]);
       setTransactions([]);
+      setRevenues([]);
       setLoading(false);
       return;
     }
@@ -266,14 +282,25 @@ export function useDashboardStats(selectedYear?: number) {
     const projectIds = projectList.map((p) => p.id);
     if (projectIds.length === 0) {
       setTransactions([]);
-      setLoading(false);
-      return;
+    } else {
+      const { data: txData } = await supabase
+        .from("project_transactions")
+        .select("project_id, amount, payment_date")
+        .in("project_id", projectIds);
+      setTransactions(((txData ?? []) as TransactionRow[]));
     }
-    const { data: txData } = await supabase
-      .from("project_transactions")
-      .select("project_id, amount, payment_date")
-      .in("project_id", projectIds);
-    setTransactions(((txData ?? []) as TransactionRow[]));
+
+    const { data: revData, error: revErr } = await supabase
+      .from("revenues")
+      .select("amount, date")
+      .eq("user_id", user.id);
+    if (revErr) {
+      console.error("[dashboard] revenues fetch:", revErr.message, revErr);
+      setRevenues([]);
+    } else {
+      setRevenues((revData ?? []) as RevenueDashboardRow[]);
+    }
+
     setLoading(false);
   }, []);
 
@@ -290,6 +317,9 @@ export function useDashboardStats(selectedYear?: number) {
         fetchData();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "project_transactions" }, () => {
+        fetchData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "revenues" }, () => {
         fetchData();
       })
       .subscribe();
@@ -309,7 +339,7 @@ export function useDashboardStats(selectedYear?: number) {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [fetchData]);
 
-  const stats = computeStats(projects, transactions, year);
+  const stats = computeStats(projects, transactions, revenues, year);
   const projectsImpayes = projects.filter((p) => projectRestantDu(p) > 0);
 
   return {

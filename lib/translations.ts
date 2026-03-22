@@ -418,6 +418,26 @@ export const translations: Record<string, { fr: string; en: string }> = {
     fr: "Impossible d’enregistrer le revenu : {msg}",
     en: "Could not save revenue: {msg}",
   },
+  assistantTotalRevenueMonth: {
+    fr: "Ton **chiffre d’affaires** (revenus enregistrés) **ce mois-ci** : **{total} €**.",
+    en: "Your **total revenue** recorded **this month**: **{total} €**.",
+  },
+  assistantNoActiveProjects: {
+    fr: "Aucun projet au statut **En cours** pour l’instant.",
+    en: "No projects with status **In progress** right now.",
+  },
+  assistantActiveProjectsHeader: {
+    fr: "Voici tes chantiers **en cours** :",
+    en: "Here are your **active** projects:",
+  },
+  assistantProjectCreatedForClient: {
+    fr: "Projet **« {name} »** créé pour **{client}**.",
+    en: "Project **« {name} »** created for **{client}**.",
+  },
+  assistantTomorrowMeetingCreated: {
+    fr: "C’est noté : réunion demain à l’heure demandée. Tu peux l’ajuster dans le calendrier.",
+    en: "Done: meeting scheduled for tomorrow at the requested time. You can adjust it in the calendar.",
+  },
 
   // Assistant AI (bilingual responses)
   assistantCannotConnect: { fr: "Impossible de se connecter à la base de données.", en: "Cannot connect to the database." },

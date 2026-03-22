@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const REVEAL = 120;
@@ -17,7 +18,7 @@ type SwipeActionsRowProps = {
 };
 
 /**
- * Short swipe left reveals edit (blue) and delete (red). Tap icon to run action immediately.
+ * Swipe left reveals edit/delete; actions stay hidden (opacity 0) until the row moves.
  */
 export function SwipeActionsRow({
   children,
@@ -28,9 +29,12 @@ export function SwipeActionsRow({
   editLabel = "Edit",
   deleteLabel = "Delete",
 }: SwipeActionsRowProps) {
-  const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0);
+  const offset = useMotionValue(0);
+  const actionsOpacity = useTransform(offset, [0, -20, -REVEAL], [0, 0.4, 1]);
+
+  const hapticDone = useRef(false);
 
   const onPointerDown = (e: ReactPointerEvent) => {
     if (disabled) return;
@@ -44,13 +48,11 @@ export function SwipeActionsRow({
     }
   };
 
-  const hapticDone = useRef(false);
-
   const onPointerMove = (e: ReactPointerEvent) => {
     if (!dragging || disabled) return;
     const dx = e.clientX - startX.current;
     const next = Math.min(0, Math.max(-REVEAL, dx));
-    setOffset(next);
+    offset.set(next);
     if (!hapticDone.current && next < -36) {
       hapticDone.current = true;
       if (typeof navigator !== "undefined" && "vibrate" in navigator) {
@@ -66,28 +68,24 @@ export function SwipeActionsRow({
   const endDrag = () => {
     setDragging(false);
     hapticDone.current = false;
-    setOffset((o) => (o < -REVEAL / 2 ? -REVEAL : 0));
+    const cur = offset.get();
+    const target = cur < -REVEAL / 2 ? -REVEAL : 0;
+    animate(offset, target, { type: "spring", stiffness: 420, damping: 32 });
   };
-
-  const revealProgress = Math.min(1, Math.abs(offset) / REVEAL);
 
   return (
     <div className={cn("relative overflow-hidden rounded-lg border border-gray-100 bg-white", className)}>
-      <div
-        className="pointer-events-none absolute inset-y-0 right-0 z-[5] w-[120px] transition-opacity duration-75"
-        style={{
-          opacity: Math.min(1, revealProgress * 1.15),
-          background: `linear-gradient(to left, rgb(59 130 246 / ${0.08 + revealProgress * 0.22}), rgb(239 68 68 / ${0.08 + revealProgress * 0.22}))`,
-        }}
-        aria-hidden
-      />
-      <div className="absolute right-0 top-0 z-0 flex h-full min-h-[72px] items-stretch" aria-hidden="true">
+      <motion.div
+        className="absolute right-0 top-0 z-0 flex h-full min-h-[72px] items-stretch"
+        style={{ opacity: actionsOpacity }}
+        aria-hidden={true}
+      >
         <button
           type="button"
           className="flex w-[60px] shrink-0 items-center justify-center bg-brand-blue-500 text-white active:bg-brand-blue-600"
           onClick={(e) => {
             e.stopPropagation();
-            setOffset(0);
+            animate(offset, 0, { type: "spring", stiffness: 420, damping: 32 });
             onEdit();
           }}
           disabled={disabled}
@@ -100,7 +98,7 @@ export function SwipeActionsRow({
           className="flex w-[60px] shrink-0 items-center justify-center bg-red-500 text-white active:bg-red-600"
           onClick={(e) => {
             e.stopPropagation();
-            setOffset(0);
+            animate(offset, 0, { type: "spring", stiffness: 420, damping: 32 });
             onDelete();
           }}
           disabled={disabled}
@@ -108,21 +106,28 @@ export function SwipeActionsRow({
         >
           <Trash2 className="h-5 w-5" />
         </button>
-      </div>
-      <div
-        className="relative z-10 touch-pan-y bg-white/95 [touch-action:pan-y]"
-        style={{
-          transform: `translateX(${offset}px)`,
-          transition: dragging ? "none" : "transform 0.2s ease-out",
-        }}
+      </motion.div>
+
+      <motion.div
+        className="relative z-10 touch-pan-y border-r border-transparent bg-white [touch-action:pan-y]"
+        style={{ x: offset }}
+        transition={dragging ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 32 }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         onPointerLeave={endDrag}
       >
-        {children}
-      </div>
+        <div className="relative pr-8">
+          {children}
+          <span
+            className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-gray-300"
+            aria-hidden
+          >
+            <ChevronLeft className="h-4 w-4 opacity-50" strokeWidth={2} />
+          </span>
+        </div>
+      </motion.div>
     </div>
   );
 }
