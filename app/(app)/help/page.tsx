@@ -3,11 +3,10 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useLanguage } from "@/context/language-context";
-import { BookOpen, ScanLine, FolderKanban, Sparkles, FileDown } from "lucide-react";
+import { BookOpen, ScanLine, FolderKanban, Sparkles, FileDown, Calendar, Package, Smartphone } from "lucide-react";
 
-const sections = {
-  en: [
+/** Full A–Z guide is English-only (product requirement). */
+const sectionsEn = [
     {
       id: "start",
       title: "Getting started",
@@ -127,12 +126,48 @@ const sections = {
                   </td>
                   <td className="px-3 py-2 text-gray-600">Opens Invoices with vendor + period filters.</td>
                 </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-800">
+                    <em>Update budget of Project X to 10k</em>
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">Sets that project&apos;s contract amount.</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-800">
+                    <em>Mark Project Y as completed</em>
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">Marks the project finished (status + end date).</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-800">
+                    <em>Remove 5 bags of cement</em>
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">Subtracts quantity from matching inventory item.</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-800">
+                    <em>Alert me when I have less than 2 drills</em>
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">Creates a dashboard reminder for low stock.</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-800">
+                    <em>What is my total spending this month?</em>
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">Sums recorded expenses (incl. VAT) for the current month.</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-gray-800">
+                    <em>Show me all invoices from last week</em>
+                  </td>
+                  <td className="px-3 py-2 text-gray-600">Opens Invoices with last-week date filter.</td>
+                </tr>
               </tbody>
             </table>
           </div>
           <p className="text-xs text-gray-500">
-            More phrases (payments, margins, reminders) are supported — ask in plain language and the assistant will
-            answer or route you to the right screen.
+            If something is unclear, the assistant will <strong>ask you to clarify</strong> instead of failing silently.
+            More phrases (payments, margins, reminders) are supported — ask in plain language.
           </p>
         </div>
       ),
@@ -161,111 +196,77 @@ const sections = {
         </div>
       ),
     },
-  ],
-  fr: [
     {
-      id: "start",
-      title: "Premiers pas",
-      icon: BookOpen,
-      body: (
-        <ul className="list-disc space-y-2 pl-5 text-sm text-gray-700">
-          <li>
-            Complétez votre <strong>profil entreprise</strong> dans Paramètres : nom, logo, devise et TVA par défaut.
-          </li>
-          <li>
-            Ajoutez des <strong>clients</strong> et des <strong>projets</strong> pour lier dépenses et factures aux chantiers.
-          </li>
-          <li>
-            Utilisez le <strong>tableau de bord</strong> pour suivre CA et charges.
-          </li>
-        </ul>
-      ),
-    },
-    {
-      id: "scan",
-      title: "Scan intelligent (factures)",
-      icon: ScanLine,
-      body: (
-        <ul className="list-disc space-y-2 pl-5 text-sm text-gray-700">
-          <li>Photographiez les tickets dans une bonne lumière, sans reflet excessif.</li>
-          <li>Le traitement renforce le contraste avant OCR (type application scanner).</li>
-          <li>
-            Vérifiez toujours <strong>fournisseur</strong>, <strong>date</strong> et <strong>montant TTC</strong> dans le
-            formulaire ; les champs peu fiables sont surlignés en ambre.
-          </li>
-          <li>Vos corrections aident l’app à mémoriser des correspondances fournisseurs localement.</li>
-        </ul>
-      ),
-    },
-    {
-      id: "projects",
-      title: "Projets & budget",
-      icon: FolderKanban,
-      body: (
-        <ul className="list-disc space-y-2 pl-5 text-sm text-gray-700">
-          <li>Chaque projet suit montant du contrat, encaissements et coûts matériaux.</li>
-          <li>Comparez les dépenses au budget pour rester sur votre marge.</li>
-          <li>Utilisez le calendrier pour les visites et rendez-vous clients.</li>
-        </ul>
-      ),
-    },
-    {
-      id: "ai",
-      title: "Barre de commande IA",
-      icon: Sparkles,
+      id: "calendar",
+      title: "Calendar & appointments",
+      icon: Calendar,
       body: (
         <div className="space-y-3 text-sm text-gray-700">
           <p>
-            Ouvrez la <strong>barre de commande</strong> (bouton étincelles) ou <kbd className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">⌘</kbd> + <kbd className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">K</kbd> / <kbd className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">Ctrl</kbd> + <kbd className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">K</kbd>.
+            Use <strong>Calendar</strong> for quotes, site visits, and meetings. Switch between month, week, and day views.
+            Tap a slot to add an appointment; tap an event to view details or <strong>edit</strong>.
           </p>
-          <p className="font-medium text-gray-900">Exemples :</p>
-          <ul className="list-disc space-y-1 pl-5">
+          <ul className="list-disc space-y-2 pl-5">
             <li>
-              <em>Prends rendez-vous avec Client X lundi prochain à 14h</em> — crée un rendez-vous.
+              In the edit dialog, use <strong>Delete</strong> (red) only after confirming — the event disappears from the
+              grid immediately without reloading the page.
             </li>
-            <li>
-              <em>Ajoute le projet Rénovation cuisine avec un budget de 5000€</em> — crée un projet avec ce budget.
-            </li>
-            <li>
-              <em>Montre-moi les factures de Castorama de ce mois</em> — ouvre Factures avec filtres.
-            </li>
+            <li>Link appointments to a <strong>project</strong> when relevant so your schedule matches job context.</li>
           </ul>
         </div>
       ),
     },
     {
-      id: "exports",
-      title: "Exports & PDF comptable",
-      icon: FileDown,
+      id: "materials",
+      title: "Materials & stock",
+      icon: Package,
       body: (
-        <ul className="list-disc space-y-2 pl-5 text-sm text-gray-700">
-          <li>
-            Dans <strong>Factures</strong>, générez un PDF récapitulatif avec annexes photos des justificatifs.
-          </li>
-          <li>L’export CSV convient à Excel ; le PDF est pensé pour votre comptable.</li>
-          <li>Paramétrez votre logo dans les réglages pour l’en-tête du PDF.</li>
-        </ul>
+        <div className="space-y-3 text-sm text-gray-700">
+          <p>
+            The <strong>Materials</strong> area tracks inventory and supplier orders. Scan receipts to add lines quickly;
+            quantities update your stock levels.
+          </p>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              Ask the AI to <strong>remove stock</strong> (e.g. “Remove 5 bags of cement”) or set <strong>low-stock
+              reminders</strong> (e.g. “Alert me when I have less than 2 drills”).
+            </li>
+            <li>Swipe left on mobile rows for quick <strong>Edit</strong> / <strong>Delete</strong>.</li>
+          </ul>
+        </div>
       ),
     },
-  ],
-};
+    {
+      id: "mobile",
+      title: "Mobile gestures",
+      icon: Smartphone,
+      body: (
+        <div className="space-y-3 text-sm text-gray-700">
+          <p>
+            On phones, <strong>swipe left</strong> on list rows (Invoices, Projects, Materials) to reveal{" "}
+            <strong>Edit</strong> and <strong>Delete</strong> without opening the ⋮ menu.
+          </p>
+          <p>
+            On invoice thumbnails, <strong>tap the photo</strong> to open a full-screen preview; tap the image or dark
+            background to close.
+          </p>
+          <p>
+            Opening <strong>Help &amp; Support</strong> from the sidebar closes the mobile menu automatically so you can
+            read the guide full width.
+          </p>
+        </div>
+      ),
+    },
+  ];
 
 export default function HelpPage() {
-  const { language } = useLanguage();
-  const lang = language === "fr" ? "fr" : "en";
-  const list = sections[lang];
+  const list = sectionsEn;
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 md:text-3xl">
-          {lang === "en" ? "Help & Support — Full guide" : "Aide & Support — Guide complet"}
-        </h1>
-        <p className="mt-1 text-gray-500">
-          {lang === "en"
-            ? "Everything you need to run ArtisanFlow efficiently."
-            : "Tout ce qu’il faut pour utiliser ArtisanFlow efficacement."}
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 md:text-3xl">Help &amp; Support — Full A–Z guide</h1>
+        <p className="mt-1 text-gray-500">Everything you need to run ArtisanFlow efficiently (English).</p>
       </div>
 
       <Tabs defaultValue={list[0].id} className="w-full">
@@ -295,8 +296,7 @@ export default function HelpPage() {
       <Card className="border-brand-blue-100 bg-brand-blue-50/40">
         <CardContent className="pt-6 text-sm text-gray-700">
           <p>
-            <strong>{lang === "en" ? "Contact" : "Contact"} :</strong> support@artisanflow.fr ·{" "}
-            {lang === "en" ? "We reply as soon as possible." : "Réponse sous les meilleurs délais."}
+            <strong>Contact:</strong> support@artisanflow.fr · We reply as soon as possible.
           </p>
         </CardContent>
       </Card>

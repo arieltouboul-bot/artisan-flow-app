@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useProjects } from "@/hooks/use-projects";
 import { useAppointments } from "@/hooks/use-appointments";
+import { useLanguage } from "@/context/language-context";
 import { formatDate, formatTime, toDateString, toTimeString } from "@/lib/utils";
 import type { Appointment, AppointmentType } from "@/types/database";
 import { ChevronLeft, ChevronRight, FolderKanban, Calendar as CalendarIcon, Sparkles, Loader2, Trash2 } from "lucide-react";
@@ -61,6 +62,7 @@ function getWeekDays(weekStart: Date): Date[] {
 }
 
 export default function CalendarPage() {
+  const { language } = useLanguage();
   const now = new Date();
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
   const [viewYear, setViewYear] = useState(now.getFullYear());
@@ -233,9 +235,20 @@ export default function CalendarPage() {
   };
 
   const handleDeleteAppointment = async (id: string) => {
-    await deleteAppointment(id);
+    const ok = window.confirm(
+      language === "en"
+        ? "Delete this appointment permanently?"
+        : "Supprimer ce rendez-vous définitivement ?"
+    );
+    if (!ok) return;
+    const res = await deleteAppointment(id);
+    if (res?.error) {
+      alert(res.error);
+      return;
+    }
     setDetailAppointment(null);
-    refetch();
+    setEditAppointmentId(null);
+    setAddOpen(false);
   };
 
   const viewTitle =
@@ -486,7 +499,13 @@ export default function CalendarPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5" />
-              Ajouter un rendez-vous
+              {editAppointmentId
+                ? language === "en"
+                  ? "Edit appointment"
+                  : "Modifier le rendez-vous"
+                : language === "en"
+                  ? "New appointment"
+                  : "Ajouter un rendez-vous"}
             </DialogTitle>
           </DialogHeader>
           <motion.form
@@ -564,13 +583,40 @@ export default function CalendarPage() {
               </select>
             </div>
             {formError && <p className="text-sm text-red-600">{formError}</p>}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
-                Annuler
-              </Button>
-              <Button type="submit" disabled={formSaving}>
-                {formSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer"}
-              </Button>
+            <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+              {editAppointmentId && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="w-full gap-2 sm:w-auto"
+                  onClick={async () => {
+                    const ok = window.confirm(
+                      language === "en"
+                        ? "Delete this appointment permanently?"
+                        : "Supprimer ce rendez-vous définitivement ?"
+                    );
+                    if (!ok || !editAppointmentId) return;
+                    const res = await deleteAppointment(editAppointmentId);
+                    if (res?.error) {
+                      alert(res.error);
+                      return;
+                    }
+                    setAddOpen(false);
+                    setEditAppointmentId(null);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {language === "en" ? "Delete" : "Supprimer"}
+                </Button>
+              )}
+              <div className="flex w-full justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
+                  {language === "en" ? "Cancel" : "Annuler"}
+                </Button>
+                <Button type="submit" disabled={formSaving}>
+                  {formSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : language === "en" ? "Save" : "Enregistrer"}
+                </Button>
+              </div>
             </DialogFooter>
           </motion.form>
         </DialogContent>
@@ -623,13 +669,13 @@ export default function CalendarPage() {
                 </Button>
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 text-gray-400 hover:text-gray-600 hover:bg-gray-100 min-h-[36px] min-w-[36px]"
+                  variant="destructive"
+                  size="sm"
+                  className="gap-1.5"
                   onClick={() => handleDeleteAppointment(detailAppointment.id)}
-                  aria-label="Supprimer le rendez-vous"
                 >
                   <Trash2 className="h-4 w-4" />
+                  {language === "en" ? "Delete" : "Supprimer"}
                 </Button>
               </>
             )}

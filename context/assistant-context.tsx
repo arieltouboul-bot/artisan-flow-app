@@ -17,6 +17,7 @@ import {
   parseInvoiceFilterIntent,
   parseProjectWithBudget,
 } from "@/lib/smart-command-parser";
+import { runExtendedAssistantScenarios } from "@/lib/assistant-scenarios";
 
 export type ModifiedEntity = {
   type: "project" | "client" | "employee" | "reminder";
@@ -830,8 +831,23 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Réponse par défaut
-        appendMessage("assistant", t("assistantDefaultHelp", language));
+        // ——— Extended scenarios (budget, stock, analytics, etc.)
+        const extended = await runExtendedAssistantScenarios({
+          text,
+          lower,
+          language,
+          userId: user.id,
+          supabase,
+          appendMessage,
+          router,
+        });
+        if (extended) {
+          setIsProcessing(false);
+          return;
+        }
+
+        // Réponse par défaut — clarification plutôt que silence
+        appendMessage("assistant", t("assistantClarify", language));
       } catch (err) {
         appendMessage("assistant", tReplace("assistantError", language, { msg: err instanceof Error ? err.message : t("assistantErrorGeneric", language) }));
       } finally {

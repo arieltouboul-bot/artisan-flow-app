@@ -28,8 +28,23 @@ import { extractInvoiceDecision } from "@/lib/ocr";
 import type { ExpenseInsertPayload } from "@/lib/types";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
+import { InvoiceZoomOverlay } from "@/components/invoices/invoice-zoom-overlay";
 
 const INVOICE_BUCKET = "factures";
+
+function getLastWeekDateBounds(): { start: Date; end: Date } {
+  const now = new Date();
+  const dow = now.getDay();
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const thisMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);
+  thisMonday.setHours(0, 0, 0, 0);
+  const lastMonday = new Date(thisMonday);
+  lastMonday.setDate(thisMonday.getDate() - 7);
+  const lastSunday = new Date(lastMonday);
+  lastSunday.setDate(lastMonday.getDate() + 6);
+  lastSunday.setHours(23, 59, 59, 999);
+  return { start: lastMonday, end: lastSunday };
+}
 
 function expenseInMonth(dateStr: string, mode: "current" | "previous"): boolean {
   const date = new Date(dateStr.includes("T") ? dateStr : `${dateStr}T12:00:00`);
@@ -70,8 +85,7 @@ export default function FacturesPage() {
   const [formTtc, setFormTtc] = useState("");
   const [formSaving, setFormSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [fullscreenImageUrl, setFullscreenImageUrl] = useState<string | null>(null);
-  const [fullscreenExpenseId, setFullscreenExpenseId] = useState<string | null>(null);
+  const [invoiceZoom, setInvoiceZoom] = useState<{ url: string; id: string } | null>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [ocrUncertain, setOcrUncertain] = useState(false);
@@ -81,16 +95,17 @@ export default function FacturesPage() {
   const [dateConfidence, setDateConfidence] = useState(1);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [filterVendor, setFilterVendor] = useState("");
-  const [filterMonth, setFilterMonth] = useState<"all" | "current" | "previous">("all");
+  const [filterMonth, setFilterMonth] = useState<"all" | "current" | "previous" | "last_week">("all");
   const isMobile = useIsMobile();
 
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem("artisanflow_invoice_filter");
       if (!raw) return;
-      const f = JSON.parse(raw) as { vendor?: string; month?: string };
+      const f = JSON.parse(raw) as { vendor?: string; month?: string; period?: string };
       if (f.vendor) setFilterVendor(f.vendor);
-      if (f.month === "current" || f.month === "previous") setFilterMonth(f.month);
+      if (f.month === "current" || f.month === "previous" || f.month === "last_week") setFilterMonth(f.month);
+      if (f.period === "last_week") setFilterMonth("last_week");
       sessionStorage.removeItem("artisanflow_invoice_filter");
     } catch {
       /* ignore */
@@ -111,10 +126,20 @@ export default function FacturesPage() {
       list = list.filter((e) => expenseInMonth(e.date, "current"));
     } else if (filterMonth === "previous") {
       list = list.filter((e) => expenseInMonth(e.date, "previous"));
+    } else if (filterMonth === "last_week") {
+      const { start, end } = getLastWeekDateBounds();
+      list = list.filter((e) => {
+        const d = new Date(e.date.includes("T") ? e.date : `${e.date}T12:00:00`);
+        return d >= start && d <= end;
+      });
     }
     if (filterCurrency) list = list.filter(() => true);
     return [...list].sort((a, b) => b.date.localeCompare(a.date));
   }, [expenses, filterProjectId, filterCurrency, filterVendor, filterMonth]);
+
+  const toggleInvoiceZoom = (url: string, id: string) => {
+    setInvoiceZoom((z) => (z?.id === id && z.url === url ? null : { url, id }));
+  };
 
   const openEdit = (id: string) => {
     const ex = expenses.find((e) => e.id === id);
@@ -315,8 +340,7 @@ export default function FacturesPage() {
     }
 
     setDeletingId(null);
-    setFullscreenImageUrl(null);
-    setFullscreenExpenseId(null);
+    setInvoiceZoom(null);
     window.location.reload();
   };
 
@@ -557,13 +581,16 @@ export default function FacturesPage() {
             />
             <select
               value={filterMonth}
-              onChange={(e) => setFilterMonth(e.target.value as "all" | "current" | "previous")}
+              onChange={(e) =>
+                setFilterMonth(e.target.value as "all" | "current" | "previous" | "last_week")
+              }
               className={cn("min-h-[44px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm")}
               aria-label={t("filterByMonth", language)}
             >
               <option value="all">{t("monthAll", language)}</option>
               <option value="current">{t("monthThis", language)}</option>
               <option value="previous">{t("monthPrevious", language)}</option>
+              <option value="last_week">{t("monthLastWeek", language)}</option>
             </select>
             <div
               role="group"
@@ -673,8 +700,7 @@ export default function FacturesPage() {
                             onClick={(ev) => {
                               ev.preventDefault();
                               ev.stopPropagation();
-                              setFullscreenImageUrl((e as ExpenseRow).image_url!);
-                              setFullscreenExpenseId(e.id);
+                              toggleInvoiceZoom((e as ExpenseRow).image_url!, e.id);
                             }}
                             className="block h-14 w-14 rounded border border-gray-200 overflow-hidden bg-gray-100"
                           >
@@ -726,8 +752,7 @@ export default function FacturesPage() {
                               onClick={(ev) => {
                                 ev.preventDefault();
                                 ev.stopPropagation();
-                                setFullscreenImageUrl((e as ExpenseRow).image_url!);
-                                setFullscreenExpenseId(e.id);
+                                toggleInvoiceZoom((e as ExpenseRow).image_url!, e.id);
                               }}
                               className="block w-10 h-10 rounded border border-gray-200 overflow-hidden bg-gray-100 hover:ring-2 hover:ring-brand-blue-400 focus:outline-none focus:ring-2 focus:ring-brand-blue-500"
                             >
@@ -863,68 +888,27 @@ export default function FacturesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={!!fullscreenImageUrl}
-        onOpenChange={(open) => {
-          if (!open) {
-            setFullscreenImageUrl(null);
-            setFullscreenExpenseId(null);
-          }
+      <InvoiceZoomOverlay
+        open={!!invoiceZoom}
+        imageUrl={invoiceZoom?.url ?? null}
+        expenseId={invoiceZoom?.id ?? null}
+        deleting={!!invoiceZoom && deletingId === invoiceZoom.id}
+        language={language}
+        onClose={() => setInvoiceZoom(null)}
+        onDownload={() => {
+          if (!invoiceZoom) return;
+          const a = document.createElement("a");
+          a.href = invoiceZoom.url;
+          a.download = "invoice.jpg";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
         }}
-      >
-        <DialogContent className="max-w-[95vw] max-h-[95vh] w-fit p-2 bg-black/95 border-gray-700 relative">
-          {fullscreenImageUrl && (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={fullscreenImageUrl}
-                alt="Facture"
-                className="max-h-[90vh] w-auto object-contain rounded"
-              />
-
-              <div className="absolute top-2 right-2 flex gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    const a = document.createElement("a");
-                    a.href = fullscreenImageUrl;
-                    a.download = "facture.jpg";
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                  }}
-                >
-                  Télécharger
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                  disabled={!fullscreenExpenseId || deletingId === fullscreenExpenseId}
-                  onClick={() => {
-                    if (!fullscreenExpenseId) return;
-                    deleteInvoiceFromLightbox(fullscreenExpenseId, fullscreenImageUrl);
-                  }}
-                >
-                  {deletingId === fullscreenExpenseId ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Supprimer"
-                  )}
-                </Button>
-
-                <Button type="button" variant="outline" size="sm" onClick={() => setFullscreenImageUrl(null)}>
-                  Fermer
-                </Button>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+        onDelete={() => {
+          if (!invoiceZoom) return;
+          deleteInvoiceFromLightbox(invoiceZoom.id, invoiceZoom.url);
+        }}
+      />
 
       <Dialog open={!!editId} onOpenChange={(open) => !open && setEditId(null)}>
         <DialogContent className={cn("max-w-md")}>

@@ -130,6 +130,11 @@ export const translations: Record<string, { fr: string; en: string }> = {
   monthAll: { fr: "Toutes périodes", en: "All periods" },
   monthThis: { fr: "Ce mois", en: "This month" },
   monthPrevious: { fr: "Mois dernier", en: "Last month" },
+  monthLastWeek: { fr: "Semaine dernière", en: "Last week" },
+  assistantClarify: {
+    fr: "Je n’ai pas bien compris. Peux-tu préciser ce que tu veux faire (ex. projet concerné, montant, ou capture d’écran du calendrier) ? Tu peux aussi formuler autrement ou consulter **Aide** depuis le menu.",
+    en: "I’m not sure I understood. Could you clarify what you want to do (e.g. which project, amount, or calendar slot)? Try rephrasing, or open **Help** from the menu for examples.",
+  },
   vendorSearchPlaceholder: { fr: "Rechercher un fournisseur…", en: "Search vendor…" },
   imageNotAvailable: { fr: "Image non disponible", en: "Image not available" },
   saveChanges: { fr: "Enregistrer les modifications", en: "Save changes" },

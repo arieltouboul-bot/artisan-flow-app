@@ -149,9 +149,21 @@ export function useAppointments(start?: Date | null, end?: Date | null) {
     async (id: string) => {
       const supabase = createClient();
       if (!supabase) return { error: "Supabase non configuré" };
-      const { error } = await supabase.from("appointments").delete().eq("id", id);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { error: "Non connecté" };
+      const { error } = await supabase.from("appointments").delete().eq("id", id).eq("user_id", user.id);
       if (error) return { error: error.message };
-      setAppointments((prev) => prev.filter((a) => a.id !== id));
+      setAppointments((prev) => {
+        const filtered = prev.filter((a) => a.id !== id);
+        if (typeof window !== "undefined") {
+          try {
+            window.localStorage.setItem("artisanflow_appointments_cache", JSON.stringify(filtered));
+          } catch {
+            /* ignore */
+          }
+        }
+        return filtered;
+      });
       return { error: null };
     },
     []
