@@ -131,6 +131,47 @@ export const translations: Record<string, { fr: string; en: string }> = {
   monthThis: { fr: "Ce mois", en: "This month" },
   monthPrevious: { fr: "Mois dernier", en: "Last month" },
   monthLastWeek: { fr: "Semaine dernière", en: "Last week" },
+  omniSearchInvoices: {
+    fr: "Recherche (fournisseur, projet, date, montant…) — 300 ms",
+    en: "Search vendor, project, date, amount… (debounced 300 ms)",
+  },
+  omniSearchProjects: {
+    fr: "Recherche projets / clients…",
+    en: "Search projects or clients…",
+  },
+  omniSearchClients: {
+    fr: "Recherche clients…",
+    en: "Search clients…",
+  },
+  omniSearchCalendar: {
+    fr: "Recherche dans les titres de rendez-vous…",
+    en: "Search appointment titles…",
+  },
+  omniSearchDashboard: {
+    fr: "Filtrer le tableau de bord…",
+    en: "Filter dashboard…",
+  },
+  omniSearchMateriel: {
+    fr: "Recherche article, fournisseur, référence…",
+    en: "Search item, supplier, reference…",
+  },
+  omniSearchEmployees: {
+    fr: "Recherche nom, prénom, rôle…",
+    en: "Search name, role…",
+  },
+  noSearchResults: {
+    fr: "Aucun résultat pour cette recherche.",
+    en: "No results match your search.",
+  },
+  helpPageTitle: { fr: "Aide & support — Guide A à Z", en: "Help & Support — Full A–Z guide" },
+  helpPageSubtitle: {
+    fr: "Tout ce qu’il faut pour utiliser ArtisanFlow efficacement.",
+    en: "Everything you need to run ArtisanFlow efficiently.",
+  },
+  helpContact: {
+    fr: "Contact : support@artisanflow.fr · Réponse sous les meilleurs délais.",
+    en: "Contact: support@artisanflow.fr · We reply as soon as possible.",
+  },
   assistantClarify: {
     fr: "Je n’ai pas bien compris. Peux-tu préciser ce que tu veux faire (ex. projet concerné, montant, ou capture d’écran du calendrier) ? Tu peux aussi formuler autrement ou consulter **Aide** depuis le menu.",
     en: "I’m not sure I understood. Could you clarify what you want to do (e.g. which project, amount, or calendar slot)? Try rephrasing, or open **Help** from the menu for examples.",
@@ -371,6 +412,14 @@ export const translations: Record<string, { fr: string; en: string }> = {
   assistantTopEmployee: { fr: "D'après les projets assignés, l'employé avec le plus de CA associé est **{name}** ({count} projet(s), ~{ca} € encaissés sur ces chantiers).", en: "Based on assigned projects, the employee with the most associated revenue is **{name}** ({count} project(s), ~{ca} € collected on these projects)." },
   assistantReminderNextMonth: { fr: "J'ai créé un rappel : « {label} ». Tu as {count} chantiers prévus le mois prochain.", en: "I created a reminder: « {label} ». You have {count} projects scheduled next month." },
   assistantAppointmentError: { fr: "Impossible de créer le rendez-vous : {msg}", en: "Could not create appointment: {msg}" },
+  assistantAppointmentConflict: {
+    fr: "Vous avez déjà un rendez-vous à **{existingTime}**. Voulez-vous plutôt **{alt1Time}**, ou le même créneau **{alt2Day}** ? Répondez dans un nouveau message.",
+    en: "You already have a meeting at **{existingTime}**. Should I schedule it at **{alt1Time}** or on **{alt2Day}** instead? Reply with your choice in a new message.",
+  },
+  assistantWeeklyRecurrenceCreated: {
+    fr: "J’ai ajouté **{count}** entrées sur le calendrier pour « {title} » ({weekday}).",
+    en: "I added **{count}** calendar entries for « {title} » ({weekday}).",
+  },
   assistantExpensesByProject: { fr: "Répartition des coûts matériaux par projet (total {total} €) :", en: "Material cost breakdown by project (total {total} €):" },
   assistantDefaultHelp: { fr: "Tu peux me demander : « Qu'est-ce que j'ai de prévu demain ? », « Prends-moi rendez-vous avec le client Leroy mardi à 14h », « Ajoute 1500€ au projet Leroy », « Combien me doit le client Martin ? », « Nouveau projet : Salle de bain 8m² pour Mme Martin », « Répartition des dépenses », ou « Note un rappel Commander carrelage ».", en: "You can ask me: « What do I have tomorrow? », « Book me an appointment with client Leroy on Tuesday at 2pm », « Add 1500€ to project Leroy », « How much does client Martin owe me? », « New project: 8m² bathroom for Mrs Martin », « Expense breakdown », or « Note a reminder: Order tiles ».", },
   typeDevis: { fr: "Devis", en: "Quote" },

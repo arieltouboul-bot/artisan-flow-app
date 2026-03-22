@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import { formatCurrency, formatConvertedCurrency, convertCurrency, getCurrencySymbol } from "@/lib/utils";
 import { useDashboardStats, type DashboardView } from "@/hooks/use-dashboard-stats";
 import { useReminders } from "@/hooks/use-reminders";
@@ -27,7 +29,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import { projectRestantDu } from "@/types/database";
-import { TrendingUp, AlertCircle, Euro, Percent, FolderKanban, ArrowRight, X, Search, Bell, CheckSquare, Square, Trash2, Plus, CalendarClock, MapPin, Loader2 } from "lucide-react";
+import { TrendingUp, AlertCircle, Euro, Percent, FolderKanban, ArrowRight, X, Bell, CheckSquare, Square, Trash2, Plus, CalendarClock, MapPin, Loader2 } from "lucide-react";
 import { formatTime } from "@/lib/utils";
 import {
   Dialog,
@@ -81,6 +83,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [dashboardView, setDashboardView] = useState<DashboardView>("all");
   const [globalSearch, setGlobalSearch] = useState("");
+  const debouncedGlobalSearch = useDebouncedValue(globalSearch, 300);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [isMobile, setIsMobile] = useState(false);
   const { user } = useUser();
@@ -132,7 +135,7 @@ export default function DashboardPage() {
 
   const listProjects = useMemo(() => {
     let list = dashboardView === "impayes" ? projectsImpayes : projects;
-    const q = globalSearch.toLowerCase().trim();
+    const q = debouncedGlobalSearch.toLowerCase().trim();
     if (q) {
       list = list.filter(
         (p) =>
@@ -141,7 +144,7 @@ export default function DashboardPage() {
       );
     }
     return list;
-  }, [dashboardView, projects, projectsImpayes, globalSearch]);
+  }, [dashboardView, projects, projectsImpayes, debouncedGlobalSearch]);
 
   const showList = dashboardView === "all" || dashboardView === "impayes";
   const showCaDetail = dashboardView === "ca_detail";
@@ -243,15 +246,13 @@ export default function DashboardPage() {
       )}
 
       <motion.div variants={item} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative max-w-xl flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder={t("searchProjectClient", language)}
-            value={globalSearch}
-            onChange={(e) => setGlobalSearch(e.target.value)}
-            className="pl-10 min-h-[48px]"
-          />
-        </div>
+        <OmniTabSearch
+          value={globalSearch}
+          onChange={setGlobalSearch}
+          placeholder={t("omniSearchDashboard", language)}
+          className="max-w-xl flex-1"
+          aria-label={t("searchProjectClient", language)}
+        />
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-500">{t("year", language)} :</span>
           <select

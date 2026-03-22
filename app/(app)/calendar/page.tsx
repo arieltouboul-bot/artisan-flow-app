@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { OmniTabSearch } from "@/components/ui/omni-tab-search";
+import { t } from "@/lib/translations";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,6 +83,8 @@ export default function CalendarPage() {
   const [formType, setFormType] = useState<AppointmentType>("chantier");
   const [formSaving, setFormSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [calendarSearch, setCalendarSearch] = useState("");
+  const debouncedCalendarSearch = useDebouncedValue(calendarSearch, 300);
 
   const { projects } = useProjects();
 
@@ -104,6 +109,16 @@ export default function CalendarPage() {
   }, [viewMode, viewYear, viewMonth, viewDay]);
 
   const { appointments, loading, addAppointment, updateAppointment, deleteAppointment, refetch } = useAppointments(rangeStart, rangeEnd);
+
+  const appointmentsFiltered = useMemo(() => {
+    const q = debouncedCalendarSearch.trim().toLowerCase();
+    if (!q) return appointments;
+    return appointments.filter(
+      (a) =>
+        a.title.toLowerCase().includes(q) ||
+        (a.project?.name?.toLowerCase().includes(q) ?? false)
+    );
+  }, [appointments, debouncedCalendarSearch]);
 
   const days = useMemo(() => getDaysInMonth(viewYear, viewMonth), [viewYear, viewMonth]);
   const weekStart = useMemo(() => getWeekStart(new Date(viewYear, viewMonth, viewDay)), [viewYear, viewMonth, viewDay]);
@@ -132,14 +147,14 @@ export default function CalendarPage() {
 
   const appointmentsByDay = useMemo(() => {
     const map = new Map<string, Appointment[]>();
-    for (const a of appointments) {
+    for (const a of appointmentsFiltered) {
       const start = new Date(a.start_at);
       const key = toDateString(start);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(a);
     }
     return map;
-  }, [appointments]);
+  }, [appointmentsFiltered]);
 
   const prev = () => {
     if (viewMode === "day") {
@@ -288,6 +303,13 @@ export default function CalendarPage() {
           </div>
         </div>
       </div>
+
+      <OmniTabSearch
+        value={calendarSearch}
+        onChange={setCalendarSearch}
+        placeholder={t("omniSearchCalendar", language)}
+        className="max-w-xl"
+      />
 
       <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
         <CardHeader className="flex flex-row items-center justify-between">

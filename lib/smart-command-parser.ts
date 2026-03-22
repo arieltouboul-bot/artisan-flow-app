@@ -59,6 +59,47 @@ export function parseAppointmentCommand(raw: string): ParsedAppointment | null {
   const text = raw.trim();
   const lower = text.toLowerCase();
 
+  // Short FR: "RDV lundi à 14h" / "RDV lundi à 14h avec Martin"
+  const shortFr =
+    /^(?:rdv|rendez-vous)\s+(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)(?:\s+prochain)?\s+(?:à\s+)?(\d{1,2})h?(?::(\d{2}))?(?:\s*[,.]?\s*(?:avec|pour)\s+(.+))?$/i.exec(
+      text
+    );
+  if (shortFr) {
+    const dayName = shortFr[1].toLowerCase();
+    const wd = DAY_FR[dayName];
+    if (wd !== undefined) {
+      const hour = parseInt(shortFr[2], 10);
+      const minute = shortFr[3] ? parseInt(shortFr[3], 10) : 0;
+      let clientPart = (shortFr[4] ?? "").trim().replace(/[.,]$/, "");
+      if (!clientPart) clientPart = "Client";
+      const { start, end } = buildAppointmentWindow(wd, hour, minute);
+      return { clientName: clientPart, hour, minute, start, end };
+    }
+  }
+
+  // Short EN: "RDV Monday at 2pm" / "appointment Tuesday at 9am with John"
+  const shortEn =
+    /^(?:rdv|appointment)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm|p\.m\.|a\.m\.)?(?:\s*[,.]?\s*(?:with|for)\s+(.+))?$/i.exec(
+      text
+    );
+  if (shortEn) {
+    const dayKey = shortEn[1].toLowerCase() as keyof typeof DAY_EN;
+    const wd = DAY_EN[dayKey];
+    if (wd !== undefined) {
+      let hour = parseInt(shortEn[2], 10);
+      const minute = shortEn[3] ? parseInt(shortEn[3], 10) : 0;
+      const ampm = (shortEn[4] || "").toLowerCase();
+      if (ampm === "pm" || ampm === "p.m.") {
+        if (hour < 12) hour += 12;
+      }
+      if ((ampm === "am" || ampm === "a.m.") && hour === 12) hour = 0;
+      let clientPart = (shortEn[5] ?? "").trim().replace(/[.,]$/, "");
+      if (!clientPart) clientPart = "Client";
+      const { start, end } = buildAppointmentWindow(wd, hour, minute);
+      return { clientName: clientPart, hour, minute, start, end };
+    }
+  }
+
   // English — "Schedule / book an appointment with X on Monday at 2pm"
   let en =
     /(?:schedule|book)\s+(?:an\s+)?appointment\s+with\s+(.+?)\s+(?:on\s+)?(?:next\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm|p\.m\.|a\.m\.)?/i.exec(
@@ -103,6 +144,102 @@ export function parseAppointmentCommand(raw: string): ParsedAppointment | null {
   }
 
   return null;
+}
+
+export type WeeklyRecurrenceParsed = {
+  weekday: number;
+  hour: number;
+  minute: number;
+  taskTitle: string;
+};
+
+/**
+ * "Every Monday at 8am, remind me to check the inventory"
+ * "Chaque lundi à 8h, rappelle-moi de vérifier le stock"
+ */
+export function parseWeeklyRecurrenceCommand(raw: string): WeeklyRecurrenceParsed | null {
+  const text = raw.trim();
+
+  const enRemindFirst =
+    /remind\s+me\s+(?:every|each)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?\s*(?:to\s+)?(.+)/i.exec(
+      text
+    );
+  if (enRemindFirst) {
+    const dayKey = enRemindFirst[1].toLowerCase() as keyof typeof DAY_EN;
+    const wd = DAY_EN[dayKey];
+    if (wd === undefined) return null;
+    let hour = parseInt(enRemindFirst[2], 10);
+    const minute = enRemindFirst[3] ? parseInt(enRemindFirst[3], 10) : 0;
+    const ampm = (enRemindFirst[4] || "").toLowerCase();
+    if (ampm === "pm" || ampm === "p.m.") {
+      if (hour < 12) hour += 12;
+    }
+    if ((ampm === "am" || ampm === "a.m.") && hour === 12) hour = 0;
+    let taskTitle = (enRemindFirst[5] || "").trim().replace(/[.,]$/, "");
+    if (taskTitle.length < 2) taskTitle = "Weekly reminder";
+    return { weekday: wd, hour, minute, taskTitle };
+  }
+
+  const en =
+    /(?:every|each)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?[^.]*(?:remind me(?:\s+to)?\s+)?(.+)/i.exec(
+      text
+    );
+  if (en) {
+    const dayKey = en[1].toLowerCase() as keyof typeof DAY_EN;
+    const wd = DAY_EN[dayKey];
+    if (wd === undefined) return null;
+    let hour = parseInt(en[2], 10);
+    const minute = en[3] ? parseInt(en[3], 10) : 0;
+    const ampm = (en[4] || "").toLowerCase();
+    if (ampm === "pm" || ampm === "p.m.") {
+      if (hour < 12) hour += 12;
+    }
+    if ((ampm === "am" || ampm === "a.m.") && hour === 12) hour = 0;
+    let taskTitle = (en[5] || "").trim().replace(/[.,]$/, "");
+    taskTitle = taskTitle.replace(/^(?:to\s+)/i, "").trim();
+    if (taskTitle.length < 2) taskTitle = "Weekly reminder";
+    return { weekday: wd, hour, minute, taskTitle };
+  }
+
+  const fr =
+    /chaque\s+(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(?:à\s+)?(\d{1,2})h(?::(\d{2}))?[\s,]*(.+)/i.exec(
+      text
+    );
+  if (fr) {
+    const dayName = fr[1].toLowerCase();
+    const wd = DAY_FR[dayName];
+    if (wd === undefined) return null;
+    const hour = parseInt(fr[2], 10);
+    const minute = fr[3] ? parseInt(fr[3], 10) : 0;
+    let taskPart = fr[4].trim();
+    taskPart = taskPart
+      .replace(/^(?:rappelle(?:-moi)?|pense)\s+(?:à\s+)?(?:de\s+)?/i, "")
+      .trim();
+    const taskTitle = taskPart.replace(/[.,]$/, "").trim() || "Rappel hebdomadaire";
+    return { weekday: wd, hour, minute, taskTitle };
+  }
+
+  return null;
+}
+
+/** Next `count` occurrences of weekday at hour:minute, each 30 min long. */
+export function buildWeeklySeriesDates(
+  weekday: number,
+  hour: number,
+  minute: number,
+  count: number,
+  durationMinutes = 30
+): { start: Date; end: Date }[] {
+  const first = buildAppointmentWindow(weekday, hour, minute);
+  const out: { start: Date; end: Date }[] = [];
+  let s = new Date(first.start);
+  for (let i = 0; i < count; i++) {
+    const start = new Date(s);
+    const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+    out.push({ start, end });
+    s.setDate(s.getDate() + 7);
+  }
+  return out;
 }
 
 export type ParsedProjectBudget = {

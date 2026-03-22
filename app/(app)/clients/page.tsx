@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { motion, AnimatePresence } from "framer-motion";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +31,7 @@ import type { Client } from "@/types/database";
 import { clientMargeBrute, clientRestantDu } from "@/types/database";
 import { formatConvertedCurrency, cn, type Currency } from "@/lib/utils";
 import Link from "next/link";
-import { Search, User, Mail, Phone, MapPin, ExternalLink, UserPlus, Loader2 } from "lucide-react";
+import { User, Mail, Phone, MapPin, ExternalLink, UserPlus, Loader2 } from "lucide-react";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 
 function buildMapsUrl(address: string | null): string | null {
@@ -44,6 +46,7 @@ function parseNum(value: string): number | null {
 
 export default function ClientsPage() {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [addOpen, setAddOpen] = useState(false);
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
@@ -84,16 +87,17 @@ export default function ClientsPage() {
     setEditError(null);
   };
 
-  const filtered = clients.filter((c) => {
-    const q = search.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      c.name.toLowerCase().includes(q) ||
-      (c.email?.toLowerCase().includes(q) ?? false) ||
-      (c.phone?.includes(q) ?? false) ||
-      (c.address?.toLowerCase().includes(q) ?? false)
+  const filtered = useMemo(() => {
+    const q = debouncedSearch.toLowerCase().trim();
+    if (!q) return clients;
+    return clients.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.email?.toLowerCase().includes(q) ?? false) ||
+        (c.phone?.includes(q) ?? false) ||
+        (c.address?.toLowerCase().includes(q) ?? false)
     );
-  });
+  }, [clients, debouncedSearch]);
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,19 +191,15 @@ export default function ClientsPage() {
         </div>
       )}
 
+      <OmniTabSearch
+        value={search}
+        onChange={setSearch}
+        placeholder={t("omniSearchClients", language)}
+        className="max-w-xl"
+      />
+
       <Card className="overflow-visible transition-shadow hover:shadow-brand-glow">
-        <CardHeader>
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="Rechercher par nom, email, tél, adresse..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 min-h-[48px]"
-            />
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 pt-6">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
               <Loader2 className="h-12 w-12 mb-2 animate-spin opacity-50" />

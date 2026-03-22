@@ -8,6 +8,8 @@ type Props = {
   open: boolean;
   imageUrl: string | null;
   expenseId: string | null;
+  /** Shared layout id with the thumbnail for Framer Motion layout transition */
+  layoutId?: string | null;
   deleting: boolean;
   language: "fr" | "en";
   onClose: () => void;
@@ -22,6 +24,7 @@ export function InvoiceZoomOverlay({
   open,
   imageUrl,
   expenseId,
+  layoutId,
   deleting,
   language,
   onClose,
@@ -52,10 +55,14 @@ export function InvoiceZoomOverlay({
           />
           <motion.div
             className="relative z-10 flex max-h-[92vh] max-w-[96vw] flex-col items-center"
-            initial={{ scale: 0.88, opacity: 0 }}
+            initial={layoutId ? undefined : { scale: 0.88, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.88, opacity: 0 }}
-            transition={{ type: "spring", damping: 26, stiffness: 320 }}
+            exit={layoutId ? { opacity: 0 } : { scale: 0.88, opacity: 0 }}
+            transition={
+              layoutId
+                ? { layout: { type: "spring", damping: 28, stiffness: 380 } }
+                : { type: "spring", damping: 26, stiffness: 320 }
+            }
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 flex w-full justify-end gap-2">
@@ -107,11 +114,13 @@ export function InvoiceZoomOverlay({
               </Button>
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <motion.img
+              layoutId={layoutId || undefined}
               src={imageUrl}
               alt=""
               className="max-h-[78vh] w-auto max-w-[92vw] cursor-zoom-out rounded-lg object-contain shadow-2xl ring-1 ring-white/20"
               onClick={onClose}
+              transition={{ type: "spring", damping: 28, stiffness: 380 }}
             />
             <p className="mt-2 text-center text-xs text-white/80">
               {language === "en" ? "Tap the image or background to close" : "Touchez l’image ou le fond pour fermer"}

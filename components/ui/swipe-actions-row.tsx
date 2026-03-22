@@ -34,6 +34,7 @@ export function SwipeActionsRow({
 
   const onPointerDown = (e: ReactPointerEvent) => {
     if (disabled) return;
+    hapticDone.current = false;
     setDragging(true);
     startX.current = e.clientX;
     try {
@@ -43,20 +44,43 @@ export function SwipeActionsRow({
     }
   };
 
+  const hapticDone = useRef(false);
+
   const onPointerMove = (e: ReactPointerEvent) => {
     if (!dragging || disabled) return;
     const dx = e.clientX - startX.current;
     const next = Math.min(0, Math.max(-REVEAL, dx));
     setOffset(next);
+    if (!hapticDone.current && next < -36) {
+      hapticDone.current = true;
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        try {
+          navigator.vibrate(12);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
   };
 
   const endDrag = () => {
     setDragging(false);
+    hapticDone.current = false;
     setOffset((o) => (o < -REVEAL / 2 ? -REVEAL : 0));
   };
 
+  const revealProgress = Math.min(1, Math.abs(offset) / REVEAL);
+
   return (
     <div className={cn("relative overflow-hidden rounded-lg border border-gray-100 bg-white", className)}>
+      <div
+        className="pointer-events-none absolute inset-y-0 right-0 z-[5] w-[120px] transition-opacity duration-75"
+        style={{
+          opacity: Math.min(1, revealProgress * 1.15),
+          background: `linear-gradient(to left, rgb(59 130 246 / ${0.08 + revealProgress * 0.22}), rgb(239 68 68 / ${0.08 + revealProgress * 0.22}))`,
+        }}
+        aria-hidden
+      />
       <div className="absolute right-0 top-0 z-0 flex h-full min-h-[72px] items-stretch" aria-hidden="true">
         <button
           type="button"
@@ -86,7 +110,7 @@ export function SwipeActionsRow({
         </button>
       </div>
       <div
-        className="relative z-10 touch-pan-y bg-white [touch-action:pan-y]"
+        className="relative z-10 touch-pan-y bg-white/95 [touch-action:pan-y]"
         style={{
           transform: `translateX(${offset}px)`,
           transition: dragging ? "none" : "transform 0.2s ease-out",

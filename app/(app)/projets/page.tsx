@@ -10,7 +10,6 @@ import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -21,8 +20,10 @@ import {
 import { formatDate, formatConvertedCurrency, cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import type { ProjectStatus } from "@/types/database";
-import { Search, FolderKanban, ChevronRight, Loader2, Plus, MoreVertical } from "lucide-react";
+import { FolderKanban, ChevronRight, Loader2, Plus, MoreVertical } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-is-mobile";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
 import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/context/language-context";
@@ -91,6 +92,7 @@ function ProjetsContent() {
   const { language } = useLanguage();
   const [filter, setFilter] = useState<ProjetFilter>("all");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -109,8 +111,8 @@ function ProjetsContent() {
     let list = projects;
     if (filter === "unpaid") list = list.filter((p) => projectRestantDu(p) > 0);
     else if (filter !== "all") list = list.filter((p) => p.status === filter);
-    if (search.trim()) {
-      const q = search.toLowerCase();
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase();
       list = list.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
@@ -118,7 +120,7 @@ function ProjetsContent() {
       );
     }
     return list;
-  }, [projects, filter, search]);
+  }, [projects, filter, debouncedSearch]);
 
   return (
     <motion.div
@@ -149,18 +151,16 @@ function ProjetsContent() {
         </div>
       )}
 
+      <OmniTabSearch
+        value={search}
+        onChange={setSearch}
+        placeholder={t("omniSearchProjects", language)}
+        className="max-w-xl"
+      />
+
       <Card className="overflow-visible transition-shadow hover:shadow-brand-glow">
         <CardHeader className="pb-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                placeholder="Rechercher un projet par nom ou client..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 min-h-[48px]"
-              />
-            </div>
             <div className="flex flex-wrap gap-2">
               {(["all", "unpaid", "en_preparation", "en_cours", "urgent_retard", "termine"] as const).map(
                 (s) => (

@@ -35,6 +35,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     setIsSidebarOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    const close = () => setIsSidebarOpen(false);
+    window.addEventListener("artisanflow-close-mobile-sidebar", close);
+    return () => window.removeEventListener("artisanflow-close-mobile-sidebar", close);
+  }, []);
+
+  useEffect(() => {
+    const collapse = () => setSidebarCollapsed(true);
+    window.addEventListener("artisanflow-collapse-desktop-sidebar", collapse);
+    return () => window.removeEventListener("artisanflow-collapse-desktop-sidebar", collapse);
+  }, []);
+
   const { profile } = useProfile();
   const { setLanguage } = useLanguage();
   useEffect(() => {

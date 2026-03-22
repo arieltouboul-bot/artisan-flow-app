@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useEmployees } from "@/hooks/use-employees";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import { createClient } from "@/lib/supabase/client";
@@ -23,6 +25,17 @@ import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 export default function EmployeesPage() {
   const { language } = useLanguage();
   const { employees, loading, error, addEmployee, updateEmployee } = useEmployees();
+  const [listSearch, setListSearch] = useState("");
+  const debouncedListSearch = useDebouncedValue(listSearch, 300);
+  const filteredEmployees = useMemo(() => {
+    const q = debouncedListSearch.toLowerCase().trim();
+    if (!q) return employees;
+    return employees.filter((emp) => {
+      const full = `${emp.first_name} ${emp.last_name}`.toLowerCase();
+      const role = (emp.role ?? "").toLowerCase();
+      return full.includes(q) || role.includes(q);
+    });
+  }, [employees, debouncedListSearch]);
   const [addOpen, setAddOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -85,6 +98,13 @@ export default function EmployeesPage() {
         <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{error}</div>
       )}
 
+      <OmniTabSearch
+        value={listSearch}
+        onChange={setListSearch}
+        placeholder={t("omniSearchEmployees", language)}
+        className="max-w-xl"
+      />
+
       <Card className="overflow-visible transition-shadow hover:shadow-brand-glow">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -114,8 +134,12 @@ export default function EmployeesPage() {
                       Ajouter un employé
                     </Button>
                   </motion.div>
+                ) : filteredEmployees.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-sm text-gray-500">
+                    {t("noSearchResults", language)}
+                  </div>
                 ) : (
-                  employees.map((emp, i) => (
+                  filteredEmployees.map((emp, i) => (
                     <motion.div
                       key={emp.id}
                       initial={{ opacity: 0, y: 8 }}

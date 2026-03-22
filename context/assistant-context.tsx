@@ -11,11 +11,13 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/context/language-context";
-import { t, tReplace } from "@/lib/translations";
+import { t, tReplace, type Language } from "@/lib/translations";
 import {
   parseAppointmentCommand,
   parseInvoiceFilterIntent,
   parseProjectWithBudget,
+  parseWeeklyRecurrenceCommand,
+  buildWeeklySeriesDates,
 } from "@/lib/smart-command-parser";
 import { runExtendedAssistantScenarios } from "@/lib/assistant-scenarios";
 
@@ -73,6 +75,55 @@ function parsePaymentDate(text: string): string {
   }
   if (lower.includes("aujourd") || lower.includes("ce jour")) return today.toISOString().slice(0, 10);
   return today.toISOString().slice(0, 10);
+}
+
+async function fetchOverlappingAppointments(
+  supabase: NonNullable<ReturnType<typeof createClient>>,
+  userId: string,
+  start: Date,
+  end: Date
+) {
+  const { data } = await supabase
+    .from("appointments")
+    .select("id, title, start_at, end_at")
+    .eq("user_id", userId)
+    .lt("start_at", end.toISOString())
+    .gt("end_at", start.toISOString());
+  return (data ?? []) as { id: string; title: string; start_at: string; end_at: string }[];
+}
+
+/** Uses the conflicting event's start time for the message; alternatives are +1h and next day same slot. */
+function formatConflictAlternatives(requestedStart: Date, conflictStart: Date, language: Language) {
+  const locale = language === "fr" ? "fr-FR" : "en-GB";
+  const existingTime = conflictStart.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  const alt1Start = new Date(requestedStart);
+  alt1Start.setHours(alt1Start.getHours() + 1);
+  const alt1Time = alt1Start.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  const alt2Start = new Date(requestedStart);
+  alt2Start.setDate(alt2Start.getDate() + 1);
+  const alt2Day = alt2Start.toLocaleDateString(locale, { weekday: "long" });
+  return { existingTime, alt1Time, alt2Day };
+}
+
+async function resolveProjectIdForClient(
+  supabase: NonNullable<ReturnType<typeof createClient>>,
+  userId: string,
+  clientId: string
+): Promise<string | null> {
+  const { data: projs } = await supabase
+    .from("projects")
+    .select("id, name, status, updated_at")
+    .eq("user_id", userId)
+    .eq("client_id", clientId);
+  const list = (projs ?? []) as { id: string; name: string; status: string; updated_at: string | null }[];
+  if (list.length === 0) return null;
+  list.sort((a, b) => {
+    const score = (s: string) => (s === "termine" ? 1 : 0);
+    const d = score(a.status) - score(b.status);
+    if (d !== 0) return d;
+    return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
+  });
+  return list[0]!.id;
 }
 
 export function AssistantProvider({ children }: { children: ReactNode }) {
@@ -744,6 +795,77 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        // ——— Weekly recurrence: "Every Monday at 8am, remind me to check the inventory"
+        const weeklyParsed = parseWeeklyRecurrenceCommand(text);
+        if (weeklyParsed) {
+          const slots = buildWeeklySeriesDates(
+            weeklyParsed.weekday,
+            weeklyParsed.hour,
+            weeklyParsed.minute,
+            8,
+            30
+          );
+          const first = slots[0];
+          if (first) {
+            const firstOverlap = await fetchOverlappingAppointments(supabase, user.id, first.start, first.end);
+            if (firstOverlap.length) {
+              const conflictStart = new Date(firstOverlap[0]!.start_at);
+              const { existingTime, alt1Time, alt2Day } = formatConflictAlternatives(
+                first.start,
+                conflictStart,
+                language
+              );
+              appendMessage(
+                "assistant",
+                tReplace("assistantAppointmentConflict", language, { existingTime, alt1Time, alt2Day })
+              );
+              setIsProcessing(false);
+              return;
+            }
+          }
+          let created = 0;
+          for (const slot of slots) {
+            const ov = await fetchOverlappingAppointments(supabase, user.id, slot.start, slot.end);
+            if (ov.length) continue;
+            const title = weeklyParsed.taskTitle.slice(0, 200);
+            const { error: insErr } = await supabase.from("appointments").insert({
+              user_id: user.id,
+              title,
+              project_id: null,
+              start_at: slot.start.toISOString(),
+              end_at: slot.end.toISOString(),
+              type: "reunion",
+              updated_at: new Date().toISOString(),
+            });
+            if (!insErr) created++;
+          }
+          const WEEKDAY_LABEL: Record<Language, string[]> = {
+            en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+            fr: ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"],
+          };
+          const weekdayName = WEEKDAY_LABEL[language][weeklyParsed.weekday];
+          if (created > 0) {
+            appendMessage(
+              "assistant",
+              tReplace("assistantWeeklyRecurrenceCreated", language, {
+                count: String(created),
+                title: weeklyParsed.taskTitle,
+                weekday: weekdayName,
+              })
+            );
+            router.push("/calendar");
+          } else {
+            appendMessage(
+              "assistant",
+              language === "en"
+                ? "Could not add recurring entries (slots may be busy)."
+                : "Impossible d’ajouter les rappels récurrents (créneaux occupés)."
+            );
+          }
+          setIsProcessing(false);
+          return;
+        }
+
         // ——— Appointments (FR + EN): smart parser — "Schedule appointment with Client X next Monday at 2pm"
         const parsedAppt = parseAppointmentCommand(text);
         if (parsedAppt) {
@@ -753,17 +875,25 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             parsedAppt.clientName.replace(/\s+(?:mardi|lundi|mercredi|jeudi|vendredi|samedi|dimanche).*$/i, "").trim() || "Client";
           let projectId: string | null = null;
           const { data: clients } = await supabase.from("clients").select("id, name").eq("user_id", user.id);
-          const client = (clients ?? []).find((c: { name: string }) => c.name.toLowerCase().includes(clientName.toLowerCase()));
+          const client = (clients ?? []).find((c: { name: string; id: string }) =>
+            c.name.toLowerCase().includes(clientName.toLowerCase())
+          );
           if (client) {
-            const { data: proj } = await supabase
-              .from("projects")
-              .select("id")
-              .eq("user_id", user.id)
-              .eq("client_id", client.id)
-              .limit(1)
-              .single();
-            if (proj) projectId = (proj as { id: string }).id;
+            projectId = await resolveProjectIdForClient(supabase, user.id, client.id);
           }
+
+          const overlapAppt = await fetchOverlappingAppointments(supabase, user.id, d, end);
+          if (overlapAppt.length) {
+            const conflictStart = new Date(overlapAppt[0]!.start_at);
+            const { existingTime, alt1Time, alt2Day } = formatConflictAlternatives(d, conflictStart, language);
+            appendMessage(
+              "assistant",
+              tReplace("assistantAppointmentConflict", language, { existingTime, alt1Time, alt2Day })
+            );
+            setIsProcessing(false);
+            return;
+          }
+
           const title = `${language === "en" ? "Appointment" : "RDV"} – ${clientName}`;
           const { error: insertErr } = await supabase.from("appointments").insert({
             user_id: user.id,

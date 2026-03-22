@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { motion } from "framer-motion";
+import { LayoutGroup, motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,8 @@ import type { ExpenseInsertPayload } from "@/lib/types";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
 import { InvoiceZoomOverlay } from "@/components/invoices/invoice-zoom-overlay";
+import { OmniTabSearch } from "@/components/ui/omni-tab-search";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 const INVOICE_BUCKET = "factures";
 
@@ -96,6 +98,8 @@ export default function FacturesPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [filterVendor, setFilterVendor] = useState("");
   const [filterMonth, setFilterMonth] = useState<"all" | "current" | "previous" | "last_week">("all");
+  const [omniQuery, setOmniQuery] = useState("");
+  const debouncedOmni = useDebouncedValue(omniQuery, 300);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -134,8 +138,25 @@ export default function FacturesPage() {
       });
     }
     if (filterCurrency) list = list.filter(() => true);
+    if (debouncedOmni.trim()) {
+      const q = debouncedOmni.toLowerCase().trim();
+      list = list.filter((e) => {
+        const vendor = (e.description.split(" — ")[0] || e.description).toLowerCase();
+        const proj = (e.project_name || "").toLowerCase();
+        const ttcStr = String(
+          Math.round((e.amount_ht + e.amount_ht * (e.tva_rate / 100)) * 100) / 100
+        );
+        return (
+          vendor.includes(q) ||
+          proj.includes(q) ||
+          e.date.includes(q) ||
+          e.description.toLowerCase().includes(q) ||
+          ttcStr.includes(q)
+        );
+      });
+    }
     return [...list].sort((a, b) => b.date.localeCompare(a.date));
-  }, [expenses, filterProjectId, filterCurrency, filterVendor, filterMonth]);
+  }, [expenses, filterProjectId, filterCurrency, filterVendor, filterMonth, debouncedOmni]);
 
   const toggleInvoiceZoom = (url: string, id: string) => {
     setInvoiceZoom((z) => (z?.id === id && z.url === url ? null : { url, id }));
@@ -531,6 +552,7 @@ export default function FacturesPage() {
   };
 
   return (
+    <LayoutGroup id="invoice-zoom-root">
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -542,6 +564,13 @@ export default function FacturesPage() {
         </h1>
         <p className={cn("mt-1 text-gray-500")}>{t("invoicesSubtitle", language)}</p>
       </div>
+
+      <OmniTabSearch
+        value={omniQuery}
+        onChange={setOmniQuery}
+        placeholder={t("omniSearchInvoices", language)}
+        className="max-w-xl"
+      />
 
       <Card className={cn("overflow-visible transition-shadow hover:shadow-brand-glow")}>
         <CardHeader className={cn("flex flex-row flex-wrap items-center justify-between gap-4")}>
@@ -704,8 +733,16 @@ export default function FacturesPage() {
                             }}
                             className="block h-14 w-14 rounded border border-gray-200 overflow-hidden bg-gray-100"
                           >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={(e as ExpenseRow).image_url!} alt="" className="h-full w-full object-cover" />
+                            <motion.img
+                              layoutId={`invoice-photo-${e.id}`}
+                              src={(e as ExpenseRow).image_url!}
+                              alt=""
+                              className={cn(
+                                "h-full w-full object-cover",
+                                invoiceZoom?.id === e.id && "opacity-0"
+                              )}
+                              transition={{ type: "spring", damping: 28, stiffness: 380 }}
+                            />
                           </button>
                         ) : (
                           <span className="flex h-14 w-14 items-center justify-center rounded border border-gray-100 bg-gray-50 text-gray-300">
@@ -756,8 +793,16 @@ export default function FacturesPage() {
                               }}
                               className="block w-10 h-10 rounded border border-gray-200 overflow-hidden bg-gray-100 hover:ring-2 hover:ring-brand-blue-400 focus:outline-none focus:ring-2 focus:ring-brand-blue-500"
                             >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={(e as ExpenseRow).image_url!} alt="" className="w-full h-full object-cover" />
+                              <motion.img
+                                layoutId={`invoice-photo-${e.id}`}
+                                src={(e as ExpenseRow).image_url!}
+                                alt=""
+                                className={cn(
+                                  "h-full w-full object-cover",
+                                  invoiceZoom?.id === e.id && "opacity-0"
+                                )}
+                                transition={{ type: "spring", damping: 28, stiffness: 380 }}
+                              />
                             </button>
                           ) : (
                             <span className="block w-10 h-10 rounded border border-gray-100 bg-gray-50 flex items-center justify-center text-gray-300 text-xs">—</span>
@@ -892,6 +937,7 @@ export default function FacturesPage() {
         open={!!invoiceZoom}
         imageUrl={invoiceZoom?.url ?? null}
         expenseId={invoiceZoom?.id ?? null}
+        layoutId={invoiceZoom ? `invoice-photo-${invoiceZoom.id}` : null}
         deleting={!!invoiceZoom && deletingId === invoiceZoom.id}
         language={language}
         onClose={() => setInvoiceZoom(null)}
@@ -943,5 +989,6 @@ export default function FacturesPage() {
         </DialogContent>
       </Dialog>
     </motion.div>
+    </LayoutGroup>
   );
 }

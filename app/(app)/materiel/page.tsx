@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
 import { motion } from "framer-motion";
@@ -86,6 +88,32 @@ export default function MaterielPage() {
   const [saveExpenseLoading, setSaveExpenseLoading] = useState(false);
   const [saveExpenseError, setSaveExpenseError] = useState<string | null>(null);
   const [saveExpenseSuccess, setSaveExpenseSuccess] = useState(false);
+
+  const [tabSearch, setTabSearch] = useState("");
+  const debouncedTabSearch = useDebouncedValue(tabSearch, 300);
+
+  const filteredItems = useMemo(() => {
+    const q = debouncedTabSearch.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (it) =>
+        it.name.toLowerCase().includes(q) ||
+        (it.category || "").toLowerCase().includes(q) ||
+        String(it.stock_quantity).includes(q) ||
+        String(it.unit_price_ht ?? "").includes(q)
+    );
+  }, [items, debouncedTabSearch]);
+
+  const filteredSuppliers = useMemo(() => {
+    const q = debouncedTabSearch.trim().toLowerCase();
+    if (!q) return suppliers;
+    return suppliers.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.phone || "").toLowerCase().includes(q) ||
+        (s.address || "").toLowerCase().includes(q)
+    );
+  }, [suppliers, debouncedTabSearch]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -320,6 +348,13 @@ export default function MaterielPage() {
         </p>
       </div>
 
+      <OmniTabSearch
+        value={tabSearch}
+        onChange={setTabSearch}
+        placeholder={t("omniSearchMateriel", language)}
+        className="max-w-xl"
+      />
+
       <Tabs defaultValue="catalogue" className="space-y-4">
         <TabsList className={cn("grid w-full grid-cols-3 lg:w-auto lg:inline-grid min-h-[48px] p-1")}>
           <TabsTrigger value="catalogue" className="min-h-[44px] gap-2">
@@ -375,11 +410,11 @@ export default function MaterielPage() {
                   <Loader2 className="h-8 w-8 animate-spin" />
                   <span>{t("loading", language)}</span>
                 </div>
-              ) : items.length === 0 ? (
+              ) : filteredItems.length === 0 ? (
                 <p className="py-12 text-center text-gray-500">{t("noItems", language)}</p>
               ) : isMobile ? (
                 <div className="space-y-3 px-1">
-                  {items.map((item) => {
+                  {filteredItems.map((item) => {
                     const runDel = async () => {
                       if (!confirm(language === "en" ? "Delete this item?" : "Supprimer cet article ?")) return;
                       setDeletingId(`item-${item.id}`);
@@ -426,7 +461,7 @@ export default function MaterielPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {items.map((item) => (
+                      {filteredItems.map((item) => (
                         <tr key={item.id} className={cn("border-b border-gray-100", deletingId === `item-${item.id}` && "opacity-60 pointer-events-none")}>
                           <td className="py-3 pr-2 font-medium">{item.name}</td>
                           <td className="py-3 pr-2 text-gray-600">{item.category || "—"}</td>
