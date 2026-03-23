@@ -191,9 +191,44 @@ export const translations: Record<string, { fr: string; en: string }> = {
     fr: "Email envoyé ! Vérifiez vos spams.",
     en: "Confirmation email sent! Please check your spam folder.",
   },
+  signupDuplicateFriendlyPrefix: {
+    fr: "Cet email est déjà utilisé.",
+    en: "This email is already in use.",
+  },
   resendConfirmationEmail: {
     fr: "Renvoyer l'email de confirmation",
     en: "Resend confirmation email",
+  },
+  resetPassword: { fr: "Réinitialisez votre mot de passe", en: "Reset your password" },
+  forgotPasswordTitle: { fr: "Mot de passe oublié", en: "Forgot password" },
+  forgotPasswordSubtitle: {
+    fr: "Entrez votre email pour recevoir un lien de récupération.",
+    en: "Enter your email to receive a recovery link.",
+  },
+  sendRecoveryLink: { fr: "Envoyer le lien de récupération", en: "Send recovery link" },
+  resetPasswordEmailSent: {
+    fr: "Lien envoyé ! Vérifiez votre email.",
+    en: "Recovery link sent! Check your email.",
+  },
+  resetPasswordTitle: { fr: "Réinitialiser le mot de passe", en: "Reset password" },
+  newPassword: { fr: "Nouveau mot de passe", en: "New password" },
+  confirmPassword: { fr: "Confirmer le mot de passe", en: "Confirm password" },
+  resetPasswordSubmit: { fr: "Mettre à jour le mot de passe", en: "Update password" },
+  resetPasswordSuccess: {
+    fr: "Mot de passe mis à jour. Redirection vers la connexion...",
+    en: "Password updated. Redirecting to sign in...",
+  },
+  resetPasswordMinLength: {
+    fr: "Le mot de passe doit contenir au moins 6 caractères.",
+    en: "Password must contain at least 6 characters.",
+  },
+  resetPasswordMismatch: {
+    fr: "Les mots de passe ne correspondent pas.",
+    en: "Passwords do not match.",
+  },
+  resetPasswordInvalidLink: {
+    fr: "Lien de réinitialisation invalide ou expiré.",
+    en: "Reset link is invalid or expired.",
   },
   signupEmailSentModal: {
     fr: "Un e-mail a été envoyé à {email}. Cliquez sur le lien pour activer votre compte.",

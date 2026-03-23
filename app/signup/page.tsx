@@ -24,12 +24,14 @@ export default function SignupPage() {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [canResendConfirmation, setCanResendConfirmation] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [friendlyDuplicate, setFriendlyDuplicate] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setInfo(null);
     setCanResendConfirmation(false);
+    setFriendlyDuplicate(false);
     setLoading(true);
     const supabase = createClient();
     if (!supabase) {
@@ -50,6 +52,7 @@ export default function SignupPage() {
       setToast({ type: "error", message: signError.message });
       const lower = signError.message.toLowerCase();
       setCanResendConfirmation(lower.includes("already") || lower.includes("exists") || lower.includes("registered"));
+      setFriendlyDuplicate(lower.includes("already") || lower.includes("exists") || lower.includes("registered"));
       return;
     }
     if (data?.user) {
@@ -190,6 +193,19 @@ export default function SignupPage() {
               </div>
               {error && (
                 <p className="text-sm text-red-600 bg-red-50 p-2 rounded-lg">{error}</p>
+              )}
+              {friendlyDuplicate && (
+                <p className="text-sm text-amber-800 bg-amber-50 p-2 rounded-lg">
+                  {t("signupDuplicateFriendlyPrefix", language)}{" "}
+                  <Link href="/login" className="font-medium text-brand-blue-700 underline">
+                    {t("signIn", language)}
+                  </Link>{" "}
+                  {language === "fr" ? "ou" : "or"}{" "}
+                  <Link href="/forgot-password" className="font-medium text-brand-blue-700 underline">
+                    {t("resetPassword", language)}
+                  </Link>
+                  .
+                </p>
               )}
               {info && (
                 <p className="text-sm text-amber-800 bg-amber-50 p-2 rounded-lg">{info}</p>

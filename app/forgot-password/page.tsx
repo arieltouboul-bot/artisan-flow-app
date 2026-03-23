@@ -1,102 +1,93 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { Loader2, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Hammer, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
+
+export const dynamic = "force-dynamic";
 
 export default function ForgotPasswordPage() {
-  const router = useRouter();
+  const { language } = useLanguage();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  const handleSubmit = async (e: FormEvent) => {
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 3000);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+
+  const handleSendReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSuccess(null);
     setLoading(true);
     const supabase = createClient();
     if (!supabase) {
-      setError("Configuration Supabase manquante.");
       setLoading(false);
+      setError("Configuration Supabase manquante.");
+      setToast({ type: "error", message: "Configuration Supabase manquante." });
       return;
     }
-    try {
-      const origin = window.location.origin;
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${origin}/update-password`,
-      });
-      if (resetError) {
-        setError(resetError.message);
-      } else {
-        setSuccess("Vérifiez vos emails pour le lien de réinitialisation.");
-      }
-    } finally {
-      setLoading(false);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+    setLoading(false);
+    if (resetError) {
+      setError(resetError.message);
+      setToast({ type: "error", message: resetError.message });
+      return;
     }
+    setToast({ type: "success", message: t("resetPasswordEmailSent", language) });
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
-        <div className="flex justify-center mb-8">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-blue-500 text-white shadow-brand-glow">
-            <Hammer className="h-8 w-8" />
+    <div className="min-h-screen bg-gray-50 p-4">
+      {toast && (
+        <div className="fixed right-4 top-4 z-[200]">
+          <div className={toast.type === "success" ? "rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white shadow-lg" : "rounded-lg bg-red-600 px-4 py-2 text-sm text-white shadow-lg"}>
+            {toast.message}
           </div>
         </div>
-        <Card className="overflow-hidden shadow-brand-glow">
+      )}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mx-auto mt-16 w-full max-w-md">
+        <Card className="shadow-brand-glow">
           <CardHeader>
-            <CardTitle className="text-xl text-center">Mot de passe oublié</CardTitle>
-            <p className="text-sm text-gray-500 text-center">
-              Entrez votre email pour recevoir un lien de réinitialisation.
-            </p>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-brand-blue-600" />
+              {t("forgotPasswordTitle", language)}
+            </CardTitle>
+            <p className="text-sm text-gray-500">{t("forgotPasswordSubtitle", language)}</p>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSendReset} className="space-y-4">
               <div>
-                <label htmlFor="email" className="text-sm font-medium text-gray-700 mb-1 block">
-                  Email
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">{t("email", language)}</label>
                 <Input
-                  id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="vous@exemple.fr"
+                  placeholder={t("placeholderEmail", language)}
                   className="min-h-[48px]"
                   required
                 />
               </div>
-              {error && (
-                <p className="text-sm text-red-600 bg-red-50 p-2 rounded-lg">{error}</p>
-              )}
-              {success && (
-                <p className="text-sm text-emerald-700 bg-emerald-50 p-2 rounded-lg">
-                  {success}
-                </p>
-              )}
+              {error && <p className="rounded-lg bg-red-50 p-2 text-sm text-red-600">{error}</p>}
               <Button type="submit" className="w-full min-h-[48px]" disabled={loading}>
-                {loading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  "Envoyer le lien de récupération"
-                )}
+                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : t("sendRecoveryLink", language)}
               </Button>
             </form>
-            <p className="text-sm text-gray-500 text-center mt-4">
-              <Link href="/login" className="text-brand-blue-600 hover:underline font-medium">
-                ← Retour à la connexion
+            <p className="mt-4 text-center text-sm text-gray-500">
+              <Link href="/login" className="font-medium text-brand-blue-600 hover:underline">
+                {t("backToLogin", language)}
               </Link>
             </p>
           </CardContent>
@@ -105,4 +96,3 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
-
