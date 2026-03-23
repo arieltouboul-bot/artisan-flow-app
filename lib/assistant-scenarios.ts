@@ -155,6 +155,134 @@ export async function runExtendedAssistantScenarios(opts: {
     return true;
   }
 
+  // ——— Payroll by employee this month
+  const paidEmpMatch =
+    /(?:combien|how much).{0,30}(?:payé|paid).{0,30}(?:à|to)\s+(.+?)(?:\s+ce mois|\s+this month|[?.!]|$)/i.exec(lower) ||
+    /(?:paid).{0,20}(.+?)\s+(?:this month)/i.exec(lower);
+  if (paidEmpMatch) {
+    const q = paidEmpMatch[1]?.trim() ?? "";
+    const now = new Date();
+    const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const end = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()).padStart(2, "0")}`;
+
+    const { data: emps } = await supabase.from("employees").select("id, first_name, last_name").eq("user_id", userId);
+    const emp = (emps ?? []).find((e: { first_name: string; last_name: string }) =>
+      `${e.first_name} ${e.last_name}`.toLowerCase().includes(q)
+    ) as { id: string; first_name: string; last_name: string } | undefined;
+    if (!emp) {
+      appendMessage("assistant", language === "fr" ? `Aucun employé trouvé pour « ${q} ».` : `No employee found for "${q}".`);
+      return true;
+    }
+    const { data: pays } = await supabase
+      .from("employee_payments")
+      .select("amount, currency, payment_date")
+      .eq("user_id", userId)
+      .eq("employee_id", emp.id)
+      .gte("payment_date", start)
+      .lte("payment_date", end);
+    let total = 0;
+    for (const p of pays ?? []) {
+      const row = p as { amount: number; currency: string | null };
+      const cur = row.currency === "USD" || row.currency === "GBP" || row.currency === "ILS" ? row.currency : "EUR";
+      total += amountInCurrencyToEur(Number(row.amount) || 0, cur);
+    }
+    appendMessage(
+      "assistant",
+      language === "fr"
+        ? `Ce mois, vous avez payé **${Math.round(total * 100) / 100} €** (équiv. EUR) à **${emp.first_name} ${emp.last_name}**.`
+        : `This month, you paid **${Math.round(total * 100) / 100} €** (EUR equivalent) to **${emp.first_name} ${emp.last_name}**.`
+    );
+    return true;
+  }
+
+  // ——— Profitability this month including rentals and labor
+  if (
+    /(?:rentable|profitab|profit).{0,40}(?:ce mois|this month)/i.test(lower) &&
+    /(?:location|rental|ouvrier|worker|team|équipe|labou?r|main.?d.?oeuvre)/i.test(lower)
+  ) {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const start = new Date(y, m, 1);
+    const end = new Date(y, m + 1, 0, 23, 59, 59, 999);
+    const startIso = start.toISOString().slice(0, 10);
+    const endIso = end.toISOString().slice(0, 10);
+
+    const { data: revs } = await supabase
+      .from("revenues")
+      .select("amount, currency, date")
+      .eq("user_id", userId)
+      .gte("date", startIso)
+      .lte("date", endIso);
+    let revenueEur = 0;
+    for (const r of revs ?? []) {
+      const row = r as { amount: number; currency: string | null };
+      revenueEur += amountInCurrencyToEur(Number(row.amount) || 0, parseStoredRevenueCurrency(row.currency));
+    }
+
+    const { data: expenses } = await supabase
+      .from("expenses")
+      .select("amount_ht, tva_rate, amount_ttc, date, invoice_date, category")
+      .eq("user_id", userId);
+    let expenseEur = 0;
+    for (const e of expenses ?? []) {
+      const row = e as {
+        amount_ht: number;
+        tva_rate: number;
+        amount_ttc?: number | null;
+        date?: string | null;
+        invoice_date?: string | null;
+      };
+      const d = (row.invoice_date ?? row.date ?? "").slice(0, 10);
+      if (!d || d < startIso || d > endIso) continue;
+      expenseEur += expenseLineTtc({
+        amount_ht: Number(row.amount_ht) || 0,
+        tva_rate: Number(row.tva_rate) || 0,
+        amount_ttc: row.amount_ttc ?? undefined,
+      });
+    }
+
+    const { data: rentals } = await supabase
+      .from("rentals")
+      .select("start_date, end_date, price_per_day")
+      .eq("user_id", userId);
+    let rentalCostEur = 0;
+    for (const r of rentals ?? []) {
+      const row = r as { start_date: string; end_date: string; price_per_day: number };
+      const rs = new Date(`${row.start_date}T00:00:00`);
+      const re = new Date(`${row.end_date}T00:00:00`);
+      if (Number.isNaN(rs.getTime()) || Number.isNaN(re.getTime())) continue;
+      const overlapStart = rs > start ? rs : start;
+      const overlapEnd = re < end ? re : end;
+      if (overlapEnd < overlapStart) continue;
+      const days = Math.floor((overlapEnd.getTime() - overlapStart.getTime()) / 86_400_000) + 1;
+      rentalCostEur += days * (Number(row.price_per_day) || 0);
+    }
+
+    const { data: payrollRows } = await supabase
+      .from("employee_payments")
+      .select("amount, currency, payment_date")
+      .eq("user_id", userId)
+      .gte("payment_date", startIso)
+      .lte("payment_date", endIso);
+    let payrollEur = 0;
+    for (const p of payrollRows ?? []) {
+      const row = p as { amount: number; currency: string | null };
+      const cur = row.currency === "USD" || row.currency === "GBP" || row.currency === "ILS" ? row.currency : "EUR";
+      payrollEur += amountInCurrencyToEur(Number(row.amount) || 0, cur);
+    }
+
+    const totalCosts = expenseEur + rentalCostEur + payrollEur;
+    const net = revenueEur - totalCosts;
+    appendMessage(
+      "assistant",
+      language === "fr"
+        ? `Rentabilité ce mois (EUR) : revenus **${Math.round(revenueEur * 100) / 100} €**, dépenses **${Math.round(expenseEur * 100) / 100} €**, locations **${Math.round(rentalCostEur * 100) / 100} €**, salaires **${Math.round(payrollEur * 100) / 100} €**. Résultat net : **${Math.round(net * 100) / 100} €**.`
+        : `This month profitability (EUR): revenue **${Math.round(revenueEur * 100) / 100} €**, expenses **${Math.round(expenseEur * 100) / 100} €**, rentals **${Math.round(rentalCostEur * 100) / 100} €**, payroll **${Math.round(payrollEur * 100) / 100} €**. Net result: **${Math.round(net * 100) / 100} €**.`
+    );
+    return true;
+  }
+
   // ——— Dashboard: commentaire sur les KPI affichés
   if (activeSection === "dashboard" && dashboardKpis) {
     const asksDashboardInsight =

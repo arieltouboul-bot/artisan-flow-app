@@ -23,7 +23,6 @@ export type {
 
 import { caInRangeEur } from "@/lib/finance-metrics";
 import {
-  projectNetProfitEur,
   sumMaterialToolExpensesTtc,
   totalProjectExpensesEur,
   totalProjectRevenueEur,
@@ -160,6 +159,20 @@ export function useFinanceAnalytics() {
         rentalsByProject.set(r.project_id, (rentalsByProject.get(r.project_id) ?? 0) + total);
       }
 
+      const { data: payrollData } = await supabase
+        .from("employee_payments")
+        .select("project_id, amount, currency")
+        .eq("user_id", user.id);
+      const payrollByProject = new Map<string, number>();
+      for (const p of payrollData ?? []) {
+        const row = p as { project_id: string | null; amount: number; currency: string | null };
+        const cur = row.currency === "USD" || row.currency === "GBP" || row.currency === "ILS" ? row.currency : "EUR";
+        const eur = amountInCurrencyToEur(Number(row.amount) || 0, cur);
+        if (row.project_id) {
+          payrollByProject.set(row.project_id, (payrollByProject.get(row.project_id) ?? 0) + eur);
+        }
+      }
+
       const revByProject = new Map<string, { amount: number; currency: string }[]>();
       for (const r of revenues) {
         const list = revByProject.get(r.project_id) ?? [];
@@ -220,12 +233,13 @@ export function useFinanceAnalytics() {
         const pRev = revByProject.get(p.id) ?? [];
         const pEx = expensesByProject.get(p.id) ?? [];
         const revEur = totalProjectRevenueEur(pTx, pRev);
-        const marginEur = projectNetProfitEur(num(p.material_costs), pEx, pTx, pRev);
-        companyMarginEur += marginEur;
         const matField = num(p.material_costs);
         const lineExpTtc = sumMaterialToolExpensesTtc(pEx);
         const rentalExp = rentalsByProject.get(p.id) ?? 0;
-        const totalExpProj = totalProjectExpensesEur(matField, pEx) + rentalExp;
+        const payrollExp = payrollByProject.get(p.id) ?? 0;
+        const totalExpProj = totalProjectExpensesEur(matField, pEx) + rentalExp + payrollExp;
+        const marginEur = revEur - totalExpProj;
+        companyMarginEur += marginEur;
         companyTotalExpensesEur += totalExpProj;
 
         const clientName = p.client?.name ?? "—";
@@ -241,6 +255,7 @@ export function useFinanceAnalytics() {
           materialCostsFieldEur: matField,
           expenseLinesTtcEur: lineExpTtc,
           rentalExpenseEur: rentalExp,
+          teamPayrollExpenseEur: payrollExp,
         });
 
         /** Budget contrat − encaissements totaux (transactions + lignes revenus), équivalent EUR. */
@@ -361,6 +376,7 @@ export function useFinanceAnalytics() {
       .on("postgres_changes", { event: "*", schema: "public", table: "project_transactions" }, () => fetchAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => fetchAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "rentals" }, () => fetchAll())
+      .on("postgres_changes", { event: "*", schema: "public", table: "employee_payments" }, () => fetchAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, () => fetchAll())
       .subscribe();
     return () => {

@@ -20,12 +20,19 @@ import { useAssistant } from "@/context/assistant-context";
 import { t } from "@/lib/translations";
 import { Users, Plus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatConvertedCurrency, type Currency } from "@/lib/utils";
 import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
 import { useIsMobile } from "@/hooks/use-is-mobile";
+import { useProfile } from "@/hooks/use-profile";
+import { useProjects } from "@/hooks/use-projects";
+import { useEmployeePayments } from "@/hooks/use-employee-payments";
+import { InlineEditableAmountEur } from "@/components/finance/inline-editable-amount";
 
 export default function EmployeesPage() {
   const { language } = useLanguage();
+  const { displayCurrency } = useProfile();
+  const { projects } = useProjects();
   const { setPageContext } = useAssistant();
   useEffect(() => {
     setPageContext({ activeSection: "employees" });
@@ -54,8 +61,17 @@ export default function EmployeesPage() {
   const [editLastName, setEditLastName] = useState("");
   const [editRole, setEditRole] = useState("");
   const [editLoading, setEditLoading] = useState(false);
+  const [detailEmployeeId, setDetailEmployeeId] = useState<string | null>(null);
+  const [salaryTypeDraft, setSalaryTypeDraft] = useState<"daily" | "monthly">("daily");
+  const [salaryCurrencyDraft, setSalaryCurrencyDraft] = useState<Currency>("EUR");
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentProjectId, setPaymentProjectId] = useState<string>("");
+  const [paymentSaving, setPaymentSaving] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const selectedEmployee = employees.find((e) => e.id === detailEmployeeId) ?? null;
+  const { payments, loading: paymentsLoading, addPayment, updatePayment, deletePayment } = useEmployeePayments(detailEmployeeId);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,6 +94,14 @@ export default function EmployeesPage() {
     setDeletingId(null);
     if (error) alert(error instanceof Error ? error.message : String(error));
   };
+
+  const paidThisMonth = useMemo(() => {
+    const now = new Date();
+    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return payments
+      .filter((p) => p.payment_date.slice(0, 7) === ym)
+      .reduce((s, p) => s + p.amount, 0);
+  }, [payments]);
 
   return (
     <motion.div
@@ -167,7 +191,14 @@ export default function EmployeesPage() {
                         deleteLabel={t("delete", language)}
                         className={cn(deletingId === emp.id && "opacity-60 pointer-events-none")}
                       >
-                        <div className="px-4 py-4">
+                        <div
+                          className="px-4 py-4 cursor-pointer"
+                          onClick={() => {
+                            setDetailEmployeeId(emp.id);
+                            setSalaryTypeDraft((emp.salary_type as "daily" | "monthly") ?? "daily");
+                            setSalaryCurrencyDraft((emp.salary_currency as Currency) ?? "EUR");
+                          }}
+                        >
                           <p className="font-semibold text-gray-900">
                             {emp.first_name} {emp.last_name}
                           </p>
@@ -186,7 +217,14 @@ export default function EmployeesPage() {
                       transition={{ delay: i * 0.03 }}
                       className={cn("flex flex-wrap items-center justify-between gap-4 px-6 py-4 hover:bg-gray-50/50", deletingId === emp.id && "opacity-60 pointer-events-none")}
                     >
-                      <div>
+                      <div
+                        className="cursor-pointer"
+                        onClick={() => {
+                          setDetailEmployeeId(emp.id);
+                          setSalaryTypeDraft((emp.salary_type as "daily" | "monthly") ?? "daily");
+                          setSalaryCurrencyDraft((emp.salary_currency as Currency) ?? "EUR");
+                        }}
+                      >
                         <p className="font-semibold text-gray-900">
                           {emp.first_name} {emp.last_name}
                         </p>
@@ -262,6 +300,178 @@ export default function EmployeesPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!detailEmployeeId} onOpenChange={(open) => !open && setDetailEmployeeId(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedEmployee ? `${selectedEmployee.first_name} ${selectedEmployee.last_name}` : "—"} · {t("payrollAndPayments", language)}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedEmployee && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">{t("salaryType", language)}</p>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={salaryTypeDraft === "daily" ? "default" : "outline"}
+                    size="sm"
+                    onClick={async () => {
+                      setSalaryTypeDraft("daily");
+                      await updateEmployee(selectedEmployee.id, { salary_type: "daily" });
+                    }}
+                  >
+                    {t("salaryDaily", language)}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={salaryTypeDraft === "monthly" ? "default" : "outline"}
+                    size="sm"
+                    onClick={async () => {
+                      setSalaryTypeDraft("monthly");
+                      await updateEmployee(selectedEmployee.id, { salary_type: "monthly" });
+                    }}
+                  >
+                    {t("salaryMonthly", language)}
+                  </Button>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-slate-600">{t("salaryAmount", language)}:</span>
+                  <InlineEditableAmountEur
+                    amountEur={Number(selectedEmployee.salary_amount ?? 0)}
+                    displayCurrency={displayCurrency}
+                    onCommit={async (newEur) => {
+                      await updateEmployee(selectedEmployee.id, { salary_amount: newEur });
+                    }}
+                  />
+                  <select
+                    value={salaryCurrencyDraft}
+                    onChange={async (e) => {
+                      const cur = e.target.value as Currency;
+                      setSalaryCurrencyDraft(cur);
+                      await updateEmployee(selectedEmployee.id, { salary_currency: cur });
+                    }}
+                    className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm"
+                  >
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                    <option value="GBP">GBP</option>
+                    <option value="ILS">ILS</option>
+                  </select>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  {t("paidThisMonthForEmployee", language)}: {formatConvertedCurrency(paidThisMonth, displayCurrency)}
+                </p>
+              </div>
+
+              <form
+                className="grid gap-3 rounded-lg border border-slate-200 p-3"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const amt = parseFloat(paymentAmount.replace(",", "."));
+                  if (Number.isNaN(amt) || amt <= 0) return;
+                  setPaymentSaving(true);
+                  const res = await addPayment({
+                    payment_date: paymentDate,
+                    amount: amt,
+                    currency: salaryCurrencyDraft,
+                    project_id: paymentProjectId || null,
+                  });
+                  setPaymentSaving(false);
+                  if (!res.error) {
+                    setPaymentAmount("");
+                    setPaymentProjectId("");
+                  }
+                }}
+              >
+                <p className="text-sm font-medium text-slate-700">{t("addPayrollPayment", language)}</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className="min-h-[44px]" />
+                  <Input type="number" min="0" step="0.01" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder={t("salaryAmount", language)} className="min-h-[44px]" />
+                  <select
+                    value={paymentProjectId}
+                    onChange={(e) => setPaymentProjectId(e.target.value)}
+                    className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm min-h-[44px]"
+                  >
+                    <option value="">{t("linkedProject", language)} (—)</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <Button type="submit" disabled={paymentSaving} className="w-fit">
+                  {paymentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("addPayrollPayment", language)}
+                </Button>
+              </form>
+
+              <div className="rounded-lg border border-slate-200 p-3">
+                <p className="text-sm font-medium text-slate-700 mb-2">{t("paymentHistory", language)}</p>
+                {paymentsLoading ? (
+                  <div className="py-6 text-sm text-gray-500">{t("loading", language)}</div>
+                ) : payments.length === 0 ? (
+                  <div className="py-6 text-sm text-gray-500">{t("noPaymentsYet", language)}</div>
+                ) : (
+                  <div className="space-y-2">
+                    {payments.map((p) => {
+                      const rowId = `pay-${p.id}`;
+                      const row = (
+                        <div className={cn("flex items-center justify-between gap-2 rounded-md border border-slate-100 bg-white px-3 py-2", deletingId === rowId && "opacity-60 pointer-events-none")}>
+                          <div className="min-w-0">
+                            <p className="text-sm text-slate-700">{p.payment_date}</p>
+                            <p className="text-xs text-slate-500">
+                              {t("linkedProject", language)}: {p.project_id ? projects.find((x) => x.id === p.project_id)?.name ?? "—" : "—"}
+                            </p>
+                          </div>
+                          <InlineEditableAmountEur
+                            amountEur={p.amount}
+                            displayCurrency={displayCurrency}
+                            className="text-brand-blue-700"
+                            onCommit={async (newEur) => {
+                              await updatePayment(p.id, { amount: newEur });
+                            }}
+                          />
+                        </div>
+                      );
+                      return isMobile ? (
+                        <SwipeActionsRow
+                          key={p.id}
+                          onEdit={() => {}}
+                          onDelete={async () => {
+                            setDeletingId(rowId);
+                            await deletePayment(p.id);
+                            setDeletingId(null);
+                          }}
+                          editLabel={t("edit", language)}
+                          deleteLabel={t("delete", language)}
+                          disabled={deletingId === rowId}
+                        >
+                          {row}
+                        </SwipeActionsRow>
+                      ) : (
+                        <div key={p.id} className="flex items-center gap-2">
+                          <div className="flex-1">{row}</div>
+                          <RowActionsMenu
+                            isOpen={openMenuId === rowId}
+                            onOpenChange={(open) => setOpenMenuId(open ? rowId : null)}
+                            onEdit={() => {}}
+                            onDelete={async () => {
+                              setDeletingId(rowId);
+                              await deletePayment(p.id);
+                              setDeletingId(null);
+                            }}
+                            isDeleting={deletingId === rowId}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!editId} onOpenChange={(open) => !open && setEditId(null)}>
         <DialogContent>
           <DialogHeader>
@@ -279,7 +489,7 @@ export default function EmployeesPage() {
               });
               setEditLoading(false);
               if (result.error) {
-                console.error("Employees updateEmployee failed:", result.error);
+                alert(result.error instanceof Error ? result.error.message : String(result.error));
               } else setEditId(null);
             }}
             className="space-y-4"

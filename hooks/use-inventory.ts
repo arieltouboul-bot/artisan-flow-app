@@ -111,9 +111,11 @@ export function useInventory() {
   const deleteItem = useCallback(
     async (id: string) => {
       const supabase = createClient();
-      if (!supabase) return;
-      await supabase.from("inventory").delete().eq("id", id);
+      if (!supabase) return { error: "Supabase non configuré" };
+      const { error: delError } = await supabase.from("inventory").delete().eq("id", id);
+      if (delError) return { error: delError.message };
       await fetchItems();
+      return {};
     },
     [fetchItems]
   );

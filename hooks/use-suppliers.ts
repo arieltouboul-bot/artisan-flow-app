@@ -104,9 +104,11 @@ export function useSuppliers() {
   const deleteSupplier = useCallback(
     async (id: string) => {
       const supabase = createClient();
-      if (!supabase) return;
-      await supabase.from("suppliers").delete().eq("id", id);
+      if (!supabase) return { error: "Supabase non configuré" };
+      const { error: delError } = await supabase.from("suppliers").delete().eq("id", id);
+      if (delError) return { error: delError.message };
       await fetchSuppliers();
+      return {};
     },
     [fetchSuppliers]
   );

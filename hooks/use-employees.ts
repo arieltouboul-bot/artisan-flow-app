@@ -11,6 +11,9 @@ function mapRow(row: Record<string, unknown>): Employee {
     first_name: row.first_name as string,
     last_name: row.last_name as string,
     role: (row.role as string) ?? "",
+    salary_type: (row.salary_type as Employee["salary_type"]) ?? null,
+    salary_amount: row.salary_amount != null ? Number(row.salary_amount) : null,
+    salary_currency: (row.salary_currency as Employee["salary_currency"]) ?? null,
     created_at: row.created_at as string | undefined,
   };
 }
@@ -82,13 +85,16 @@ export function useEmployees() {
   );
 
   const updateEmployee = useCallback(
-    async (id: string, payload: { first_name?: string; last_name?: string; role?: string }) => {
+    async (id: string, payload: { first_name?: string; last_name?: string; role?: string; salary_type?: Employee["salary_type"]; salary_amount?: number | null; salary_currency?: Employee["salary_currency"] }) => {
       const supabase = createClient();
       if (!supabase) return { error: new Error("Supabase non configuré") };
       const toUpdate: Record<string, unknown> = {};
       if (payload.first_name !== undefined) toUpdate.first_name = payload.first_name.trim();
       if (payload.last_name !== undefined) toUpdate.last_name = payload.last_name.trim();
       if (payload.role !== undefined) toUpdate.role = payload.role.trim();
+      if (payload.salary_type !== undefined) toUpdate.salary_type = payload.salary_type;
+      if (payload.salary_amount !== undefined) toUpdate.salary_amount = payload.salary_amount;
+      if (payload.salary_currency !== undefined) toUpdate.salary_currency = payload.salary_currency;
       if (Object.keys(toUpdate).length === 0) return {};
       const { error: updateError } = await supabase.from("employees").update(toUpdate).eq("id", id);
       if (updateError) return { error: updateError };

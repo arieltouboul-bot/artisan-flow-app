@@ -194,6 +194,20 @@ export interface Employee {
   first_name: string;
   last_name: string;
   role: string;
+  salary_type?: "daily" | "monthly" | null;
+  salary_amount?: number | null;
+  salary_currency?: "EUR" | "USD" | "GBP" | "ILS" | null;
+  created_at?: string;
+}
+
+export interface EmployeePayment {
+  id: string;
+  user_id: string;
+  employee_id: string;
+  project_id: string | null;
+  payment_date: string;
+  amount: number;
+  currency: "EUR" | "USD" | "GBP" | "ILS";
   created_at?: string;
 }
 

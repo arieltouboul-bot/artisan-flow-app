@@ -110,7 +110,7 @@ function ProjetsContent() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { displayCurrency } = useProfile();
   const currency = displayCurrency;
-  const { projects, loading, error, revenuePaidEurByProject, refetch } = useProjects();
+  const { projects, loading, error, revenuePaidEurByProject, expenseSpentEurByProject, refetch } = useProjects();
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -228,6 +228,9 @@ function ProjetsContent() {
                     const paidEur = revenuePaidEurByProject[project.id] ?? 0;
                     const percentPaid = total > 0 ? Math.min(100, (paidEur / total) * 100) : 0;
                     const isFullyPaid = total > 0 && paidEur >= total - 1e-6;
+                    const spent = expenseSpentEurByProject[project.id] ?? (project.material_costs ?? 0);
+                    const spendPct = total > 0 ? Math.min(100, (spent / total) * 100) : 0;
+                    const spendWarn = total > 0 && spent / total >= 0.8;
                     const runDelete = async () => {
                       if (!confirm(t("deleteProjectConfirm", language))) return;
                       setDeletingId(project.id);
@@ -286,6 +289,17 @@ function ProjetsContent() {
                                     )}
                                   </p>
                                 </div>
+                                <div className="mt-2 max-w-[220px]">
+                                  <Progress
+                                    value={spendPct}
+                                    className={cn("h-2", spendWarn && "bg-amber-100")}
+                                    indicatorClassName={spendWarn ? "bg-amber-500" : undefined}
+                                  />
+                                  <p className={cn("text-xs mt-0.5", spendWarn ? "text-amber-700" : "text-gray-500")}>
+                                    {formatConvertedCurrency(spent, currency)} / {formatConvertedCurrency(total, currency)} {language === "fr" ? "dépensés" : "spent"}
+                                    {spendWarn ? ` · ${language === "fr" ? "Alerte > 80%" : "Alert > 80%"}` : ""}
+                                  </p>
+                                </div>
                               </div>
                             </button>
                             <div className="flex shrink-0 flex-col items-end gap-1">
@@ -329,6 +343,17 @@ function ProjetsContent() {
                                       {t("projectPaidBadge", language)}
                                     </Badge>
                                   )}
+                                </p>
+                              </div>
+                              <div className="mt-2 max-w-[200px]">
+                                <Progress
+                                  value={spendPct}
+                                  className={cn("h-2", spendWarn && "bg-amber-100")}
+                                  indicatorClassName={spendWarn ? "bg-amber-500" : undefined}
+                                />
+                                <p className={cn("text-xs mt-0.5", spendWarn ? "text-amber-700" : "text-gray-500")}>
+                                  {formatConvertedCurrency(spent, currency)} / {formatConvertedCurrency(total, currency)} {language === "fr" ? "dépensés" : "spent"}
+                                  {spendWarn ? ` · ${language === "fr" ? "Alerte > 80%" : "Alert > 80%"}` : ""}
                                 </p>
                               </div>
                             </div>

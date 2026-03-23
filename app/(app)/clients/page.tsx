@@ -258,6 +258,12 @@ export default function ClientsPage() {
                                   </span>
                                 </div>
                               </button>
+                              <Link
+                                href={`/projets/nouveau?clientId=${client.id}`}
+                                className="shrink-0 rounded-md border border-brand-blue-200 bg-white px-2 py-1 text-xs font-medium text-brand-blue-700 hover:bg-brand-blue-50"
+                              >
+                                {t("createProjectForClient", language)}
+                              </Link>
                             </div>
                           </SwipeActionsRow>
                         </motion.div>
@@ -548,6 +554,7 @@ function ClientRow({
   setOpenMenuId: (id: string | null) => void;
   isDeleting?: boolean;
 }) {
+  const { language } = useLanguage();
   const mapsUrl = buildMapsUrl(client.address);
   const marge = clientMargeBrute(client);
   const restant = clientRestantDu(client);
@@ -634,13 +641,21 @@ function ClientRow({
         )}
       </TableCell>
       <TableCell className="overflow-visible">
-        <RowActionsMenu
-          isOpen={openMenuId === client.id}
-          onOpenChange={(open) => setOpenMenuId(open ? client.id : null)}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          isDeleting={isDeleting}
-        />
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/projets/nouveau?clientId=${client.id}`}
+            className="rounded-md border border-brand-blue-200 bg-white px-2 py-1 text-xs font-medium text-brand-blue-700 hover:bg-brand-blue-50"
+          >
+            {t("createProjectForClient", language)}
+          </Link>
+          <RowActionsMenu
+            isOpen={openMenuId === client.id}
+            onOpenChange={(open) => setOpenMenuId(open ? client.id : null)}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            isDeleting={isDeleting}
+          />
+        </div>
       </TableCell>
     </motion.tr>
   );

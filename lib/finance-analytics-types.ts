@@ -22,6 +22,8 @@ export type ProjectMarginRow = {
   expenseLinesTtcEur: number;
   /** Coût total des locations (table rentals) en EUR. */
   rentalExpenseEur: number;
+  /** Coût total salaires (table employee_payments) en EUR. */
+  teamPayrollExpenseEur: number;
 };
 
 export type MaterialBudgetAlert = {

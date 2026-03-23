@@ -18,6 +18,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { formatConvertedCurrency, formatDate, cn } from "@/lib/utils";
+import { amountInCurrencyToEur } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { useProject } from "@/hooks/use-projects";
 import { useProjectTasks } from "@/hooks/use-project-tasks";
@@ -27,7 +28,6 @@ import { useProjectRevenues } from "@/hooks/use-project-revenues";
 import {
   totalProjectRevenueEur,
   totalProjectExpensesEur,
-  projectNetProfitEur,
   sumRevenueRowsEur,
 } from "@/lib/project-finance";
 import { useEmployees } from "@/hooks/use-employees";
@@ -128,6 +128,7 @@ export default function ProjetDetailPage() {
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [expenseSaving, setExpenseSaving] = useState(false);
   const [expenseError, setExpenseError] = useState<string | null>(null);
+  const [teamPayrollEur, setTeamPayrollEur] = useState(0);
 
   const supabase = createClient();
   const { setPageContext } = useAssistant();
@@ -153,6 +154,26 @@ export default function ProjetDetailPage() {
     setPageContext({ currentProjectId: id, currentProjectName: currentProject.name });
     return () => setPageContext({});
   }, [id, currentProject?.name, setPageContext]);
+
+  useEffect(() => {
+    if (!supabase || !id) return;
+    let mounted = true;
+    const fetchPayroll = async () => {
+      const { data } = await supabase
+        .from("employee_payments")
+        .select("amount, currency")
+        .eq("project_id", id);
+      let total = 0;
+      for (const row of data ?? []) {
+        const r = row as { amount: number; currency: string | null };
+        const cur = r.currency === "USD" || r.currency === "GBP" || r.currency === "ILS" ? r.currency : "EUR";
+        total += amountInCurrencyToEur(Number(r.amount) || 0, cur);
+      }
+      if (mounted) setTeamPayrollEur(total);
+    };
+    void fetchPayroll();
+    return () => { mounted = false; };
+  }, [supabase, id, expenses.length]);
 
   const handleSaveNotes = async () => {
     if (!supabase || !id) return;
@@ -322,8 +343,8 @@ export default function ProjetDetailPage() {
   const payProgressPct = budgetNum > 0 ? Math.min(100, (revenuePaidEur / budgetNum) * 100) : 0;
   const isPaymentComplete = budgetNum > 0 && restant < 0.005;
   const totalRevEur = totalProjectRevenueEur(transactions, revenueRows);
-  const totalExpEur = totalProjectExpensesEur(parseNum(materialCosts), expenses);
-  const netProfitProj = projectNetProfitEur(parseNum(materialCosts), expenses, transactions, revenueRows);
+  const totalExpEur = totalProjectExpensesEur(parseNum(materialCosts), expenses) + teamPayrollEur;
+  const netProfitProj = totalRevEur - totalExpEur;
 
   return (
     <motion.div
@@ -733,9 +754,9 @@ export default function ProjetDetailPage() {
                   <div>
                     <p className="text-sm text-gray-500">Marge Brute</p>
                     <p className="text-lg font-bold text-emerald-600">
-                      {formatConvertedCurrency(parseNum(contractAmount) - expensesTotalHT, currency)}
+                      {formatConvertedCurrency(parseNum(contractAmount) - expensesTotalHT - teamPayrollEur, currency)}
                     </p>
-                    <p className="text-xs text-gray-400">CA HT − Dépenses HT</p>
+                    <p className="text-xs text-gray-400">CA HT − Dépenses HT − Salaires</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">TVA à décaisser</p>
@@ -758,6 +779,9 @@ export default function ProjetDetailPage() {
 
               <div className="pt-2 border-t border-gray-100">
                 <p className="text-sm text-gray-500 mb-2">Dépenses (matériel, location, main d&apos;œuvre, sous-traitance)</p>
+                <p className="text-xs text-gray-500 mb-2">
+                  Salaires liés à ce projet: <span className="font-medium">{formatConvertedCurrency(teamPayrollEur, currency)}</span>
+                </p>
                 {expensesLoading ? (
                   <div className="flex items-center gap-2 py-2 text-gray-500">
                     <Loader2 className="h-4 w-4 animate-spin" />

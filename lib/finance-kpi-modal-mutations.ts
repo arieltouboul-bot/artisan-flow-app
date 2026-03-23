@@ -48,7 +48,7 @@ export async function updateProjectMarginByTargetMarginEur(
 ): Promise<{ error: string | null }> {
   const rev = row.revenueEur;
   const newTotalExp = rev - newMarginEur;
-  const newMaterial = newTotalExp - row.expenseLinesTtcEur - row.rentalExpenseEur;
+  const newMaterial = newTotalExp - row.expenseLinesTtcEur - row.rentalExpenseEur - row.teamPayrollExpenseEur;
   if (newMaterial < -1e-6) {
     return { error: "NEGATIVE_MATERIAL" };
   }

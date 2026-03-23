@@ -485,11 +485,9 @@ export default function MaterielPage() {
                     const runDel = async () => {
                       if (!confirm(language === "en" ? "Delete this item?" : "Supprimer cet article ?")) return;
                       setDeletingId(`item-${item.id}`);
-                      const supabase = createClient();
-                      if (!supabase) { setDeletingId(null); return; }
-                      const { error } = await supabase.from("inventory").delete().eq("id", item.id);
-                      if (error) { setDeletingId(null); alert("Erreur: " + error.message); }
-                      else location.reload();
+                      const res = await deleteItem(item.id);
+                      setDeletingId(null);
+                      if (res?.error) alert("Erreur: " + res.error);
                     };
                     return (
                       <SwipeActionsRow
@@ -546,11 +544,9 @@ export default function MaterielPage() {
                               onDelete={async () => {
                                 if (!confirm("Supprimer?")) return;
                                 setDeletingId(`item-${item.id}`);
-                                const supabase = createClient();
-                                if (!supabase) { setDeletingId(null); return; }
-                                const { error } = await supabase.from("inventory").delete().eq("id", item.id);
-                                if (error) { setDeletingId(null); alert("Erreur: " + error.message); }
-                                else location.reload();
+                                const res = await deleteItem(item.id);
+                                setDeletingId(null);
+                                if (res?.error) alert("Erreur: " + res.error);
                               }}
                               isDeleting={deletingId === `item-${item.id}`}
                             />
@@ -745,11 +741,9 @@ export default function MaterielPage() {
                     const runDel = async () => {
                       if (!confirm(language === "en" ? "Delete this supplier?" : "Supprimer ce fournisseur ?")) return;
                       setDeletingId(`supplier-${s.id}`);
-                      const supabase = createClient();
-                      if (!supabase) { setDeletingId(null); return; }
-                      const { error } = await supabase.from("suppliers").delete().eq("id", s.id);
-                      if (error) { setDeletingId(null); alert("Erreur: " + error.message); }
-                      else location.reload();
+                      const res = await deleteSupplier(s.id);
+                      setDeletingId(null);
+                      if (res?.error) alert("Erreur: " + res.error);
                     };
                     return (
                       <SwipeActionsRow
@@ -794,11 +788,9 @@ export default function MaterielPage() {
                               onDelete={async () => {
                                 if (!confirm("Supprimer?")) return;
                                 setDeletingId(`supplier-${s.id}`);
-                                const supabase = createClient();
-                                if (!supabase) { setDeletingId(null); return; }
-                                const { error } = await supabase.from("suppliers").delete().eq("id", s.id);
-                                if (error) { setDeletingId(null); alert("Erreur: " + error.message); }
-                                else location.reload();
+                                const res = await deleteSupplier(s.id);
+                                setDeletingId(null);
+                                if (res?.error) alert("Erreur: " + res.error);
                               }}
                               isDeleting={deletingId === `supplier-${s.id}`}
                             />
@@ -832,9 +824,8 @@ export default function MaterielPage() {
                 const tva = Number((e.currentTarget.querySelector("[name=editTva]") as HTMLSelectElement)?.value ?? editItem.default_tva_rate);
                 const supplierId = (e.currentTarget.querySelector("[name=editSupplierId]") as HTMLSelectElement)?.value || null;
                 const err = await updateItem(editItem.id, { name, unit_price_ht: price, stock_quantity: stock, category, default_tva_rate: tva, supplier_id: supplierId });
-                if (err?.error) {
-                  console.error("Inventory updateItem failed:", err.error);
-                } else setEditItem(null);
+                if (err?.error) setAddError(err.error);
+                else setEditItem(null);
               }}
               className="space-y-4"
             >
@@ -896,9 +887,8 @@ export default function MaterielPage() {
                 const address = (e.currentTarget.querySelector("[name=editSupAddress]") as HTMLInputElement)?.value?.trim() ?? editSupplier.address;
                 const category = (e.currentTarget.querySelector("[name=editSupCategory]") as HTMLInputElement)?.value?.trim() ?? editSupplier.category;
                 const err = await updateSupplier(editSupplier.id, { name, phone, address, category });
-                if (err?.error) {
-                  console.error("Suppliers updateSupplier failed:", err.error);
-                } else setEditSupplier(null);
+                if (err?.error) setSupplierFormError(err.error);
+                else setEditSupplier(null);
               }}
               className="space-y-4"
             >

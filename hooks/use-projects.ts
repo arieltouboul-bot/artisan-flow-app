@@ -43,6 +43,8 @@ export function useProjects(clientId?: string | null) {
   const [projects, setProjects] = useState<Project[]>([]);
   /** Somme des revenus (table `revenues`) par projet, en équivalent EUR — pour progression vs budget */
   const [revenuePaidEurByProject, setRevenuePaidEurByProject] = useState<Record<string, number>>({});
+  /** Dépenses cumulées par projet (matériaux + expenses TTC + rentals). */
+  const [expenseSpentEurByProject, setExpenseSpentEurByProject] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +76,7 @@ export function useProjects(clientId?: string | null) {
     if (!user) {
       setProjects([]);
       setRevenuePaidEurByProject({});
+      setExpenseSpentEurByProject({});
       setLoading(false);
       return;
     }
@@ -88,6 +91,7 @@ export function useProjects(clientId?: string | null) {
     if (fetchError) {
       setError(fetchError.message);
       setRevenuePaidEurByProject({});
+      setExpenseSpentEurByProject({});
     } else {
       const mapped = ((data ?? []) as Record<string, unknown>[]).map(mapProjectRow);
       setProjects(mapped);
@@ -109,6 +113,33 @@ export function useProjects(clientId?: string | null) {
         revenueMap[row.project_id] = (revenueMap[row.project_id] ?? 0) + eur;
       }
       setRevenuePaidEurByProject(revenueMap);
+
+      const expensesMap: Record<string, number> = {};
+      for (const p of mapped) {
+        expensesMap[p.id] = Number(p.material_costs ?? 0);
+      }
+      const { data: expData } = await supabase
+        .from("expenses")
+        .select("project_id, amount_ht, tva_rate, amount_ttc")
+        .eq("user_id", user.id);
+      for (const e of expData ?? []) {
+        const row = e as { project_id: string; amount_ht: number; tva_rate: number; amount_ttc?: number | null };
+        const ttc = row.amount_ttc != null ? Number(row.amount_ttc) : Number(row.amount_ht) * (1 + (Number(row.tva_rate) || 0) / 100);
+        expensesMap[row.project_id] = (expensesMap[row.project_id] ?? 0) + ttc;
+      }
+      const { data: rentalData } = await supabase
+        .from("rentals")
+        .select("project_id, start_date, end_date, price_per_day")
+        .eq("user_id", user.id);
+      for (const r of rentalData ?? []) {
+        const row = r as { project_id: string; start_date: string; end_date: string; price_per_day: number };
+        const start = new Date(`${row.start_date}T00:00:00`);
+        const end = new Date(`${row.end_date}T00:00:00`);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+        const days = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1);
+        expensesMap[row.project_id] = (expensesMap[row.project_id] ?? 0) + days * (Number(row.price_per_day) || 0);
+      }
+      setExpenseSpentEurByProject(expensesMap);
     }
     setLoading(false);
   }, [clientId]);
@@ -128,13 +159,19 @@ export function useProjects(clientId?: string | null) {
       .on("postgres_changes", { event: "*", schema: "public", table: "revenues" }, () => {
         fetchProjects();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => {
+        fetchProjects();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "rentals" }, () => {
+        fetchProjects();
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, [fetchProjects]);
 
-  return { projects, loading, error, refetch: fetchProjects, revenuePaidEurByProject };
+  return { projects, loading, error, refetch: fetchProjects, revenuePaidEurByProject, expenseSpentEurByProject };
 }
 
 export function useProject(projectId: string | null) {

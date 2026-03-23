@@ -31,6 +31,7 @@ import {
 import { useDashboardStats, type DashboardView } from "@/hooks/use-dashboard-stats";
 import { useReminders } from "@/hooks/use-reminders";
 import { useTodayAppointments } from "@/hooks/use-appointments";
+import { useRentals, rentalDurationDays } from "@/hooks/use-rentals";
 import { useUser } from "@/hooks/use-user";
 import { useProfile } from "@/hooks/use-profile";
 import { useLanguage } from "@/context/language-context";
@@ -98,6 +99,7 @@ export default function DashboardPage() {
   const { data: financeData, loading: financeAnalyticsLoading, refetch: refetchFinance } = useFinanceAnalytics();
   const { reminders, addReminder, toggleReminder, deleteReminder } = useReminders();
   const { appointments: todayAppointments } = useTodayAppointments();
+  const { rentals } = useRentals();
   const [newReminder, setNewReminder] = useState("");
   const welcomeName = displayName(user ?? null, profile?.company_name ?? null);
   const { language } = useLanguage();
@@ -163,6 +165,19 @@ export default function DashboardPage() {
     const sorted = [...todayAppointments].sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
     return sorted.find((a) => new Date(a.end_at) > now) ?? null;
   }, [todayAppointments]);
+
+  const nextRentalEndingSoon = useMemo(() => {
+    const now = new Date();
+    const in24h = now.getTime() + 24 * 60 * 60 * 1000;
+    const candidates = rentals
+      .map((r) => ({
+        rental: r,
+        endTs: new Date(`${r.end_date}T23:59:59`).getTime(),
+      }))
+      .filter((x) => Number.isFinite(x.endTs) && x.endTs >= now.getTime() && x.endTs <= in24h)
+      .sort((a, b) => a.endTs - b.endTs);
+    return candidates[0]?.rental ?? null;
+  }, [rentals]);
 
   const [countdownMins, setCountdownMins] = useState<number | null>(null);
   useEffect(() => {
@@ -288,6 +303,25 @@ export default function DashboardPage() {
               </Button>
             )}
           </div>
+        </motion.div>
+      )}
+
+      {nextRentalEndingSoon && (
+        <motion.div
+          variants={item}
+          className="rounded-xl border border-amber-300 bg-amber-50 p-4"
+        >
+          <p className="text-sm font-semibold text-amber-800">
+            {language === "fr" ? "Location à rendre sous 24h" : "Rental due within 24h"}
+          </p>
+          <p className="mt-1 text-sm text-amber-900">
+            {nextRentalEndingSoon.equipment_name} · {nextRentalEndingSoon.renter_name} · {nextRentalEndingSoon.end_date}
+          </p>
+          <p className="mt-1 text-xs text-amber-700">
+            {language === "fr"
+              ? `${rentalDurationDays(nextRentalEndingSoon.start_date, nextRentalEndingSoon.end_date)} jour(s) de location.`
+              : `${rentalDurationDays(nextRentalEndingSoon.start_date, nextRentalEndingSoon.end_date)} rental day(s).`}
+          </p>
         </motion.div>
       )}
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,8 +21,9 @@ const statusLabels: Record<ProjectStatus, string> = {
 
 export default function NouveauProjetPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { clients, loading: clientsLoading } = useClients();
-  const [clientId, setClientId] = useState("");
+  const [clientId, setClientId] = useState(searchParams.get("clientId") ?? "");
   const [name, setName] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
