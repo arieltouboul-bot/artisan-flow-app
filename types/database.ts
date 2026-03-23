@@ -214,3 +214,16 @@ export interface MaterialCatalogItem {
   category: string | null;
   created_at?: string;
 }
+
+export interface Rental {
+  id: string;
+  user_id: string;
+  project_id: string;
+  equipment_name: string;
+  renter_name: string;
+  start_date: string;
+  end_date: string;
+  price_per_day: number;
+  created_at?: string;
+  updated_at?: string;
+}

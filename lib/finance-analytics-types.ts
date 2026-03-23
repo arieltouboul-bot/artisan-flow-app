@@ -20,6 +20,8 @@ export type ProjectMarginRow = {
   materialCostsFieldEur: number;
   /** Dépenses matériel/outillage issues des lignes `expenses` (TTC EUR). */
   expenseLinesTtcEur: number;
+  /** Coût total des locations (table rentals) en EUR. */
+  rentalExpenseEur: number;
 };
 
 export type MaterialBudgetAlert = {

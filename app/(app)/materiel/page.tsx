@@ -21,6 +21,7 @@ import { useLanguage } from "@/context/language-context";
 import { useInventory } from "@/hooks/use-inventory";
 import { useSuppliers } from "@/hooks/use-suppliers";
 import { useProjects } from "@/hooks/use-projects";
+import { useRentals, rentalDurationDays, rentalTotalCostEur } from "@/hooks/use-rentals";
 import { t } from "@/lib/translations";
 import { formatConvertedCurrency, cn } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
@@ -31,6 +32,7 @@ import type { InventoryItem } from "@/hooks/use-inventory";
 import type { Supplier } from "@/hooks/use-suppliers";
 import { parseInvoiceText, imageFileToBinarizedBlob, type ScanInvoiceResult } from "@/lib/invoice-ocr";
 import type { ExpenseInsertPayload } from "@/lib/types";
+import { InlineEditableAmountEur } from "@/components/finance/inline-editable-amount";
 
 const VAT_OPTIONS = [0, 5.5, 10, 20];
 const GOOGLE_MAPS_SEARCH_URL = "https://www.google.com/maps/search/magasin+de+bricolage+materiaux+hardware+store/";
@@ -43,6 +45,7 @@ export default function MaterielPage() {
   const { items, loading, error, addItem, updateItem, deleteItem } = useInventory();
   const { suppliers, loading: suppliersLoading, error: suppliersError, addSupplier, updateSupplier, deleteSupplier, refetch: refetchSuppliers } = useSuppliers();
   const { projects } = useProjects();
+  const { rentals, loading: rentalsLoading, error: rentalsError, addRental, updateRental, deleteRental } = useRentals();
   const isMobile = useIsMobile();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -72,6 +75,16 @@ export default function MaterielPage() {
   const [editSupplier, setEditSupplier] = useState<Supplier | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [rentalAddOpen, setRentalAddOpen] = useState(false);
+  const [rentalName, setRentalName] = useState("");
+  const [rentalRenter, setRentalRenter] = useState("");
+  const [rentalProjectId, setRentalProjectId] = useState("");
+  const [rentalStartDate, setRentalStartDate] = useState("");
+  const [rentalEndDate, setRentalEndDate] = useState("");
+  const [rentalPricePerDay, setRentalPricePerDay] = useState("");
+  const [rentalEditId, setRentalEditId] = useState<string | null>(null);
+  const [rentalSaving, setRentalSaving] = useState(false);
+  const [rentalError, setRentalError] = useState<string | null>(null);
 
   const [scanOpen, setScanOpen] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
@@ -114,6 +127,60 @@ export default function MaterielPage() {
         (s.address || "").toLowerCase().includes(q)
     );
   }, [suppliers, debouncedTabSearch]);
+
+  const filteredRentals = useMemo(() => {
+    const q = debouncedTabSearch.trim().toLowerCase();
+    if (!q) return rentals;
+    return rentals.filter((r) => {
+      const projectName = projects.find((p) => p.id === r.project_id)?.name ?? "";
+      return (
+        r.equipment_name.toLowerCase().includes(q) ||
+        r.renter_name.toLowerCase().includes(q) ||
+        projectName.toLowerCase().includes(q)
+      );
+    });
+  }, [rentals, projects, debouncedTabSearch]);
+
+  const handleAddRental = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRentalError(null);
+    const price = parseFloat(rentalPricePerDay.replace(",", "."));
+    if (!rentalName.trim() || !rentalRenter.trim() || !rentalProjectId || !rentalStartDate || !rentalEndDate) {
+      setRentalError(language === "fr" ? "Tous les champs sont requis." : "All fields are required.");
+      return;
+    }
+    if (Number.isNaN(price) || price < 0) {
+      setRentalError(language === "fr" ? "Prix/jour invalide." : "Invalid daily price.");
+      return;
+    }
+    if (new Date(`${rentalEndDate}T00:00:00`) < new Date(`${rentalStartDate}T00:00:00`)) {
+      setRentalError(language === "fr" ? "La date de fin doit être après le début." : "End date must be after start date.");
+      return;
+    }
+    setRentalSaving(true);
+    const payload = {
+      equipment_name: rentalName.trim(),
+      renter_name: rentalRenter.trim(),
+      project_id: rentalProjectId,
+      start_date: rentalStartDate,
+      end_date: rentalEndDate,
+      price_per_day: price,
+    };
+    const { error: err } = rentalEditId ? await updateRental(rentalEditId, payload) : await addRental(payload);
+    setRentalSaving(false);
+    if (err) {
+      setRentalError(err);
+      return;
+    }
+    setRentalAddOpen(false);
+    setRentalName("");
+    setRentalRenter("");
+    setRentalProjectId("");
+    setRentalStartDate("");
+    setRentalEndDate("");
+    setRentalPricePerDay("");
+    setRentalEditId(null);
+  };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -500,17 +567,137 @@ export default function MaterielPage() {
 
         <TabsContent value="rental" className="space-y-4">
           <Card className="overflow-visible transition-shadow hover:shadow-brand-glow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-brand-blue-500" />
-                {t("rental", language)}
-              </CardTitle>
-              <p className="text-sm text-gray-500">{t("rentalDesc", language)}</p>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-brand-blue-500" />
+                  {t("rental", language)}
+                </CardTitle>
+                <p className="text-sm text-gray-500">{t("rentalDesc", language)}</p>
+              </div>
+              <Button onClick={() => setRentalAddOpen(true)} className="min-h-[44px]">
+                <Plus className="h-4 w-4 mr-2" />
+                {t("add", language)}
+              </Button>
             </CardHeader>
             <CardContent>
-              <p className="py-8 text-center text-gray-500">
-                {language === "fr" ? "Suivi des locations par chantier à venir (lié aux projets)." : "Rental tracking per project coming soon."}
-              </p>
+              {rentalsError && (
+                <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700 mb-4">{rentalsError}</div>
+              )}
+              {rentalsLoading ? (
+                <div className="flex items-center gap-2 py-12 text-gray-500">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <span>{t("loading", language)}</span>
+                </div>
+              ) : filteredRentals.length === 0 ? (
+                <p className="py-8 text-center text-gray-500">{t("rentalNoEntries", language)}</p>
+              ) : (
+                <div className="space-y-3 px-1">
+                  {filteredRentals.map((r) => {
+                    const duration = rentalDurationDays(r.start_date, r.end_date);
+                    const total = rentalTotalCostEur(r);
+                    const now = new Date();
+                    const end = new Date(`${r.end_date}T23:59:59`);
+                    const late = now > end;
+                    const projectName = projects.find((p) => p.id === r.project_id)?.name ?? "—";
+                    const delId = `rental-${r.id}`;
+                    const card = (
+                      <div className={cn("rounded-lg border border-gray-100 bg-white p-3", deletingId === delId && "opacity-60 pointer-events-none")}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-gray-900 truncate">{r.equipment_name}</p>
+                            <p className="text-xs text-gray-500">
+                              {t("invoiceVendor", language)}: {r.renter_name}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">{t("projectName", language)}: {projectName}</p>
+                          </div>
+                          <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold", late ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700")}>
+                            {late ? t("rentalStatusToReturn", language) : t("rentalStatusOnSite", language)}
+                          </span>
+                        </div>
+                        <div className="mt-2 grid gap-1 text-xs text-gray-600">
+                          <span>{t("startDate", language)}: {r.start_date} · {t("endDate", language)}: {r.end_date}</span>
+                          <span>{t("rentalDurationDays", language)}: {duration}</span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>{t("rentalDailyPrice", language)}:</span>
+                            <InlineEditableAmountEur
+                              amountEur={r.price_per_day}
+                              displayCurrency={currency}
+                              className="text-brand-blue-700"
+                              aria-label={t("financeEditAmountAria", language)}
+                              onCommit={async (newEur) => {
+                                const res = await updateRental(r.id, { price_per_day: newEur });
+                                if (res.error) alert(res.error);
+                              }}
+                            />
+                            <span className="text-gray-400">·</span>
+                            <span>{t("rentalTotalCost", language)}:</span>
+                            <span className="font-semibold text-gray-900 tabular-nums">{formatConvertedCurrency(total, currency)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                    if (isMobile) {
+                      return (
+                        <SwipeActionsRow
+                          key={r.id}
+                          onEdit={() => {
+                            setRentalEditId(r.id);
+                            setRentalName(r.equipment_name);
+                            setRentalRenter(r.renter_name);
+                            setRentalProjectId(r.project_id);
+                            setRentalStartDate(r.start_date);
+                            setRentalEndDate(r.end_date);
+                            setRentalPricePerDay(String(r.price_per_day));
+                            setRentalError(null);
+                            setRentalAddOpen(true);
+                          }}
+                          onDelete={async () => {
+                            if (!confirm(language === "fr" ? "Supprimer cette location ?" : "Delete this rental?")) return;
+                            setDeletingId(delId);
+                            const res = await deleteRental(r.id);
+                            setDeletingId(null);
+                            if (res.error) alert(res.error);
+                          }}
+                          disabled={deletingId === delId}
+                          editLabel={t("edit", language)}
+                          deleteLabel={t("delete", language)}
+                        >
+                          {card}
+                        </SwipeActionsRow>
+                      );
+                    }
+                    return (
+                      <div key={r.id} className="flex items-stretch gap-2">
+                        <div className="flex-1">{card}</div>
+                        <RowActionsMenu
+                          isOpen={openMenuId === delId}
+                          onOpenChange={(open) => setOpenMenuId(open ? delId : null)}
+                          onEdit={() => {
+                            setRentalEditId(r.id);
+                            setRentalName(r.equipment_name);
+                            setRentalRenter(r.renter_name);
+                            setRentalProjectId(r.project_id);
+                            setRentalStartDate(r.start_date);
+                            setRentalEndDate(r.end_date);
+                            setRentalPricePerDay(String(r.price_per_day));
+                            setRentalError(null);
+                            setRentalAddOpen(true);
+                          }}
+                          onDelete={async () => {
+                            if (!confirm(language === "fr" ? "Supprimer cette location ?" : "Delete this rental?")) return;
+                            setDeletingId(delId);
+                            const res = await deleteRental(r.id);
+                            setDeletingId(null);
+                            if (res.error) alert(res.error);
+                          }}
+                          isDeleting={deletingId === delId}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -737,6 +924,62 @@ export default function MaterielPage() {
               </DialogFooter>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add article dialog */}
+      <Dialog
+        open={rentalAddOpen}
+        onOpenChange={(open) => {
+          setRentalAddOpen(open);
+          if (!open) {
+            setRentalEditId(null);
+            setRentalError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{rentalEditId ? t("edit", language) : t("rentalAddTitle", language)}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddRental} className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("name", language)}</label>
+              <Input value={rentalName} onChange={(e) => setRentalName(e.target.value)} className="min-h-[44px]" required />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("invoiceVendor", language)}</label>
+              <Input value={rentalRenter} onChange={(e) => setRentalRenter(e.target.value)} className="min-h-[44px]" required />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("selectProjectForExpense", language)}</label>
+              <select value={rentalProjectId} onChange={(e) => setRentalProjectId(e.target.value)} className={cn("w-full min-h-[44px] rounded-lg border border-gray-200 px-3 py-2 bg-white")} required>
+                <option value="">—</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("startDate", language)}</label>
+                <Input type="date" value={rentalStartDate} onChange={(e) => setRentalStartDate(e.target.value)} className="min-h-[44px]" required />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("endDate", language)}</label>
+                <Input type="date" value={rentalEndDate} onChange={(e) => setRentalEndDate(e.target.value)} className="min-h-[44px]" required />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("rentalDailyPrice", language)}</label>
+              <Input type="number" min="0" step="0.01" value={rentalPricePerDay} onChange={(e) => setRentalPricePerDay(e.target.value)} className="min-h-[44px]" required />
+            </div>
+            {rentalError && <p className="text-sm text-red-600">{rentalError}</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setRentalAddOpen(false)} disabled={rentalSaving}>{t("cancel", language)}</Button>
+              <Button type="submit" disabled={rentalSaving}>{rentalSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

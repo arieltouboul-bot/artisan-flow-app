@@ -99,6 +99,62 @@ export async function runExtendedAssistantScenarios(opts: {
 
   const activeSection = activeSectionOpt ?? pageContext?.activeSection;
 
+  // ——— Rentals: items to return this week
+  if (
+    /(?:locations?|rentals?).{0,30}(?:à rendre|to return|retourner)/i.test(lower) &&
+    /(?:semaine|week)/i.test(lower)
+  ) {
+    const now = new Date();
+    const day = now.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() + mondayOffset);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    const { data: rentals, error: rentalsErr } = await supabase
+      .from("rentals")
+      .select("id, equipment_name, renter_name, end_date, projects(name)")
+      .eq("user_id", userId)
+      .gte("end_date", weekStart.toISOString().slice(0, 10))
+      .lte("end_date", weekEnd.toISOString().slice(0, 10))
+      .order("end_date", { ascending: true });
+    if (rentalsErr) {
+      appendMessage("assistant", rentalsErr.message);
+      return true;
+    }
+    const rows = (rentals ?? []) as {
+      equipment_name: string;
+      renter_name: string;
+      end_date: string;
+      projects?: { name?: string } | { name?: string }[] | null;
+    }[];
+    if (rows.length === 0) {
+      appendMessage(
+        "assistant",
+        language === "fr"
+          ? "Aucune location à rendre cette semaine."
+          : "No rentals to return this week."
+      );
+      return true;
+    }
+    const lines = rows.map((r) => {
+      const p = Array.isArray(r.projects) ? r.projects[0] : r.projects;
+      return language === "fr"
+        ? `• **${r.equipment_name}** (${r.renter_name}) — ${r.end_date}${p?.name ? ` · ${p.name}` : ""}`
+        : `• **${r.equipment_name}** (${r.renter_name}) — ${r.end_date}${p?.name ? ` · ${p.name}` : ""}`;
+    });
+    appendMessage(
+      "assistant",
+      (language === "fr" ? "Locations à rendre cette semaine :" : "Rentals to return this week:") +
+        "\n\n" +
+        lines.join("\n")
+    );
+    return true;
+  }
+
   // ——— Dashboard: commentaire sur les KPI affichés
   if (activeSection === "dashboard" && dashboardKpis) {
     const asksDashboardInsight =

@@ -139,6 +139,27 @@ export function useFinanceAnalytics() {
         expensesByProject.set(e.project_id, list);
       }
 
+      const { data: rentalData } = await supabase
+        .from("rentals")
+        .select("id, project_id, start_date, end_date, price_per_day")
+        .eq("user_id", user.id);
+      const rentals = (rentalData ?? []) as {
+        id: string;
+        project_id: string;
+        start_date: string;
+        end_date: string;
+        price_per_day: number;
+      }[];
+      const rentalsByProject = new Map<string, number>();
+      for (const r of rentals) {
+        const start = new Date(`${r.start_date}T00:00:00`);
+        const end = new Date(`${r.end_date}T00:00:00`);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+        const days = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1);
+        const total = days * (Number(r.price_per_day) || 0);
+        rentalsByProject.set(r.project_id, (rentalsByProject.get(r.project_id) ?? 0) + total);
+      }
+
       const revByProject = new Map<string, { amount: number; currency: string }[]>();
       for (const r of revenues) {
         const list = revByProject.get(r.project_id) ?? [];
@@ -203,7 +224,8 @@ export function useFinanceAnalytics() {
         companyMarginEur += marginEur;
         const matField = num(p.material_costs);
         const lineExpTtc = sumMaterialToolExpensesTtc(pEx);
-        const totalExpProj = totalProjectExpensesEur(matField, pEx);
+        const rentalExp = rentalsByProject.get(p.id) ?? 0;
+        const totalExpProj = totalProjectExpensesEur(matField, pEx) + rentalExp;
         companyTotalExpensesEur += totalExpProj;
 
         const clientName = p.client?.name ?? "—";
@@ -218,6 +240,7 @@ export function useFinanceAnalytics() {
           marginPct: Number.isFinite(marginPct) ? marginPct : 0,
           materialCostsFieldEur: matField,
           expenseLinesTtcEur: lineExpTtc,
+          rentalExpenseEur: rentalExp,
         });
 
         /** Budget contrat − encaissements totaux (transactions + lignes revenus), équivalent EUR. */
@@ -337,6 +360,7 @@ export function useFinanceAnalytics() {
       .on("postgres_changes", { event: "*", schema: "public", table: "revenues" }, () => fetchAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "project_transactions" }, () => fetchAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => fetchAll())
+      .on("postgres_changes", { event: "*", schema: "public", table: "rentals" }, () => fetchAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, () => fetchAll())
       .subscribe();
     return () => {
