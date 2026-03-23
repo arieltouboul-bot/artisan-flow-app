@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { Suspense, useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,8 @@ import { RowActionsMenu } from "@/components/ui/row-actions-menu";
 import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 
+export const dynamic = "force-dynamic";
+
 function buildMapsUrl(address: string | null): string | null {
   if (!address || !address.trim()) return null;
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
@@ -48,7 +51,7 @@ function parseNum(value: string): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
-export default function ClientsPage() {
+function ClientsPageContent() {
   const { setPageContext } = useAssistant();
   useEffect(() => {
     setPageContext({ activeSection: "clients" });
@@ -528,6 +531,22 @@ export default function ClientsPage() {
       </Dialog>
 
     </motion.div>
+  );
+}
+
+export default function ClientsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-56" />
+          <Skeleton className="h-12 w-full max-w-xl" />
+          <Skeleton className="h-80 w-full rounded-xl" />
+        </div>
+      }
+    >
+      <ClientsPageContent />
+    </Suspense>
   );
 }
 

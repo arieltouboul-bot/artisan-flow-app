@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { Suspense, useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -14,8 +14,10 @@ import { Settings, Mail, Loader2, LogOut, Building2, Upload, ImageIcon } from "l
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import type { Currency } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const BUCKET = "company-logos";
+export const dynamic = "force-dynamic";
 
 const CURRENCY_OPTIONS: { value: Currency; labelKey: string }[] = [
   { value: "EUR", labelKey: "euro" },
@@ -24,7 +26,7 @@ const CURRENCY_OPTIONS: { value: Currency; labelKey: string }[] = [
   { value: "ILS", labelKey: "shekel" },
 ];
 
-export default function ParametresPage() {
+function ParametresPageContent() {
   const router = useRouter();
   const { user, loading: userLoading } = useUser();
   const { profile, loading: profileLoading, upsertProfile } = useProfile();
@@ -299,5 +301,20 @@ export default function ParametresPage() {
         </CardContent>
       </Card>
     </motion.div>
+  );
+}
+
+export default function ParametresPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-56" />
+          <Skeleton className="h-80 w-full rounded-xl" />
+        </div>
+      }
+    >
+      <ParametresPageContent />
+    </Suspense>
   );
 }

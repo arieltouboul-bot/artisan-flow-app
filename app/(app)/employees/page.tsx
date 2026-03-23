@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { Suspense, useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -29,7 +30,9 @@ import { useProjects } from "@/hooks/use-projects";
 import { useEmployeePayments } from "@/hooks/use-employee-payments";
 import { InlineEditableAmountEur } from "@/components/finance/inline-editable-amount";
 
-export default function EmployeesPage() {
+export const dynamic = "force-dynamic";
+
+function EmployeesPageContent() {
   const { language } = useLanguage();
   const { displayCurrency } = useProfile();
   const { projects } = useProjects();
@@ -515,5 +518,21 @@ export default function EmployeesPage() {
       </Dialog>
 
     </motion.div>
+  );
+}
+
+export default function EmployeesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-12 w-full max-w-xl" />
+          <Skeleton className="h-80 w-full rounded-xl" />
+        </div>
+      }
+    >
+      <EmployeesPageContent />
+    </Suspense>
   );
 }

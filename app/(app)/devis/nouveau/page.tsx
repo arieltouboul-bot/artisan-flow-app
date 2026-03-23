@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { Suspense, useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useClients } from "@/hooks/use-clients";
 import { useProfile } from "@/hooks/use-profile";
 import { useLanguage } from "@/context/language-context";
@@ -15,6 +16,7 @@ import type { QuoteItem } from "@/types/database";
 import { Plus, Trash2, Download } from "lucide-react";
 
 const VAT_OPTIONS = [0, 5.5, 10, 20] as const;
+export const dynamic = "force-dynamic";
 
 const defaultItem: QuoteItem = {
   description: "",
@@ -28,7 +30,7 @@ const defaultItem: QuoteItem = {
   tva_rate: 20,
 };
 
-export default function NouveauDevisPage() {
+function NouveauDevisPageContent() {
   const { language } = useLanguage();
   const { profile, displayCurrency } = useProfile();
   const currency = displayCurrency;
@@ -343,5 +345,20 @@ export default function NouveauDevisPage() {
         </CardContent>
       </Card>
     </motion.div>
+  );
+}
+
+export default function NouveauDevisPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-72" />
+          <Skeleton className="h-80 w-full rounded-xl" />
+        </div>
+      }
+    >
+      <NouveauDevisPageContent />
+    </Suspense>
   );
 }

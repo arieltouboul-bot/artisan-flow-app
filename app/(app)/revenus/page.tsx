@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { Suspense, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { RevenueFinanceHeader } from "@/components/revenues/revenue-finance-header";
 
 const REV_CURRENCIES: RevenueCurrency[] = ["EUR", "USD", "ILS"];
+export const dynamic = "force-dynamic";
 
 type PayStatus = "paid" | "partial" | "pending" | "na" | "overpaid";
 
@@ -53,7 +54,7 @@ const PAY_STATUS_TKEY: Record<PayStatus, string> = {
   overpaid: "revenuePaymentStatusOverpaid",
 };
 
-export default function RevenusPage() {
+function RevenusPageContent() {
   const { language } = useLanguage();
   const { rows, loading, error: revenuesError, insertRevenue, updateRevenue, deleteRevenue } = useRevenues();
   const { projects, refetch: refetchProjects } = useProjects();
@@ -609,5 +610,21 @@ export default function RevenusPage() {
         </DialogContent>
       </Dialog>
     </motion.div>
+  );
+}
+
+export default function RevenusPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-56" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-80 w-full rounded-xl" />
+        </div>
+      }
+    >
+      <RevenusPageContent />
+    </Suspense>
   );
 }

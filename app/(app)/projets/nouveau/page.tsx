@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useClients } from "@/hooks/use-clients";
 import { createClient } from "@/lib/supabase/client";
 import type { ProjectStatus } from "@/types/database";
 import { ArrowLeft, Loader2 } from "lucide-react";
+
+export const dynamic = "force-dynamic";
 
 const statusLabels: Record<ProjectStatus, string> = {
   en_preparation: "En préparation",
@@ -19,7 +22,7 @@ const statusLabels: Record<ProjectStatus, string> = {
   termine: "Terminé",
 };
 
-export default function NouveauProjetPage() {
+function NouveauProjetPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { clients, loading: clientsLoading } = useClients();
@@ -176,5 +179,20 @@ export default function NouveauProjetPage() {
         </CardContent>
       </Card>
     </motion.div>
+  );
+}
+
+export default function NouveauProjetPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-72" />
+          <Skeleton className="h-80 w-full rounded-xl" />
+        </div>
+      }
+    >
+      <NouveauProjetPageContent />
+    </Suspense>
   );
 }
