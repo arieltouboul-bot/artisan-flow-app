@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -84,6 +84,7 @@ function ClientsPageContent() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isMobile = useIsMobile();
   const { clients, loading, error, refetch, updateClient } = useClients();
   const { displayCurrency } = useProfile();
@@ -203,6 +204,11 @@ function ClientsPageContent() {
       {error && (
         <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
           {error}
+        </div>
+      )}
+      {searchParams.get("welcome") === "1" && (
+        <div className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-700">
+          {t("welcomeEmailConfirmed", language)}
         </div>
       )}
 

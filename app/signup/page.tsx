@@ -22,11 +22,14 @@ export default function SignupPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [successOpen, setSuccessOpen] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [canResendConfirmation, setCanResendConfirmation] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setInfo(null);
+    setCanResendConfirmation(false);
     setLoading(true);
     const supabase = createClient();
     if (!supabase) {
@@ -45,6 +48,8 @@ export default function SignupPage() {
     if (signError) {
       setError(signError.message);
       setToast({ type: "error", message: signError.message });
+      const lower = signError.message.toLowerCase();
+      setCanResendConfirmation(lower.includes("already") || lower.includes("exists") || lower.includes("registered"));
       return;
     }
     if (data?.user) {
@@ -70,6 +75,25 @@ export default function SignupPage() {
     }
     setToast({ type: "success", message: t("signupSuccessToast", language) });
     setSuccessOpen(true);
+  };
+
+  const handleResendConfirmation = async () => {
+    const supabase = createClient();
+    if (!supabase || !email) return;
+    setResendLoading(true);
+    const { error: resendError } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    setResendLoading(false);
+    if (resendError) {
+      setToast({ type: "error", message: resendError.message });
+      return;
+    }
+    setToast({ type: "success", message: t("signupCheckSpam", language) });
   };
 
   useEffect(() => {
@@ -170,6 +194,17 @@ export default function SignupPage() {
               {info && (
                 <p className="text-sm text-amber-800 bg-amber-50 p-2 rounded-lg">{info}</p>
               )}
+              {canResendConfirmation && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full min-h-[44px]"
+                  onClick={handleResendConfirmation}
+                  disabled={resendLoading}
+                >
+                  {resendLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("resendConfirmationEmail", language)}
+                </Button>
+              )}
               <Button type="submit" className="w-full min-h-[48px]" disabled={loading}>
                 {loading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -189,16 +224,24 @@ export default function SignupPage() {
       </motion.div>
 
       <Dialog open={successOpen} onOpenChange={setSuccessOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{language === "fr" ? "Inscription réussie" : "Sign-up successful"}</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-gray-700">{t("checkEmail", language)}</p>
-          <DialogFooter>
-            <Link href="/login" className="w-full sm:w-auto">
-              <Button className="w-full min-h-[44px]">{t("backToLogin", language)}</Button>
-            </Link>
-          </DialogFooter>
+        <DialogContent className="h-screen w-screen max-w-none rounded-none border-0 p-0">
+          <div className="flex h-full w-full items-center justify-center bg-white p-6 text-center">
+            <div className="max-w-xl">
+              <DialogHeader>
+                <DialogTitle className="text-2xl">
+                  ✉️ {language === "fr" ? "Email envoyé" : "Email sent"}
+                </DialogTitle>
+              </DialogHeader>
+              <p className="mt-4 text-base text-gray-700">
+                {t("signupEmailSentModal", language).replace("{email}", email)}
+              </p>
+              <DialogFooter className="mt-6">
+                <Link href="/login" className="w-full sm:w-auto">
+                  <Button className="w-full min-h-[44px]">{t("backToLogin", language)}</Button>
+                </Link>
+              </DialogFooter>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
