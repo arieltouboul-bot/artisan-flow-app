@@ -188,7 +188,7 @@ export const translations: Record<string, { fr: string; en: string }> = {
   signupSuccessToast: { fr: "Inscription réussie. Vérifiez votre email.", en: "Sign-up successful. Check your email." },
   signupErrorToast: { fr: "Inscription impossible. Vérifiez les informations.", en: "Sign-up failed. Please verify your details." },
   signupCheckSpam: {
-    fr: "E-mail de confirmation envoyé ! Vérifiez vos spams.",
+    fr: "Email envoyé ! Vérifiez vos spams.",
     en: "Confirmation email sent! Please check your spam folder.",
   },
   assistantClarify: {

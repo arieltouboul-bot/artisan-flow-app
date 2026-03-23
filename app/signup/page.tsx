@@ -39,17 +39,12 @@ export default function SignupPage() {
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: {
-          company_name: companyName.trim() || null,
-          preferred_language: language,
-          preferred_currency: "EUR",
-        },
       },
     });
     setLoading(false);
     if (signError) {
       setError(signError.message);
-      setToast({ type: "error", message: t("signupErrorToast", language) });
+      setToast({ type: "error", message: signError.message });
       return;
     }
     if (data?.user && !data.session) {
