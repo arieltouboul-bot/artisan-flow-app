@@ -207,7 +207,7 @@ export const translations: Record<string, { fr: string; en: string }> = {
   },
   sendRecoveryLink: { fr: "Envoyer le lien de récupération", en: "Send recovery link" },
   resetPasswordEmailSent: {
-    fr: "Lien envoyé ! Vérifiez votre email.",
+    fr: "Email de récupération envoyé ! Vérifiez votre boîte de réception.",
     en: "Recovery link sent! Check your email.",
   },
   resetPasswordTitle: { fr: "Réinitialiser le mot de passe", en: "Reset password" },

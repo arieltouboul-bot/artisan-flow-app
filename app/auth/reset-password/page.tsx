@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,12 +14,14 @@ export const dynamic = "force-dynamic";
 
 function ResetPasswordContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { language } = useLanguage();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [isRecoveryFlow, setIsRecoveryFlow] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
@@ -30,14 +32,19 @@ function ResetPasswordContent() {
         setReady(true);
         return;
       }
+      const type = searchParams.get("type");
+      const code = searchParams.get("code");
+      const accessToken = searchParams.get("access_token");
+      const recoveryDetected = type === "recovery" || !!code || !!accessToken;
+      setIsRecoveryFlow(recoveryDetected);
       const { data } = await supabase.auth.getUser();
-      if (!data.user) {
+      if (!data.user && recoveryDetected) {
         setError(t("resetPasswordInvalidLink", language));
       }
       setReady(true);
     };
     check();
-  }, [language]);
+  }, [language, searchParams]);
 
   useEffect(() => {
     if (!toast) return;
@@ -70,7 +77,7 @@ function ResetPasswordContent() {
       return;
     }
     setToast({ type: "success", message: t("resetPasswordSuccess", language) });
-    setTimeout(() => router.replace("/login"), 800);
+    setTimeout(() => router.replace("/login"), 2000);
   };
 
   return (
@@ -94,6 +101,11 @@ function ResetPasswordContent() {
               </div>
             ) : (
               <form onSubmit={handleReset} className="space-y-4">
+                {!isRecoveryFlow && (
+                  <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-700">
+                    {t("resetPasswordInvalidLink", language)}
+                  </p>
+                )}
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">{t("newPassword", language)}</label>
                   <Input
