@@ -161,16 +161,34 @@ export function useFinanceAnalytics() {
 
       const { data: payrollData } = await supabase
         .from("employee_payments")
-        .select("project_id, amount, currency")
+        .select("employee_id, project_id, amount, currency")
         .eq("user_id", user.id);
       const payrollByProject = new Map<string, number>();
+      const employeesWithPayments = new Set<string>();
       for (const p of payrollData ?? []) {
-        const row = p as { project_id: string | null; amount: number; currency: string | null };
+        const row = p as { employee_id: string | null; project_id: string | null; amount: number; currency: string | null };
         const cur = row.currency === "USD" || row.currency === "GBP" || row.currency === "ILS" ? row.currency : "EUR";
         const eur = amountInCurrencyToEur(Number(row.amount) || 0, cur);
+        if (row.employee_id) employeesWithPayments.add(row.employee_id);
         if (row.project_id) {
           payrollByProject.set(row.project_id, (payrollByProject.get(row.project_id) ?? 0) + eur);
         }
+      }
+
+      const { data: employeesData } = await supabase
+        .from("employees")
+        .select("id, salary_amount, salary_currency")
+        .eq("user_id", user.id);
+      let unassignedPayrollEur = 0;
+      for (const e of employeesData ?? []) {
+        const row = e as { id: string; salary_amount: number | null; salary_currency: string | null };
+        if (employeesWithPayments.has(row.id)) continue;
+        const amount = Number(row.salary_amount ?? 0);
+        if (!(amount > 0)) continue;
+        const cur = row.salary_currency === "USD" || row.salary_currency === "GBP" || row.salary_currency === "ILS"
+          ? row.salary_currency
+          : "EUR";
+        unassignedPayrollEur += amountInCurrencyToEur(amount, cur);
       }
 
       const revByProject = new Map<string, { amount: number; currency: string }[]>();
@@ -299,6 +317,8 @@ export function useFinanceAnalytics() {
         const pRev = revByProject.get(p.id) ?? [];
         return s + totalProjectRevenueEur(pTx, pRev);
       }, 0);
+      companyTotalExpensesEur += unassignedPayrollEur;
+      companyMarginEur -= unassignedPayrollEur;
       const companyMarginPct = companyTotalRevenueEur > 0 ? (companyMarginEur / companyTotalRevenueEur) * 100 : 0;
 
       const totalOutstandingEur = Math.round(
@@ -377,6 +397,7 @@ export function useFinanceAnalytics() {
       .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, () => fetchAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "rentals" }, () => fetchAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "employee_payments" }, () => fetchAll())
+      .on("postgres_changes", { event: "*", schema: "public", table: "employees" }, () => fetchAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, () => fetchAll())
       .subscribe();
     return () => {

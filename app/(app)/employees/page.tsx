@@ -73,8 +73,15 @@ function EmployeesPageContent() {
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const selectedEmployee = employees.find((e) => e.id === detailEmployeeId) ?? null;
   const { payments, loading: paymentsLoading, addPayment, updatePayment, deletePayment } = useEmployeePayments(detailEmployeeId);
+
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 2200);
+    return () => window.clearTimeout(id);
+  }, [toast]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -321,7 +328,9 @@ function EmployeesPageContent() {
                     size="sm"
                     onClick={async () => {
                       setSalaryTypeDraft("daily");
-                      await updateEmployee(selectedEmployee.id, { salary_type: "daily" });
+                      const result = await updateEmployee(selectedEmployee.id, { salary_type: "daily" });
+                      if (result.error) setToast({ type: "error", message: t("salarySaveErrorToast", language) });
+                      else setToast({ type: "success", message: t("salarySaveSuccessToast", language) });
                     }}
                   >
                     {t("salaryDaily", language)}
@@ -332,7 +341,9 @@ function EmployeesPageContent() {
                     size="sm"
                     onClick={async () => {
                       setSalaryTypeDraft("monthly");
-                      await updateEmployee(selectedEmployee.id, { salary_type: "monthly" });
+                      const result = await updateEmployee(selectedEmployee.id, { salary_type: "monthly" });
+                      if (result.error) setToast({ type: "error", message: t("salarySaveErrorToast", language) });
+                      else setToast({ type: "success", message: t("salarySaveSuccessToast", language) });
                     }}
                   >
                     {t("salaryMonthly", language)}
@@ -344,7 +355,10 @@ function EmployeesPageContent() {
                     amountEur={Number(selectedEmployee.salary_amount ?? 0)}
                     displayCurrency={displayCurrency}
                     onCommit={async (newEur) => {
-                      await updateEmployee(selectedEmployee.id, { salary_amount: newEur });
+                      const parsed = parseFloat(String(newEur));
+                      const result = await updateEmployee(selectedEmployee.id, { salary_amount: Number.isNaN(parsed) ? 0 : parsed });
+                      if (result.error) setToast({ type: "error", message: t("salarySaveErrorToast", language) });
+                      else setToast({ type: "success", message: t("salarySaveSuccessToast", language) });
                     }}
                   />
                   <select
@@ -352,7 +366,9 @@ function EmployeesPageContent() {
                     onChange={async (e) => {
                       const cur = e.target.value as Currency;
                       setSalaryCurrencyDraft(cur);
-                      await updateEmployee(selectedEmployee.id, { salary_currency: cur });
+                      const result = await updateEmployee(selectedEmployee.id, { salary_currency: cur });
+                      if (result.error) setToast({ type: "error", message: t("salarySaveErrorToast", language) });
+                      else setToast({ type: "success", message: t("salarySaveSuccessToast", language) });
                     }}
                     className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm"
                   >
@@ -474,6 +490,19 @@ function EmployeesPageContent() {
           )}
         </DialogContent>
       </Dialog>
+
+      {toast && (
+        <div className="fixed right-4 top-4 z-[200]">
+          <div
+            className={cn(
+              "rounded-lg px-4 py-2 text-sm shadow-lg",
+              toast.type === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
+            )}
+          >
+            {toast.message}
+          </div>
+        </div>
+      )}
 
       <Dialog open={!!editId} onOpenChange={(open) => !open && setEditId(null)}>
         <DialogContent>

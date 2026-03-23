@@ -183,6 +183,10 @@ export const translations: Record<string, { fr: string; en: string }> = {
   helpContactSupportBtn: { fr: "Contacter le support", en: "Contact support" },
   helpCopyEmailBtn: { fr: "Copier l’email", en: "Copy email" },
   helpCopyEmailSuccess: { fr: "Email copié.", en: "Email copied." },
+  salarySaveSuccessToast: { fr: "Salaire enregistré avec succès.", en: "Salary saved successfully." },
+  salarySaveErrorToast: { fr: "Erreur lors de l’enregistrement du salaire.", en: "Failed to save salary." },
+  signupSuccessToast: { fr: "Inscription réussie. Vérifiez votre email.", en: "Sign-up successful. Check your email." },
+  signupErrorToast: { fr: "Inscription impossible. Vérifiez les informations.", en: "Sign-up failed. Please verify your details." },
   assistantClarify: {
     fr: "Je n’ai pas bien compris. Peux-tu préciser ce que tu veux faire (ex. projet concerné, montant, ou capture d’écran du calendrier) ? Tu peux aussi formuler autrement ou consulter **Aide** depuis le menu.",
     en: "I’m not sure I understood. Could you clarify what you want to do (e.g. which project, amount, or calendar slot)? Try rephrasing, or open **Help** from the menu for examples.",

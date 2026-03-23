@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
@@ -19,6 +19,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +33,7 @@ export default function SignupPage() {
     }
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL ??
+      (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : null) ??
       (typeof window !== "undefined" ? window.location.origin : "");
     const { error: signError } = await supabase.auth.signUp({
       email,
@@ -48,10 +50,18 @@ export default function SignupPage() {
     setLoading(false);
     if (signError) {
       setError(signError.message);
+      setToast({ type: "error", message: t("signupErrorToast", language) });
       return;
     }
+    setToast({ type: "success", message: t("signupSuccessToast", language) });
     setSuccess(true);
   };
+
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 2500);
+    return () => window.clearTimeout(id);
+  }, [toast]);
 
   if (success) {
     return (
@@ -76,6 +86,13 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+      {toast && (
+        <div className="fixed right-4 top-4 z-[200]">
+          <div className={toast.type === "success" ? "rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white shadow-lg" : "rounded-lg bg-red-600 px-4 py-2 text-sm text-white shadow-lg"}>
+            {toast.message}
+          </div>
+        </div>
+      )}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}

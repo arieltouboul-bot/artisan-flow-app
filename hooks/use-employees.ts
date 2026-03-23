@@ -64,11 +64,15 @@ export function useEmployees() {
   }, [fetchEmployees]);
 
   const addEmployee = useCallback(
-    async (firstName: string, lastName: string, role: string) => {
+    async (firstName: string, lastName: string, role: string, salaryAmount?: string | number | null) => {
       const supabase = createClient();
       if (!supabase) return { error: new Error("Supabase non configuré") };
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { error: new Error("Non connecté") };
+      const parsedSalary =
+        salaryAmount == null || salaryAmount === ""
+          ? null
+          : parseFloat(String(salaryAmount).replace(",", "."));
       const { error: insertError } = await supabase
         .from("employees")
         .insert({
@@ -76,6 +80,8 @@ export function useEmployees() {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           role: role.trim() || "",
+          salary_amount:
+            parsedSalary == null || Number.isNaN(parsedSalary) ? null : parsedSalary,
         });
       if (insertError) return { error: insertError };
       await fetchEmployees();
@@ -93,7 +99,13 @@ export function useEmployees() {
       if (payload.last_name !== undefined) toUpdate.last_name = payload.last_name.trim();
       if (payload.role !== undefined) toUpdate.role = payload.role.trim();
       if (payload.salary_type !== undefined) toUpdate.salary_type = payload.salary_type;
-      if (payload.salary_amount !== undefined) toUpdate.salary_amount = payload.salary_amount;
+      if (payload.salary_amount !== undefined) {
+        const parsed =
+          payload.salary_amount == null
+            ? null
+            : parseFloat(String(payload.salary_amount).replace(",", "."));
+        toUpdate.salary_amount = parsed == null || Number.isNaN(parsed) ? null : parsed;
+      }
       if (payload.salary_currency !== undefined) toUpdate.salary_currency = payload.salary_currency;
       if (Object.keys(toUpdate).length === 0) return {};
       const { error: updateError } = await supabase.from("employees").update(toUpdate).eq("id", id);
