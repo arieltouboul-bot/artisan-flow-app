@@ -195,6 +195,10 @@ export const translations: Record<string, { fr: string; en: string }> = {
     fr: "Cet email est déjà utilisé.",
     en: "This email is already in use.",
   },
+  signupDuplicateFriendlyExact: {
+    fr: "Vous avez déjà un compte. Connectez-vous ou réinitialisez votre mot de passe.",
+    en: "You already have an account. Sign in or reset your password.",
+  },
   resendConfirmationEmail: {
     fr: "Renvoyer l'email de confirmation",
     en: "Resend confirmation email",
@@ -207,7 +211,7 @@ export const translations: Record<string, { fr: string; en: string }> = {
   },
   sendRecoveryLink: { fr: "Envoyer le lien de récupération", en: "Send recovery link" },
   resetPasswordEmailSent: {
-    fr: "Email de récupération envoyé ! Vérifiez votre boîte de réception.",
+    fr: "Email envoyé ! Vérifiez vos spams.",
     en: "Recovery link sent! Check your email.",
   },
   resetPasswordTitle: { fr: "Réinitialiser le mot de passe", en: "Reset password" },
@@ -229,6 +233,10 @@ export const translations: Record<string, { fr: string; en: string }> = {
   resetPasswordInvalidLink: {
     fr: "Lien de réinitialisation invalide ou expiré.",
     en: "Reset link is invalid or expired.",
+  },
+  resetPasswordAwaitSession: {
+    fr: "Ouverture de la session de récupération...",
+    en: "Opening recovery session...",
   },
   signupEmailSentModal: {
     fr: "Un e-mail a été envoyé à {email}. Cliquez sur le lien pour activer votre compte.",

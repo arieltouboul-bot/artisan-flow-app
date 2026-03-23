@@ -51,8 +51,13 @@ export default function SignupPage() {
       setError(signError.message);
       setToast({ type: "error", message: signError.message });
       const lower = signError.message.toLowerCase();
-      setCanResendConfirmation(lower.includes("already") || lower.includes("exists") || lower.includes("registered"));
-      setFriendlyDuplicate(lower.includes("already") || lower.includes("exists") || lower.includes("registered"));
+      const isAlreadyRegistered =
+        lower.includes("user already registered") ||
+        lower.includes("already") ||
+        lower.includes("exists") ||
+        lower.includes("registered");
+      setCanResendConfirmation(isAlreadyRegistered);
+      setFriendlyDuplicate(isAlreadyRegistered);
       return;
     }
     if (data?.user) {
@@ -196,7 +201,7 @@ export default function SignupPage() {
               )}
               {friendlyDuplicate && (
                 <p className="text-sm text-amber-800 bg-amber-50 p-2 rounded-lg">
-                  {t("signupDuplicateFriendlyPrefix", language)}{" "}
+                  {t("signupDuplicateFriendlyExact", language)}{" "}
                   <Link href="/login" className="font-medium text-brand-blue-700 underline">
                     {t("signIn", language)}
                   </Link>{" "}

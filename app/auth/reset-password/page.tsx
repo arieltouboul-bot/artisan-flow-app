@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ function ResetPasswordContent() {
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [isRecoveryFlow, setIsRecoveryFlow] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
@@ -37,13 +39,26 @@ function ResetPasswordContent() {
       const accessToken = searchParams.get("access_token");
       const recoveryDetected = type === "recovery" || !!code || !!accessToken;
       setIsRecoveryFlow(recoveryDetected);
-      const { data } = await supabase.auth.getUser();
-      if (!data.user && recoveryDetected) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      setHasSession(Boolean(sessionData.session));
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+        setHasSession(Boolean(session));
+      });
+      if (!sessionData.session && recoveryDetected) {
         setError(t("resetPasswordInvalidLink", language));
       }
       setReady(true);
+      return () => subscription.unsubscribe();
     };
-    check();
+    let cleanup: (() => void) | undefined;
+    check().then((c) => {
+      cleanup = c;
+    });
+    return () => {
+      cleanup?.();
+    };
   }, [language, searchParams]);
 
   useEffect(() => {
@@ -70,12 +85,14 @@ function ResetPasswordContent() {
     }
     setLoading(true);
     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-    setLoading(false);
     if (updateError) {
+      setLoading(false);
       setError(updateError.message);
       setToast({ type: "error", message: updateError.message });
       return;
     }
+    await supabase.auth.signOut();
+    setLoading(false);
     setToast({ type: "success", message: t("resetPasswordSuccess", language) });
     setTimeout(() => router.replace("/login"), 2000);
   };
@@ -99,13 +116,8 @@ function ResetPasswordContent() {
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-brand-blue-600" />
               </div>
-            ) : (
+            ) : hasSession ? (
               <form onSubmit={handleReset} className="space-y-4">
-                {!isRecoveryFlow && (
-                  <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-700">
-                    {t("resetPasswordInvalidLink", language)}
-                  </p>
-                )}
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">{t("newPassword", language)}</label>
                   <Input
@@ -131,6 +143,10 @@ function ResetPasswordContent() {
                   {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : t("resetPasswordSubmit", language)}
                 </Button>
               </form>
+            ) : (
+              <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-700">
+                {isRecoveryFlow ? t("resetPasswordInvalidLink", language) : t("resetPasswordAwaitSession", language)}
+              </p>
             )}
           </CardContent>
         </Card>
