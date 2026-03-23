@@ -61,11 +61,11 @@ export default function SignupPage() {
       return;
     }
     if (data?.user) {
-      const { error: profileInsertError } = await supabase
+      const { error: profileUpsertError } = await supabase
         .from("profiles")
-        .insert([{ id: data.user.id, email }]);
+        .upsert({ id: data.user.id, email });
       // Keep signup resilient if the profiles schema uses user_id instead of id.
-      if (profileInsertError) {
+      if (profileUpsertError) {
         await supabase.from("profiles").upsert(
           {
             user_id: data.user.id,
