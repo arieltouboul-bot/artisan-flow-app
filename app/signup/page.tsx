@@ -19,12 +19,14 @@ export default function SignupPage() {
   const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [successOpen, setSuccessOpen] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setInfo(null);
     setLoading(true);
     const supabase = createClient();
     if (!supabase) {
@@ -32,15 +34,11 @@ export default function SignupPage() {
       setLoading(false);
       return;
     }
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      (process.env.NEXT_PUBLIC_VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}` : null) ??
-      (typeof window !== "undefined" ? window.location.origin : "");
-    const { error: signError } = await supabase.auth.signUp({
+    const { data, error: signError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${baseUrl}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: {
           company_name: companyName.trim() || null,
           preferred_language: language,
@@ -53,6 +51,9 @@ export default function SignupPage() {
       setError(signError.message);
       setToast({ type: "error", message: t("signupErrorToast", language) });
       return;
+    }
+    if (data?.user && !data.session) {
+      setInfo(t("signupCheckSpam", language));
     }
     setToast({ type: "success", message: t("signupSuccessToast", language) });
     setSuccessOpen(true);
@@ -152,6 +153,9 @@ export default function SignupPage() {
               </div>
               {error && (
                 <p className="text-sm text-red-600 bg-red-50 p-2 rounded-lg">{error}</p>
+              )}
+              {info && (
+                <p className="text-sm text-amber-800 bg-amber-50 p-2 rounded-lg">{info}</p>
               )}
               <Button type="submit" className="w-full min-h-[48px]" disabled={loading}>
                 {loading ? (
