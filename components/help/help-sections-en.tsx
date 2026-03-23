@@ -3,107 +3,59 @@
 import { LayoutDashboard, FolderKanban, Banknote, UsersRound, Package, Smartphone } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { HELP_CONTENT } from "./help-content";
 
 export type HelpSection = { id: string; title: string; icon: LucideIcon; body: ReactNode };
+const content = HELP_CONTENT.en;
+
+const bullets = (items: string[]) => (
+  <ul className="list-disc space-y-2 pl-5">
+    {items.map((item) => (
+      <li key={item}>{item}</li>
+    ))}
+  </ul>
+);
 
 export const HELP_SECTIONS_EN: HelpSection[] = [
   {
     id: "dashboard",
-    title: "Dashboard & KPIs",
+    title: content.dashboardTitle,
     icon: LayoutDashboard,
     body: (
       <div className="space-y-4 text-sm text-gray-700">
-        <p className="font-medium text-gray-900">How to read card colors:</p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li>
-            <strong>Blue</strong>: revenue (monthly and yearly sales).
-          </li>
-          <li>
-            <strong>Green</strong>: margin / net profit.
-          </li>
-          <li>
-            <strong>Red</strong>: unpaid balances (amount still due per project).
-          </li>
-          <li>Click any card to open detailed breakdowns directly on the dashboard.</li>
-        </ul>
+        <p className="font-medium text-gray-900">{content.dashboardIntro}</p>
+        {bullets(content.dashboardBullets)}
       </div>
     ),
   },
   {
     id: "projects",
-    title: "Projects & progress",
+    title: content.projectsTitle,
     icon: FolderKanban,
-    body: (
-      <div className="space-y-3 text-sm text-gray-700">
-        <ul className="list-disc space-y-2 pl-5">
-          <li>Set <strong>start</strong> and <strong>end</strong> dates for each project to track delivery planning.</li>
-          <li>Financial progress follows contract budget, payments collected, and real expenses.</li>
-          <li>The financial health bar compares <strong>Budget vs Spending</strong> and warns above 80%.</li>
-          <li>Project pages also show linked team members and project-related costs.</li>
-        </ul>
-      </div>
-    ),
+    body: <div className="space-y-3 text-sm text-gray-700">{bullets(content.projectsBullets)}</div>,
   },
   {
     id: "revenues",
-    title: "Revenues & unpaid",
+    title: content.revenuesTitle,
     icon: Banknote,
-    body: (
-      <div className="space-y-3 text-sm text-gray-700">
-        <ul className="list-disc space-y-2 pl-5">
-          <li>Every revenue entry automatically reduces the unpaid balance of its linked project.</li>
-          <li>Dashboard KPIs (monthly/yearly revenue, margin, unpaid) refresh immediately.</li>
-          <li>PDF exports remain bilingual (French/English) for accounting workflows.</li>
-          <li>Key amounts can be updated inline on supported screens.</li>
-        </ul>
-      </div>
-    ),
+    body: <div className="space-y-3 text-sm text-gray-700">{bullets(content.revenuesBullets)}</div>,
   },
   {
     id: "team-payroll",
-    title: "Team & payroll",
+    title: content.teamTitle,
     icon: UsersRound,
-    body: (
-      <div className="space-y-3 text-sm text-gray-700">
-        <ul className="list-disc space-y-2 pl-5">
-          <li>Configure salary type (daily/monthly) and salary amount for each team member.</li>
-          <li>Log each payment with date, amount, and optional linked project.</li>
-          <li>Payment history supports inline editing for fast corrections.</li>
-          <li>Payroll payments are included in total expenses and net margin.</li>
-        </ul>
-      </div>
-    ),
+    body: <div className="space-y-3 text-sm text-gray-700">{bullets(content.teamBullets)}</div>,
   },
   {
     id: "rentals",
-    title: "Rentals",
+    title: content.rentalsTitle,
     icon: Package,
-    body: (
-      <div className="space-y-3 text-sm text-gray-700">
-        <ul className="list-disc space-y-2 pl-5">
-          <li>Each rental computes duration (start/end) and total cost automatically.</li>
-          <li>
-            Visual status: <strong>On site</strong> (green) or <strong>To return</strong> (red).
-          </li>
-          <li>Dashboard warns you when a rental is ending within the next 24 hours.</li>
-          <li>Rental costs are added to expenses and impact profit margin.</li>
-        </ul>
-      </div>
-    ),
+    body: <div className="space-y-3 text-sm text-gray-700">{bullets(content.rentalsBullets)}</div>,
   },
   {
     id: "ux",
-    title: "UX gestures",
+    title: content.uxTitle,
     icon: Smartphone,
-    body: (
-      <div className="space-y-3 text-sm text-gray-700">
-        <ul className="list-disc space-y-2 pl-5">
-          <li>Swipe left on mobile lists to reveal <strong>Edit</strong> and <strong>Delete</strong>.</li>
-          <li>This gesture is consistent across core lists (clients, team, revenues, materials, rentals).</li>
-          <li>Inline amount edits propagate instantly to global financial totals.</li>
-          <li>Opening Help closes the mobile sidebar for better readability.</li>
-        </ul>
-      </div>
-    ),
+    body: <div className="space-y-3 text-sm text-gray-700">{bullets(content.uxBullets)}</div>,
   },
 ];

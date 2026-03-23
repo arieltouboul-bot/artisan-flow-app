@@ -23,6 +23,27 @@ export async function GET(request: NextRequest) {
       },
     });
     await supabase.auth.exchangeCodeForSession(code);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+      await supabase.from("profiles").upsert(
+        {
+          user_id: user.id,
+          company_name: (meta.company_name as string) ?? null,
+          preferred_language: meta.preferred_language === "en" ? "en" : "fr",
+          preferred_currency:
+            meta.preferred_currency === "USD" ||
+            meta.preferred_currency === "GBP" ||
+            meta.preferred_currency === "ILS"
+              ? meta.preferred_currency
+              : "EUR",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
+    }
     return response;
   }
 

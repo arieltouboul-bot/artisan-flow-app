@@ -16,10 +16,12 @@ export function resolveHelpLanguage(opts: {
   contextLanguage: "fr" | "en";
   navigatorLanguage: string | null;
 }): "fr" | "en" {
-  const combined = `${opts.profileLanguagePref ?? ""} ${opts.profilePreferred ?? ""} ${
-    opts.navigatorLanguage ?? ""
-  } ${opts.contextLanguage}`.toLowerCase();
-  return combined.includes("fr") ? "fr" : "en";
+  const profilePref = `${opts.profileLanguagePref ?? ""} ${opts.profilePreferred ?? ""}`.toLowerCase();
+  if (profilePref.includes("fr")) return "fr";
+  if (profilePref.includes("en")) return "en";
+  const browser = (opts.navigatorLanguage ?? "").toLowerCase();
+  if (browser.includes("fr")) return "fr";
+  return "en";
 }
 
 /**

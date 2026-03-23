@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Hammer, Loader2 } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
@@ -18,7 +19,7 @@ export default function SignupPage() {
   const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [successOpen, setSuccessOpen] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -39,7 +40,7 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${baseUrl}/auth/confirm`,
+        emailRedirectTo: `${baseUrl}/auth/callback`,
         data: {
           company_name: companyName.trim() || null,
           preferred_language: language,
@@ -54,7 +55,7 @@ export default function SignupPage() {
       return;
     }
     setToast({ type: "success", message: t("signupSuccessToast", language) });
-    setSuccess(true);
+    setSuccessOpen(true);
   };
 
   useEffect(() => {
@@ -62,27 +63,6 @@ export default function SignupPage() {
     const id = window.setTimeout(() => setToast(null), 2500);
     return () => window.clearTimeout(id);
   }, [toast]);
-
-  if (success) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md text-center"
-        >
-          <Card className="overflow-hidden shadow-brand-glow">
-            <CardContent className="pt-6">
-              <p className="text-gray-700 mb-4">{t("checkEmail", language)}</p>
-              <Link href="/login">
-                <Button className="w-full min-h-[48px]">{t("backToLogin", language)}</Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
@@ -190,6 +170,20 @@ export default function SignupPage() {
           </CardContent>
         </Card>
       </motion.div>
+
+      <Dialog open={successOpen} onOpenChange={setSuccessOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{language === "fr" ? "Inscription réussie" : "Sign-up successful"}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-700">{t("checkEmail", language)}</p>
+          <DialogFooter>
+            <Link href="/login" className="w-full sm:w-auto">
+              <Button className="w-full min-h-[44px]">{t("backToLogin", language)}</Button>
+            </Link>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
