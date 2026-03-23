@@ -29,13 +29,14 @@ import {
   getCurrencySymbol,
 } from "@/lib/utils";
 import { useDashboardStats, type DashboardView } from "@/hooks/use-dashboard-stats";
+import { useClients } from "@/hooks/use-clients";
 import { useReminders } from "@/hooks/use-reminders";
 import { useTodayAppointments } from "@/hooks/use-appointments";
 import { useRentals, rentalDurationDays } from "@/hooks/use-rentals";
 import { useUser } from "@/hooks/use-user";
 import { useProfile } from "@/hooks/use-profile";
 import { useLanguage } from "@/context/language-context";
-import { t } from "@/lib/translations";
+import { t, tReplace } from "@/lib/translations";
 import { FolderKanban, ArrowRight, X, Bell, CheckSquare, Square, Trash2, Plus, CalendarClock, MapPin, Loader2 } from "lucide-react";
 import { formatTime } from "@/lib/utils";
 import {
@@ -95,6 +96,7 @@ export default function DashboardPage() {
   const [isMobile, setIsMobile] = useState(false);
   const { user } = useUser();
   const { profile, displayCurrency } = useProfile();
+  const { clients, loading: clientsLoading } = useClients();
   const { stats, projects, loading, error, refetch } = useDashboardStats(selectedYear);
   const { data: financeData, loading: financeAnalyticsLoading, refetch: refetchFinance } = useFinanceAnalytics();
   const { reminders, addReminder, toggleReminder, deleteReminder } = useReminders();
@@ -159,6 +161,7 @@ export default function DashboardPage() {
 
   const showList = dashboardView === "all" || dashboardView === "impayes";
   const showCaDetail = dashboardView === "ca_detail";
+  const showFirstStep = !loading && !clientsLoading && (clients.length === 0 || projects.length === 0);
 
   const nextAppointment = useMemo(() => {
     const now = new Date();
@@ -270,6 +273,24 @@ export default function DashboardPage() {
           />
         </Suspense>
       </motion.div>
+
+      {showFirstStep && (
+        <motion.div variants={item}>
+          <Card className="border-2 border-brand-blue-200 bg-brand-blue-50/40">
+            <CardContent className="py-12 text-center">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {tReplace("dashboardFirstStepTitle", language, { name: welcomeName })}
+              </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-gray-600">{t("dashboardFirstStepBody", language)}</p>
+              <Link href="/clients" className="mt-6 inline-block">
+                <Button className="min-h-[48px] bg-brand-blue-600 px-6 hover:bg-brand-blue-700">
+                  {t("dashboardFirstStepCta", language)}
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {nextAppointment && (
         <motion.div

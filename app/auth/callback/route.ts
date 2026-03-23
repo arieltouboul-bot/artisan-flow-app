@@ -6,10 +6,10 @@ export async function GET(request: NextRequest) {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const next = requestUrl.searchParams.get("next") ?? "/dashboard";
+  const requestedNext = requestUrl.searchParams.get("next");
 
   if (code) {
-    const response = NextResponse.redirect(new URL(next, request.url));
+    const response = NextResponse.next();
     const supabase = createServerClient(url, key, {
       cookies: {
         getAll() {
@@ -27,6 +27,11 @@ export async function GET(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) {
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
       const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
       await supabase.from("profiles").upsert(
         {
@@ -43,8 +48,10 @@ export async function GET(request: NextRequest) {
         },
         { onConflict: "user_id" }
       );
+      const target = requestedNext ?? (existingProfile ? "/dashboard" : "/clients");
+      return NextResponse.redirect(new URL(target, request.url), { headers: response.headers });
     }
-    return response;
+    return NextResponse.redirect(new URL(requestedNext ?? "/dashboard", request.url), { headers: response.headers });
   }
 
   return NextResponse.redirect(new URL("/login", request.url));

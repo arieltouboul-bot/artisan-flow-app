@@ -281,6 +281,28 @@ export const translations: Record<string, { fr: string; en: string }> = {
   projectsWithRest: { fr: "projet(s) avec un restant à régler", en: "project(s) with balance due" },
   projectCount: { fr: "projet(s)", en: "project(s)" },
   noProjectsToShow: { fr: "Aucun projet à afficher", en: "No projects to show" },
+  projectsEmptyState: { fr: "Aucun projet trouvé", en: "No projects found" },
+  dashboardFirstStepTitle: {
+    fr: "Bienvenue {name} !",
+    en: "Welcome {name}!",
+  },
+  dashboardFirstStepBody: {
+    fr: "Commençons par créer votre premier client pour lancer votre activité.",
+    en: "Let’s start by creating your first client to launch your business.",
+  },
+  dashboardFirstStepCta: {
+    fr: "Créer mon premier client",
+    en: "Create my first client",
+  },
+  contextHelpTitle: { fr: "Aide rapide", en: "Quick help" },
+  contextHelpProjects: {
+    fr: "Ici, gérez vos chantiers et suivez leur rentabilité.",
+    en: "Here, manage your projects and track their profitability.",
+  },
+  contextHelpRevenues: {
+    fr: "Enregistrez vos paiements pour mettre à jour vos impayés.",
+    en: "Record your payments to update your outstanding balances.",
+  },
   overdue: { fr: "En retard", en: "Overdue" },
   due: { fr: "dû", en: "due" },
   view: { fr: "Voir", en: "View" },

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useClients } from "@/hooks/use-clients";
+import { useLanguage } from "@/context/language-context";
 import { createClient } from "@/lib/supabase/client";
 import type { ProjectStatus } from "@/types/database";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -24,8 +25,9 @@ const statusLabels: Record<ProjectStatus, string> = {
 
 function NouveauProjetPageContent() {
   const router = useRouter();
+  const { language } = useLanguage();
   const searchParams = useSearchParams();
-  const { clients, loading: clientsLoading } = useClients();
+  const { clients, loading: clientsLoading, refetch: refetchClients } = useClients();
   const [clientId, setClientId] = useState(searchParams.get("clientId") ?? "");
   const [name, setName] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -34,6 +36,9 @@ function NouveauProjetPageContent() {
   const [notes, setNotes] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [newClientOpen, setNewClientOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientSaving, setNewClientSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +90,37 @@ function NouveauProjetPageContent() {
     if (data?.id) router.push(`/projets/${data.id}`);
   };
 
+  const handleCreateClientInline = async () => {
+    if (!newClientName.trim()) return;
+    const supabase = createClient();
+    if (!supabase) return;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    setNewClientSaving(true);
+    const { data, error: insertError } = await supabase
+      .from("clients")
+      .insert({
+        user_id: user.id,
+        name: newClientName.trim(),
+        contract_amount: 0,
+        material_costs: 0,
+        amount_collected: 0,
+      })
+      .select("id")
+      .single();
+    setNewClientSaving(false);
+    if (insertError) {
+      setError(insertError.message);
+      return;
+    }
+    setNewClientOpen(false);
+    setNewClientName("");
+    await refetchClients();
+    if (data?.id) setClientId(data.id);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -111,6 +147,24 @@ function NouveauProjetPageContent() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">Client *</label>
+              <div className="mb-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setNewClientOpen((v) => !v)}>
+                  + {language === "fr" ? "Nouveau Client" : "New Client"}
+                </Button>
+              </div>
+              {newClientOpen && (
+                <div className="mb-2 flex items-center gap-2">
+                  <Input
+                    value={newClientName}
+                    onChange={(e) => setNewClientName(e.target.value)}
+                    placeholder={language === "fr" ? "Nom du client" : "Client name"}
+                    className="min-h-[44px]"
+                  />
+                  <Button type="button" onClick={handleCreateClientInline} disabled={newClientSaving}>
+                    {newClientSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : language === "fr" ? "Créer" : "Create"}
+                  </Button>
+                </div>
+              )}
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}

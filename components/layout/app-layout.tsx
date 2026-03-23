@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Sidebar } from "./sidebar";
 import { Navbar } from "./navbar";
 import { FloatingAssistant } from "@/components/assistant/floating-assistant";
+import { FloatingContextHelp } from "@/components/ui/floating-context-help";
 import { useProfile } from "@/hooks/use-profile";
 import { useLanguage } from "@/context/language-context";
 import { cn } from "@/lib/utils";
@@ -115,6 +116,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         >
           {children}
         </motion.div>
+        <FloatingContextHelp />
         <FloatingAssistant />
       </main>
     </div>

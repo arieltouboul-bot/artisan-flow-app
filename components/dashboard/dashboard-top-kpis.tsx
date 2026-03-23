@@ -88,6 +88,7 @@ export function DashboardTopKpis({
   const currency = displayCurrency;
 
   const openKpi = (k: FinanceKpiDetailKey) => () => setKpiModal(k);
+  const safeNumber = (v: number | null | undefined) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
   return (
     <>
@@ -146,7 +147,7 @@ export function DashboardTopKpis({
                 ) : (
                   <>
                     <p className="text-2xl font-bold text-blue-700 tabular-nums tracking-tight">
-                      {formatConvertedCurrency(financeData.caMonthEur, currency)}
+                      {formatConvertedCurrency(safeNumber(financeData.caMonthEur), currency)}
                     </p>
                     <p
                       className={cn(
@@ -194,7 +195,7 @@ export function DashboardTopKpis({
                 ) : (
                   <>
                     <p className="text-2xl font-bold text-blue-700 tabular-nums tracking-tight">
-                      {formatConvertedCurrency(yearCaDisplay, currency)}
+                      {formatConvertedCurrency(safeNumber(yearCaDisplay), currency)}
                     </p>
                     <p className="text-xs text-blue-700/80 mt-1">
                       {tReplace("dashboardRevenueDetailYear", language, { year: String(selectedYear) })}
@@ -227,7 +228,7 @@ export function DashboardTopKpis({
                 ) : (
                   <>
                     <p className="text-2xl font-bold text-emerald-700 tabular-nums tracking-tight">
-                      {formatConvertedCurrency(financeData.companyMarginEur, currency)}
+                      {formatConvertedCurrency(safeNumber(financeData.companyMarginEur), currency)}
                     </p>
                     <p className="text-xs text-emerald-800/90 mt-1">
                       {tReplace("financeMarginPctLabel", language, { pct: Math.round(financeData.companyMarginPct * 10) / 10 })}
@@ -260,7 +261,7 @@ export function DashboardTopKpis({
                 ) : (
                   <>
                     <p className="text-2xl font-bold text-red-700 tabular-nums tracking-tight">
-                      {formatConvertedCurrency(financeData.totalOutstandingEur, currency)}
+                      {formatConvertedCurrency(safeNumber(financeData.totalOutstandingEur), currency)}
                     </p>
                     <p className="text-xs text-red-700 mt-1">
                       {tReplace("dashboardOutstandingCount", language, { n: String(nbOutstandingProjects) })}

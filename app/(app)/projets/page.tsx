@@ -215,9 +215,9 @@ function ProjetsContent() {
                     className="flex flex-col items-center justify-center py-12 text-gray-500"
                   >
                     <FolderKanban className="h-12 w-12 mb-2 opacity-50" />
-                    <p>Aucun projet trouvé</p>
+                    <p>{t("projectsEmptyState", language)}</p>
                     <Link href="/projets/nouveau">
-                      <Button variant="outline" className="mt-4">Ajouter un projet</Button>
+                      <Button variant="outline" className="mt-4">{t("newProject", language)}</Button>
                     </Link>
                   </motion.div>
                 ) : (
