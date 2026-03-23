@@ -47,6 +47,24 @@ export default function SignupPage() {
       setToast({ type: "error", message: signError.message });
       return;
     }
+    if (data?.user) {
+      const { error: profileInsertError } = await supabase
+        .from("profiles")
+        .insert([{ id: data.user.id, email }]);
+      // Keep signup resilient if the profiles schema uses user_id instead of id.
+      if (profileInsertError) {
+        await supabase.from("profiles").upsert(
+          {
+            user_id: data.user.id,
+            company_name: companyName.trim() || null,
+            preferred_language: language,
+            preferred_currency: "EUR",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+      }
+    }
     if (data?.user && !data.session) {
       setInfo(t("signupCheckSpam", language));
     }
