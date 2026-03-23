@@ -12,17 +12,14 @@ import { t } from "@/lib/translations";
 
 export function resolveHelpLanguage(opts: {
   profilePreferred?: string | null;
+  profileLanguagePref?: string | null;
   contextLanguage: "fr" | "en";
   navigatorLanguage: string | null;
 }): "fr" | "en" {
-  const p = opts.profilePreferred;
-  if (p === "fr" || p === "en") return p;
-  const nav = opts.navigatorLanguage?.toLowerCase() ?? "";
-  if (nav.startsWith("fr")) return "fr";
-  if (nav.startsWith("en")) return "en";
-  const ctx = opts.contextLanguage;
-  if (ctx === "fr" || ctx === "en") return ctx;
-  return "en";
+  const combined = `${opts.profileLanguagePref ?? ""} ${opts.profilePreferred ?? ""} ${
+    opts.navigatorLanguage ?? ""
+  } ${opts.contextLanguage}`.toLowerCase();
+  return combined.includes("fr") ? "fr" : "en";
 }
 
 /**
@@ -33,6 +30,7 @@ export function HelpSupport() {
   const { language } = useLanguage();
   const { profile } = useProfile();
   const [navigatorLanguage, setNavigatorLanguage] = useState<string | null>(null);
+  const [contactStatus, setContactStatus] = useState<"idle" | "copied">("idle");
 
   useEffect(() => {
     if (typeof navigator !== "undefined") setNavigatorLanguage(navigator.language);
@@ -48,10 +46,11 @@ export function HelpSupport() {
     () =>
       resolveHelpLanguage({
         profilePreferred: profile?.preferred_language,
+        profileLanguagePref: profile?.language_pref ?? null,
         contextLanguage: language,
         navigatorLanguage,
       }),
-    [profile?.preferred_language, language, navigatorLanguage]
+    [profile?.preferred_language, profile?.language_pref, language, navigatorLanguage]
   );
 
   const list = lang === "fr" ? HELP_SECTIONS_FR : HELP_SECTIONS_EN;
@@ -92,6 +91,32 @@ export function HelpSupport() {
       <Card className="border-brand-blue-100 bg-brand-blue-50/40">
         <CardContent className="pt-6 text-sm text-gray-700">
           <p>{t("helpContact", lang)}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <a
+              href="mailto:support@artisanflow.fr"
+              className="inline-flex min-h-[40px] items-center rounded-md border border-brand-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-blue-700 hover:bg-brand-blue-50"
+            >
+              {t("helpContactSupportBtn", lang)}
+            </a>
+            <button
+              type="button"
+              className="inline-flex min-h-[40px] items-center rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText("support@artisanflow.fr");
+                  setContactStatus("copied");
+                  setTimeout(() => setContactStatus("idle"), 1500);
+                } catch {
+                  setContactStatus("idle");
+                }
+              }}
+            >
+              {t("helpCopyEmailBtn", lang)}
+            </button>
+            {contactStatus === "copied" && (
+              <span className="text-xs text-emerald-700">{t("helpCopyEmailSuccess", lang)}</span>
+            )}
+          </div>
         </CardContent>
       </Card>
     </motion.div>
