@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { t } from "@/lib/translations";
 export default function LoginPage() {
   const { language } = useLanguage();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,6 +26,7 @@ export default function LoginPage() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotMessage, setForgotMessage] = useState<string | null>(null);
   const [forgotError, setForgotError] = useState<string | null>(null);
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +81,12 @@ export default function LoginPage() {
     }
   }, [forgotOpen, email]);
 
+  useEffect(() => {
+    if (searchParams.get("reset") === "success") {
+      setResetSuccessMessage("Mot de passe mis à jour avec succès. Connectez-vous.");
+    }
+  }, [searchParams]);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
       <motion.div
@@ -100,6 +108,9 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
+              {resetSuccessMessage && (
+                <p className="rounded-lg bg-emerald-50 p-2 text-sm text-emerald-700">{resetSuccessMessage}</p>
+              )}
               <div>
                 <label htmlFor="email" className="text-sm font-medium text-gray-700 mb-1 block">
                   Email
