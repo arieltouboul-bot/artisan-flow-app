@@ -184,6 +184,10 @@ export const translations: Record<string, { fr: string; en: string }> = {
   helpCopyEmailBtn: { fr: "Copier l’email", en: "Copy email" },
   helpCopyEmailSuccess: { fr: "Email copié.", en: "Email copied." },
   salarySaveSuccessToast: { fr: "Salaire enregistré avec succès.", en: "Salary saved successfully." },
+  salaryUpdatedWithNameToast: {
+    fr: "✅ Salaire de {name} mis à jour avec succès",
+    en: "✅ {name}'s salary was updated successfully.",
+  },
   salarySaveErrorToast: { fr: "Erreur lors de l’enregistrement du salaire.", en: "Failed to save salary." },
   signupSuccessToast: { fr: "Inscription réussie. Vérifiez votre email.", en: "Sign-up successful. Check your email." },
   signupErrorToast: { fr: "Inscription impossible. Vérifiez les informations.", en: "Sign-up failed. Please verify your details." },

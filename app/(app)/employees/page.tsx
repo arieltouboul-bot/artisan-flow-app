@@ -18,7 +18,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import { useLanguage } from "@/context/language-context";
 import { useAssistant } from "@/context/assistant-context";
-import { t } from "@/lib/translations";
+import { t, tReplace } from "@/lib/translations";
 import { Users, Plus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatConvertedCurrency, type Currency } from "@/lib/utils";
@@ -71,6 +71,7 @@ function EmployeesPageContent() {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentProjectId, setPaymentProjectId] = useState<string>("");
   const [paymentSaving, setPaymentSaving] = useState(false);
+  const [salarySaveLoading, setSalarySaveLoading] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -112,6 +113,21 @@ function EmployeesPageContent() {
       .filter((p) => p.payment_date.slice(0, 7) === ym)
       .reduce((s, p) => s + p.amount, 0);
   }, [payments]);
+
+  const saveSalaryPatch = async (employeeId: string, patch: Parameters<typeof updateEmployee>[1], employeeName: string) => {
+    setSalarySaveLoading(true);
+    const result = await updateEmployee(employeeId, patch);
+    setSalarySaveLoading(false);
+    if (result.error) {
+      setToast({ type: "error", message: t("salarySaveErrorToast", language) });
+      return false;
+    }
+    setToast({
+      type: "success",
+      message: tReplace("salaryUpdatedWithNameToast", language, { name: employeeName }),
+    });
+    return true;
+  };
 
   return (
     <motion.div
@@ -326,11 +342,14 @@ function EmployeesPageContent() {
                     type="button"
                     variant={salaryTypeDraft === "daily" ? "default" : "outline"}
                     size="sm"
+                    disabled={salarySaveLoading}
                     onClick={async () => {
                       setSalaryTypeDraft("daily");
-                      const result = await updateEmployee(selectedEmployee.id, { salary_type: "daily" });
-                      if (result.error) setToast({ type: "error", message: t("salarySaveErrorToast", language) });
-                      else setToast({ type: "success", message: t("salarySaveSuccessToast", language) });
+                      await saveSalaryPatch(
+                        selectedEmployee.id,
+                        { salary_type: "daily" },
+                        `${selectedEmployee.first_name} ${selectedEmployee.last_name}`
+                      );
                     }}
                   >
                     {t("salaryDaily", language)}
@@ -339,11 +358,14 @@ function EmployeesPageContent() {
                     type="button"
                     variant={salaryTypeDraft === "monthly" ? "default" : "outline"}
                     size="sm"
+                    disabled={salarySaveLoading}
                     onClick={async () => {
                       setSalaryTypeDraft("monthly");
-                      const result = await updateEmployee(selectedEmployee.id, { salary_type: "monthly" });
-                      if (result.error) setToast({ type: "error", message: t("salarySaveErrorToast", language) });
-                      else setToast({ type: "success", message: t("salarySaveSuccessToast", language) });
+                      await saveSalaryPatch(
+                        selectedEmployee.id,
+                        { salary_type: "monthly" },
+                        `${selectedEmployee.first_name} ${selectedEmployee.last_name}`
+                      );
                     }}
                   >
                     {t("salaryMonthly", language)}
@@ -355,20 +377,24 @@ function EmployeesPageContent() {
                     amountEur={Number(selectedEmployee.salary_amount ?? 0)}
                     displayCurrency={displayCurrency}
                     onCommit={async (newEur) => {
-                      const parsed = parseFloat(String(newEur));
-                      const result = await updateEmployee(selectedEmployee.id, { salary_amount: Number.isNaN(parsed) ? 0 : parsed });
-                      if (result.error) setToast({ type: "error", message: t("salarySaveErrorToast", language) });
-                      else setToast({ type: "success", message: t("salarySaveSuccessToast", language) });
+                      await saveSalaryPatch(
+                        selectedEmployee.id,
+                        { salary_amount: Number(parseFloat(String(newEur)) || 0) },
+                        `${selectedEmployee.first_name} ${selectedEmployee.last_name}`
+                      );
                     }}
                   />
                   <select
                     value={salaryCurrencyDraft}
+                    disabled={salarySaveLoading}
                     onChange={async (e) => {
                       const cur = e.target.value as Currency;
                       setSalaryCurrencyDraft(cur);
-                      const result = await updateEmployee(selectedEmployee.id, { salary_currency: cur });
-                      if (result.error) setToast({ type: "error", message: t("salarySaveErrorToast", language) });
-                      else setToast({ type: "success", message: t("salarySaveSuccessToast", language) });
+                      await saveSalaryPatch(
+                        selectedEmployee.id,
+                        { salary_currency: cur },
+                        `${selectedEmployee.first_name} ${selectedEmployee.last_name}`
+                      );
                     }}
                     className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm"
                   >
@@ -381,6 +407,33 @@ function EmployeesPageContent() {
                 <p className="mt-2 text-xs text-slate-500">
                   {t("paidThisMonthForEmployee", language)}: {formatConvertedCurrency(paidThisMonth, displayCurrency)}
                 </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={salarySaveLoading}
+                  className="mt-3"
+                  onClick={async () => {
+                    await saveSalaryPatch(
+                      selectedEmployee.id,
+                      {
+                        salary_type: salaryTypeDraft,
+                        salary_currency: salaryCurrencyDraft,
+                        salary_amount: Number(parseFloat(String(selectedEmployee.salary_amount ?? 0)) || 0),
+                      },
+                      `${selectedEmployee.first_name} ${selectedEmployee.last_name}`
+                    );
+                  }}
+                >
+                  {salarySaveLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {t("save", language)}
+                    </>
+                  ) : (
+                    t("save", language)
+                  )}
+                </Button>
               </div>
 
               <form
