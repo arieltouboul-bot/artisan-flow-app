@@ -1,0 +1,32 @@
+{
+  "navigation": {
+    "dashboard": "Dashboard",
+    "team": "Team",
+    "projects": "Projects",
+    "rentals": "Rentals",
+    "finances": "Finances",
+    "support": "Support",
+    "logout": "Logout"
+  },
+  "forms": {
+    "clientName": "Client Name",
+    "amount": "Amount",
+    "dailyRate": "Daily Rate",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "system": {
+    "projectSaved": "Project saved",
+    "errorOccurred": "Error occurred"
+  },
+  "support": {
+    "title": "Help & Support",
+    "iphoneInstallTitle": "How to install on iPhone",
+    "iphoneInstallBody": "Open Safari, tap Share, then choose Add to Home Screen.",
+    "financialTrackingTitle": "Financial Tracking",
+    "financialTrackingBody": "Your margin is calculated as Revenue - (Materials + Rentals + Team salaries).",
+    "teamManagementTitle": "Team Management",
+    "teamManagementBody": "Add staff from Team, configure salary type and amount, then track payments."
+  }
+}

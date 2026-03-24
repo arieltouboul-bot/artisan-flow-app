@@ -48,12 +48,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("artisanflow-collapse-desktop-sidebar", collapse);
   }, []);
 
-  const { profile } = useProfile();
-  const { setLanguage } = useLanguage();
+  const { profile, upsertProfile } = useProfile();
+  const { language, setLanguage } = useLanguage();
   useEffect(() => {
     const lang = profile?.preferred_language;
     if (lang === "fr" || lang === "en") setLanguage(lang);
   }, [profile?.preferred_language, setLanguage]);
+
+  useEffect(() => {
+    const profileLang = profile?.preferred_language;
+    if (!profileLang || (profileLang !== "fr" && profileLang !== "en")) return;
+    if (profileLang === language) return;
+    void upsertProfile({ preferred_language: language });
+  }, [language, profile?.preferred_language, upsertProfile]);
 
   useEffect(() => {
     const onEscape = (e: KeyboardEvent) => {

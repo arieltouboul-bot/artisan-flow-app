@@ -198,11 +198,11 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
 
         <div className="mt-auto shrink-0 border-t border-gray-200 bg-white px-2 pb-2 pt-1">
           <Link
-            href="/help"
+            href="/support"
             onClick={() => onCloseMobile?.()}
             className={cn(
               "flex min-h-[48px] w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors",
-              pathname === "/help" || pathname.startsWith("/help/")
+              pathname === "/support" || pathname.startsWith("/support/") || pathname === "/help" || pathname.startsWith("/help/")
                 ? "bg-brand-blue-50 text-brand-blue-600 shadow-sm"
                 : "text-gray-600 hover:bg-brand-blue-50/50 hover:text-brand-blue-600"
             )}

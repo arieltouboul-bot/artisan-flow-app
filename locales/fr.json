@@ -1,0 +1,32 @@
+{
+  "navigation": {
+    "dashboard": "Dashboard",
+    "team": "Équipe",
+    "projects": "Projets",
+    "rentals": "Locations",
+    "finances": "Finances",
+    "support": "Support",
+    "logout": "Déconnexion"
+  },
+  "forms": {
+    "clientName": "Nom du client",
+    "amount": "Montant",
+    "dailyRate": "Tarif journalier",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer"
+  },
+  "system": {
+    "projectSaved": "Projet enregistré",
+    "errorOccurred": "Une erreur est survenue"
+  },
+  "support": {
+    "title": "Aide & Support",
+    "iphoneInstallTitle": "Comment installer sur iPhone",
+    "iphoneInstallBody": "Ouvrez Safari, touchez Partager, puis Ajouter à l'écran d'accueil.",
+    "financialTrackingTitle": "Suivi financier",
+    "financialTrackingBody": "Votre marge est calculée comme Revenus - (Matériaux + Locations + Salaires équipe).",
+    "teamManagementTitle": "Gestion d'équipe",
+    "teamManagementBody": "Ajoutez des membres dans Équipe, configurez le type de salaire et suivez les paiements."
+  }
+}
