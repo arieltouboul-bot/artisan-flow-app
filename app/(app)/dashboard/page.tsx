@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import { useFinanceAnalytics } from "@/hooks/use-finance-analytics";
 import { useRouter } from "next/navigation";
 import { DashboardTopKpis } from "@/components/dashboard/dashboard-top-kpis";
@@ -107,6 +108,8 @@ export default function DashboardPage() {
   const { language } = useLanguage();
   const currency = displayCurrency;
   const [chartModalOpen, setChartModalOpen] = useState(false);
+  const [globalMarginEur, setGlobalMarginEur] = useState<number | null>(null);
+  const [globalMarginError, setGlobalMarginError] = useState<string | null>(null);
 
   useEffect(() => {
     const onFocus = () => {
@@ -129,6 +132,71 @@ export default function DashboardPage() {
     }
     (mq as any).addListener(update);
     return () => (mq as any).removeListener(update);
+  }, []);
+
+  useEffect(() => {
+    const calculateGlobalMargin = async () => {
+      const supabase = createClient();
+      if (!supabase) return;
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      const sumAmount = (rows: Array<Record<string, unknown>>): number =>
+        rows.reduce((acc, row) => acc + Number(row.amount ?? row.total_amount ?? row.cost ?? 0), 0);
+
+      const { data: revenuesData } = await supabase
+        .from("revenues")
+        .select("amount")
+        .eq("user_id", authUser.id);
+
+      const { data: materialData, error: materialErr } = await supabase
+        .from("projects_materials")
+        .select("amount")
+        .eq("user_id", authUser.id);
+      const materialsRows = materialErr
+        ? ((await supabase.from("expenses").select("amount_ttc, amount_ht").eq("user_id", authUser.id)).data ?? [])
+        : (materialData ?? []);
+
+      const { data: rentalData } = await supabase
+        .from("rentals")
+        .select("start_date, end_date, price_per_day")
+        .eq("user_id", authUser.id);
+
+      const { data: teamData, error: teamErr } = await supabase
+        .from("team")
+        .select("salary_amount")
+        .eq("user_id", authUser.id);
+      const salariesRows = teamErr
+        ? ((await supabase.from("employees").select("salary_amount").eq("user_id", authUser.id)).data ?? [])
+        : (teamData ?? []);
+
+      const totalRevenues = sumAmount((revenuesData ?? []) as Array<Record<string, unknown>>);
+      const totalMaterials = sumAmount((materialsRows ?? []) as Array<Record<string, unknown>>);
+      const totalRentals = ((rentalData ?? []) as Array<Record<string, unknown>>).reduce((acc, row) => {
+        const start = new Date(`${String(row.start_date ?? "")}T00:00:00`);
+        const end = new Date(`${String(row.end_date ?? "")}T00:00:00`);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return acc;
+        const days = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1);
+        return acc + days * Number(row.price_per_day ?? 0);
+      }, 0);
+      const totalSalaries = (salariesRows as Array<Record<string, unknown>>).reduce(
+        (acc, row) => acc + Number(row.salary_amount ?? 0),
+        0
+      );
+
+      const margin = totalRevenues - (totalMaterials + totalRentals + totalSalaries);
+      if ([totalRevenues, totalMaterials, totalRentals, totalSalaries, margin].some((n) => Number.isNaN(n))) {
+        setGlobalMarginError("Erreur de calcul");
+        setGlobalMarginEur(null);
+        return;
+      }
+      setGlobalMarginError(null);
+      setGlobalMarginEur(margin);
+    };
+
+    calculateGlobalMargin();
   }, []);
 
   const dateLocale = language === "fr" ? fr : enUS;
@@ -273,6 +341,25 @@ export default function DashboardPage() {
           />
         </Suspense>
       </motion.div>
+
+      {(globalMarginError || globalMarginEur != null) && (
+        <motion.div variants={item}>
+          <Card>
+            <CardHeader>
+              <CardTitle>{language === "fr" ? "Marge globale (audit)" : "Global margin (audit)"}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {globalMarginError ? (
+                <p className="text-sm font-medium text-red-600">{globalMarginError}</p>
+              ) : (
+                <p className="text-lg font-semibold text-emerald-700">
+                  {formatConvertedCurrency(globalMarginEur ?? 0, currency)}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {showFirstStep && (
         <motion.div variants={item}>

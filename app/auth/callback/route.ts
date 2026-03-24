@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const next = requestUrl.searchParams.get("next");
+  const type = requestUrl.searchParams.get("type");
 
   if (!code) {
     console.log("[auth/callback] Missing code query parameter.");
@@ -41,8 +42,14 @@ export async function GET(request: NextRequest) {
       status: error.status ?? null,
       code: error.code ?? null,
       next,
+      type,
     });
     return NextResponse.redirect(new URL("/login", request.url), { headers: response.headers });
+  }
+
+  if (type === "recovery") {
+    console.log("[auth/callback] Recovery type detected, redirecting to reset password.");
+    return NextResponse.redirect(new URL("/auth/reset-password", request.url), { headers: response.headers });
   }
 
   if (next === "/auth/reset-password") {
