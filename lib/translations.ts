@@ -279,6 +279,31 @@ export const translations: Record<string, { fr: string; en: string }> = {
   offlineMode: { fr: "Mode hors-ligne", en: "Offline mode" },
   expandSidebar: { fr: "Agrandir la barre latérale", en: "Expand sidebar" },
   collapseSidebar: { fr: "Réduire la barre latérale", en: "Collapse sidebar" },
+  supportPageTitle: { fr: "Aide & Support", en: "Help & Support" },
+  supportPageSubtitle: {
+    fr: "Guides pratiques pour utiliser ArtisanFlow efficacement.",
+    en: "Practical guides to use ArtisanFlow effectively.",
+  },
+  supportInstallTitle: { fr: "Installation iPhone", en: "iPhone Installation" },
+  supportInstallBody: {
+    fr: "1. Ouvrez Safari > 2. Appuyez sur Partager (carré avec flèche) > 3. Faites défiler et choisissez 'Sur l'écran d'accueil' > 4. Validez par 'Ajouter'.",
+    en: "1. Open Safari > 2. Tap Share (square icon with arrow) > 3. Scroll down and select 'Add to Home Screen' > 4. Tap 'Add' to confirm.",
+  },
+  supportMarginsTitle: { fr: "Gestion des Marges", en: "Margin Tracking" },
+  supportMarginsBody: {
+    fr: "Le Dashboard calcule automatiquement : (Somme des revenus encaissés) - (Coûts des matériaux + Loyers du matériel + Salaires versés). Assurez-vous de bien lier chaque dépense à un projet spécifique.",
+    en: "The Dashboard automatically calculates: (Total Revenue) - (Material Costs + Equipment Rentals + Paid Salaries). Always link your expenses to a specific project.",
+  },
+  supportTeamTitle: { fr: "Gestion d'Équipe", en: "Team Management" },
+  supportTeamBody: {
+    fr: "Dans l'onglet Team, définissez le tarif journalier de chaque ouvrier. Le système calcule les paiements dus en fonction des jours travaillés validés dans le calendrier.",
+    en: "In the Team tab, set the daily rate for each worker. The system tracks payments based on validated work days in the calendar.",
+  },
+  supportSettingsTitle: { fr: "Paramètres", en: "Settings" },
+  supportSettingsBody: {
+    fr: "Vous pouvez changer votre langue (FR/EN) et votre devise (€/$/₪) dans votre profil. Ces changements s'appliquent instantanément à tous vos calculs.",
+    en: "You can switch language (FR/EN) and currency (€/$/₪) in your profile. Changes apply instantly across the entire app.",
+  },
   signupEmailSentModal: {
     fr: "Un e-mail a été envoyé à {email}. Cliquez sur le lien pour activer votre compte.",
     en: "An email has been sent to {email}. Click the link to activate your account.",
