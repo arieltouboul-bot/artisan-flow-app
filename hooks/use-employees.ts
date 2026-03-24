@@ -101,10 +101,12 @@ export function useEmployees() {
       if (payload.role !== undefined) toUpdate.role = payload.role.trim();
       if (payload.salary_type !== undefined) toUpdate.salary_type = payload.salary_type;
       if (payload.salary_amount !== undefined) {
-        toUpdate.salary_amount = Number(parseFloat(String(payload.salary_amount ?? 0).replace(",", ".")) || 0);
+        const value = String(payload.salary_amount ?? 0).replace(",", ".");
+        toUpdate.salary_amount = Number(parseFloat(value) || 0);
       }
       if (payload.salary_currency !== undefined) toUpdate.salary_currency = payload.salary_currency;
       if (Object.keys(toUpdate).length === 0) return {};
+      console.log("Données envoyées:", toUpdate);
       const { error: updateError } = await supabase
         .from("employees")
         .update(toUpdate)
