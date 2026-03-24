@@ -7,11 +7,14 @@ import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
 
 export const dynamic = "force-dynamic";
 
 function ResetPasswordContent() {
   const router = useRouter();
+  const { language } = useLanguage();
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
@@ -22,7 +25,7 @@ function ResetPasswordContent() {
     const run = async () => {
       const supabase = createClient();
       if (!supabase) {
-        setError("Configuration Supabase manquante.");
+        setError(t("connectionError", language));
         setReady(true);
         return;
       }
@@ -30,24 +33,24 @@ function ResetPasswordContent() {
       const { data } = await supabase.auth.getSession();
       setHasSession(Boolean(data.session));
       if (!data.session) {
-        setError("Lien de réinitialisation invalide ou expiré.");
+        setError(t("resetPasswordExpiredRestart", language));
       }
       setReady(true);
     };
     run();
-  }, []);
+  }, [language]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (password.length < 6) {
-      setError("Le mot de passe doit contenir au moins 6 caractères.");
+      setError(t("resetPasswordMinLength", language));
       return;
     }
 
     const supabase = createClient();
     if (!supabase) {
-      setError("Configuration Supabase manquante.");
+      setError(t("connectionError", language));
       return;
     }
 
@@ -68,7 +71,7 @@ function ResetPasswordContent() {
       <div className="mx-auto mt-16 w-full max-w-md">
         <Card className="shadow-brand-glow">
           <CardHeader>
-            <CardTitle>Réinitialiser le mot de passe</CardTitle>
+            <CardTitle>{t("resetPasswordTitle", language)}</CardTitle>
           </CardHeader>
           <CardContent>
             {!ready ? (
@@ -78,7 +81,7 @@ function ResetPasswordContent() {
             ) : hasSession ? (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Nouveau mot de passe</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("newPassword", language)}</label>
                   <Input
                     type="password"
                     value={password}
@@ -89,7 +92,7 @@ function ResetPasswordContent() {
                 </div>
                 {error && <p className="rounded-lg bg-red-50 p-2 text-sm text-red-600">{error}</p>}
                 <Button type="submit" className="w-full min-h-[48px]" disabled={loading}>
-                  {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Valider"}
+                  {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : t("resetPasswordSubmit", language)}
                 </Button>
               </form>
             ) : (

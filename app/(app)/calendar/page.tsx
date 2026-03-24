@@ -20,18 +20,12 @@ import { useProjects } from "@/hooks/use-projects";
 import { useAppointments } from "@/hooks/use-appointments";
 import { useLanguage } from "@/context/language-context";
 import { formatDate, formatTime, toDateString, toTimeString } from "@/lib/utils";
+import { format } from "date-fns";
+import { enUS, fr } from "date-fns/locale";
 import type { Appointment, AppointmentType } from "@/types/database";
 import { ChevronLeft, ChevronRight, FolderKanban, Calendar as CalendarIcon, Sparkles, Loader2, Trash2 } from "lucide-react";
 
-const MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-const JOURS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 const HEURES = Array.from({ length: 14 }, (_, i) => i + 7);
-
-const TYPE_LABELS: Record<AppointmentType, string> = {
-  devis: "Devis",
-  chantier: "Chantier",
-  reunion: "Réunion",
-};
 
 const TYPE_COLORS: Record<AppointmentType, string> = {
   devis: "bg-blue-100 text-blue-800 border-blue-200",
@@ -66,6 +60,16 @@ function getWeekDays(weekStart: Date): Date[] {
 
 export default function CalendarPage() {
   const { language } = useLanguage();
+  const dateLocale = language === "en" ? enUS : fr;
+  const JOURS = [
+    t("monthShortSun", language),
+    t("monthShortMon", language),
+    t("monthShortTue", language),
+    t("monthShortWed", language),
+    t("monthShortThu", language),
+    t("monthShortFri", language),
+    t("monthShortSat", language),
+  ];
   const now = new Date();
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
   const [viewYear, setViewYear] = useState(now.getFullYear());
@@ -200,13 +204,13 @@ export default function CalendarPage() {
     e.preventDefault();
     setFormError(null);
     if (!formTitle.trim()) {
-      setFormError("Le titre est obligatoire.");
+      setFormError(t("titleRequired", language));
       return;
     }
     const startAt = new Date(`${formDate}T${formStartTime}:00`);
     const endAt = new Date(`${formDate}T${formEndTime}:00`);
     if (endAt <= startAt) {
-      setFormError("L'heure de fin doit être après l'heure de début.");
+      setFormError(t("endTimeAfterStart", language));
       return;
     }
     setFormSaving(true);
@@ -268,10 +272,10 @@ export default function CalendarPage() {
 
   const viewTitle =
     viewMode === "day"
-      ? `${viewDay} ${MOIS[viewMonth]} ${viewYear}`
+      ? format(new Date(viewYear, viewMonth, viewDay), "d MMMM yyyy", { locale: dateLocale })
       : viewMode === "week"
-        ? `Semaine du ${formatDate(weekStart)}`
-        : `${MOIS[viewMonth]} ${viewYear}`;
+        ? t("weekOf", language).replace("{date}", formatDate(weekStart))
+        : format(new Date(viewYear, viewMonth, 1), "MMMM yyyy", { locale: dateLocale });
 
   return (
     <motion.div
@@ -281,13 +285,13 @@ export default function CalendarPage() {
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 md:text-3xl">Calendrier</h1>
-          <p className="mt-1 text-gray-500">Rendez-vous et chantiers</p>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 md:text-3xl">{t("calendarTitle", language)}</h1>
+          <p className="mt-1 text-gray-500">{t("calendarSubtitle", language)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button onClick={() => setAddOpen(true)} className="gap-2">
             <Sparkles className="h-4 w-4" />
-            Ajouter un rendez-vous
+            {t("addAppointment", language)}
           </Button>
           <div className="flex rounded-lg border border-gray-200 p-1">
             {(["month", "week", "day"] as const).map((m) => (
@@ -297,7 +301,7 @@ export default function CalendarPage() {
                 size="sm"
                 onClick={() => setViewMode(m)}
               >
-                {m === "month" ? "Mois" : m === "week" ? "Semaine" : "Jour"}
+                {m === "month" ? t("monthView", language) : m === "week" ? t("weekView", language) : t("dayView", language)}
               </Button>
             ))}
           </div>
@@ -366,7 +370,7 @@ export default function CalendarPage() {
                               </button>
                             ))}
                             {dayAppointments.length > 2 && (
-                              <span className="text-xs text-gray-500">+{dayAppointments.length - 2} RDV</span>
+                              <span className="text-xs text-gray-500">+{dayAppointments.length - 2} {t("appointmentLabel", language)}</span>
                             )}
                             {dayProjects.slice(0, 2).map((p) => (
                               <Link key={p.id} href={`/projets/${p.id}`}>
@@ -470,7 +474,7 @@ export default function CalendarPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FolderKanban className="h-5 w-5 text-brand-blue-500" />
-            Chantiers du mois
+            {t("projects", language)} {t("monthView", language).toLowerCase()}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -509,7 +513,7 @@ export default function CalendarPage() {
               const e = end?.getTime() ?? start!.getTime();
               return s <= monthEnd.getTime() && e >= monthStart.getTime();
             }).length === 0 && (
-              <p className="py-4 text-sm text-gray-500">Aucun chantier sur cette période.</p>
+              <p className="py-4 text-sm text-gray-500">{t("noProjectsToShow", language)}</p>
             )}
           </ul>
         </CardContent>
@@ -522,12 +526,8 @@ export default function CalendarPage() {
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5" />
               {editAppointmentId
-                ? language === "en"
-                  ? "Edit appointment"
-                  : "Modifier le rendez-vous"
-                : language === "en"
-                  ? "New appointment"
-                  : "Ajouter un rendez-vous"}
+                ? t("editAppointment", language)
+                : t("newAppointmentTitle", language)}
             </DialogTitle>
           </DialogHeader>
           <motion.form
@@ -538,30 +538,30 @@ export default function CalendarPage() {
             transition={{ duration: 0.25, ease: "easeOut" }}
           >
             <div>
-              <label className="mb-1 block text-sm text-gray-500">Titre *</label>
+              <label className="mb-1 block text-sm text-gray-500">{t("appointmentTitle", language)} *</label>
               <Input
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
-                placeholder="Ex: RDV Pose Travertin - Client Martin"
+                placeholder={language === "fr" ? "Ex: RDV Pose Travertin - Client Martin" : "e.g. Travertine install - Client Martin"}
                 className="min-h-[48px]"
                 required
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm text-gray-500">Projet associé</label>
+              <label className="mb-1 block text-sm text-gray-500">{t("linkedProjectLabel", language)}</label>
               <select
                 value={formProjectId}
                 onChange={(e) => setFormProjectId(e.target.value)}
                 className="w-full min-h-[48px] rounded-lg border border-input bg-background px-3 py-2 text-sm"
               >
-                <option value="">Aucun</option>
+                <option value="">{t("noProjectOption", language)}</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm text-gray-500">Date *</label>
+              <label className="mb-1 block text-sm text-gray-500">{t("dateLabel", language)} *</label>
               <Input
                 type="date"
                 value={formDate}
@@ -572,7 +572,7 @@ export default function CalendarPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-1 block text-sm text-gray-500">Heure de début *</label>
+                <label className="mb-1 block text-sm text-gray-500">{t("startTimeLabel", language)} *</label>
                 <Input
                   type="time"
                   value={formStartTime}
@@ -582,7 +582,7 @@ export default function CalendarPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-500">Heure de fin *</label>
+                <label className="mb-1 block text-sm text-gray-500">{t("endTimeLabel", language)} *</label>
                 <Input
                   type="time"
                   value={formEndTime}
@@ -593,15 +593,15 @@ export default function CalendarPage() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm text-gray-500">Type</label>
+              <label className="mb-1 block text-sm text-gray-500">{t("appointmentType", language)}</label>
               <select
                 value={formType}
                 onChange={(e) => setFormType(e.target.value as AppointmentType)}
                 className="w-full min-h-[48px] rounded-lg border border-input bg-background px-3 py-2 text-sm"
               >
-                <option value="devis">Devis</option>
-                <option value="chantier">Chantier</option>
-                <option value="reunion">Réunion</option>
+                  <option value="devis">{t("appointmentDevis", language)}</option>
+                  <option value="chantier">{t("appointmentChantier", language)}</option>
+                  <option value="reunion">{t("appointmentReunion", language)}</option>
               </select>
             </div>
             {formError && <p className="text-sm text-red-600">{formError}</p>}
@@ -628,15 +628,15 @@ export default function CalendarPage() {
                   }}
                 >
                   <Trash2 className="h-4 w-4" />
-                  {language === "en" ? "Delete" : "Supprimer"}
+                  {t("delete", language)}
                 </Button>
               )}
               <div className="flex w-full justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
-                  {language === "en" ? "Cancel" : "Annuler"}
+                  {t("cancel", language)}
                 </Button>
                 <Button type="submit" disabled={formSaving}>
-                  {formSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : language === "en" ? "Save" : "Enregistrer"}
+                  {formSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
                 </Button>
               </div>
             </DialogFooter>
@@ -648,7 +648,7 @@ export default function CalendarPage() {
       <Dialog open={!!detailAppointment} onOpenChange={(open) => !open && setDetailAppointment(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Détail du rendez-vous</DialogTitle>
+            <DialogTitle>{t("detailAppointmentTitle", language)}</DialogTitle>
           </DialogHeader>
           {detailAppointment && (
             <div className="space-y-2">
@@ -657,18 +657,22 @@ export default function CalendarPage() {
                 {formatDate(detailAppointment.start_at)} · {formatTime(detailAppointment.start_at)} – {formatTime(detailAppointment.end_at)}
               </p>
               <span className={`inline-block rounded border px-2 py-0.5 text-xs ${TYPE_COLORS[detailAppointment.type]}`}>
-                {TYPE_LABELS[detailAppointment.type]}
+                {detailAppointment.type === "devis"
+                  ? t("appointmentDevis", language)
+                  : detailAppointment.type === "chantier"
+                    ? t("appointmentChantier", language)
+                    : t("appointmentReunion", language)}
               </span>
               {detailAppointment.project && (
                 <p className="text-sm">
-                  Projet : <Link href={`/projets/${detailAppointment.project.id}`} className="text-brand-blue-600 hover:underline">{detailAppointment.project.name}</Link>
+                  {t("projectName", language)}: <Link href={`/projets/${detailAppointment.project.id}`} className="text-brand-blue-600 hover:underline">{detailAppointment.project.name}</Link>
                 </p>
               )}
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setDetailAppointment(null)}>
-              Fermer
+              {t("closeLabel", language)}
             </Button>
             {detailAppointment && (
               <>
@@ -687,7 +691,7 @@ export default function CalendarPage() {
                     setAddOpen(true);
                   }}
                 >
-                  Modifier
+                  {t("edit", language)}
                 </Button>
                 <Button
                   type="button"
@@ -697,7 +701,7 @@ export default function CalendarPage() {
                   onClick={() => handleDeleteAppointment(detailAppointment.id)}
                 >
                   <Trash2 className="h-4 w-4" />
-                  {language === "en" ? "Delete" : "Supprimer"}
+                  {t("delete", language)}
                 </Button>
               </>
             )}

@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptionsWithName } from "@supabase/auth-helpers-nextjs";
+import { createServerClient as createRouteHandlerClient, type CookieOptionsWithName } from "@supabase/auth-helpers-nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -20,8 +20,6 @@ export async function GET(request: NextRequest) {
   }
 
   const response = NextResponse.next();
-  // Compat: this project version exposes createServerClient; we alias it locally as route handler client.
-  const createRouteHandlerClient = createServerClient;
   const supabase = createRouteHandlerClient(url, key, {
     cookies: {
       getAll() {
@@ -47,13 +45,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url), { headers: response.headers });
   }
 
-  if (type === "recovery") {
-    console.log("[auth/callback] Recovery type detected, redirecting to reset password.");
-    return NextResponse.redirect(new URL("/auth/reset-password", request.url), { headers: response.headers });
-  }
-
-  if (next === "/auth/reset-password") {
-    console.log("[auth/callback] Redirecting to reset password flow.");
+  if (type === "recovery" || !!next) {
+    console.log("[auth/callback] Recovery flow detected, redirecting to reset password.");
     return NextResponse.redirect(new URL("/auth/reset-password", request.url), { headers: response.headers });
   }
 

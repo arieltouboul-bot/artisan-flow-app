@@ -166,7 +166,7 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
                     {showCalendarBadge && (
                       <span
                         className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white"
-                        aria-label="Rendez-vous bientôt"
+                        aria-label={language === "fr" ? "Rendez-vous bientôt" : "Appointment soon"}
                       />
                     )}
                     {showProjectsBadge && (
@@ -227,7 +227,7 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
       <div className="shrink-0 border-t border-gray-200 p-3 space-y-1">
         <div className="mb-2 flex items-center justify-between rounded-lg bg-gray-50 px-2 py-1.5 text-xs">
           <span className="text-gray-500">
-            {online ? "Synchronisé" : "Mode hors-ligne"}
+            {online ? t("synchronized", language) : t("offlineMode", language)}
           </span>
           <span
             className={
@@ -263,7 +263,7 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
             size="icon"
             onClick={onToggle}
             className="w-full min-h-[48px]"
-            aria-label={collapsed ? "Agrandir la barre latérale" : "Réduire la barre latérale"}
+            aria-label={collapsed ? t("expandSidebar", language) : t("collapseSidebar", language)}
           >
             {collapsed ? (
               <ChevronRight className="h-5 w-5" />
