@@ -214,6 +214,10 @@ export const translations: Record<string, { fr: string; en: string }> = {
     fr: "Email envoyé ! Vérifiez vos spams.",
     en: "Recovery link sent! Check your email.",
   },
+  resetPasswordEmailSentModal: {
+    fr: "✉️ Lien envoyé ! Vérifiez vos spams.",
+    en: "✉️ Link sent! Check your spam folder.",
+  },
   resetPasswordTitle: { fr: "Réinitialiser le mot de passe", en: "Reset password" },
   newPassword: { fr: "Nouveau mot de passe", en: "New password" },
   confirmPassword: { fr: "Confirmer le mot de passe", en: "Confirm password" },

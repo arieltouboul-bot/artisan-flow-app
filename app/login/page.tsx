@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -8,14 +8,23 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Hammer, Loader2 } from "lucide-react";
+import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
 
 export default function LoginPage() {
+  const { language } = useLanguage();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState<string | null>(null);
+  const [forgotError, setForgotError] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +48,36 @@ export default function LoginPage() {
     router.push("/dashboard");
     router.refresh();
   };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError(null);
+    setForgotMessage(null);
+    setForgotLoading(true);
+    const supabase = createClient();
+    if (!supabase) {
+      setForgotError("Configuration Supabase manquante.");
+      setForgotLoading(false);
+      return;
+    }
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(recoveryEmail, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+    });
+    setForgotLoading(false);
+    if (resetError) {
+      setForgotError(resetError.message);
+      return;
+    }
+    setForgotMessage(t("resetPasswordEmailSentModal", language));
+  };
+
+  useEffect(() => {
+    if (!forgotOpen) {
+      setForgotError(null);
+      setForgotMessage(null);
+      setRecoveryEmail(email);
+    }
+  }, [forgotOpen, email]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
@@ -100,12 +139,13 @@ export default function LoginPage() {
               </Button>
             </form>
             <div className="mt-3 text-center">
-              <Link
-                href="/forgot-password"
+              <button
+                type="button"
+                onClick={() => setForgotOpen(true)}
                 className="text-sm font-medium text-brand-blue-600 hover:underline"
               >
                 Mot de passe oublié ?
-              </Link>
+              </button>
             </div>
             <p className="text-sm text-gray-500 text-center mt-4">
               Pas encore de compte ?{" "}
@@ -116,6 +156,35 @@ export default function LoginPage() {
           </CardContent>
         </Card>
       </motion.div>
+
+      <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("forgotPasswordTitle", language)}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <div>
+              <label htmlFor="recovery-email" className="mb-1 block text-sm font-medium text-gray-700">
+                {t("email", language)}
+              </label>
+              <Input
+                id="recovery-email"
+                type="email"
+                value={recoveryEmail}
+                onChange={(e) => setRecoveryEmail(e.target.value)}
+                placeholder={t("placeholderEmail", language)}
+                className="min-h-[48px]"
+                required
+              />
+            </div>
+            {forgotError && <p className="rounded-lg bg-red-50 p-2 text-sm text-red-600">{forgotError}</p>}
+            {forgotMessage && <p className="rounded-lg bg-emerald-50 p-2 text-sm text-emerald-700">{forgotMessage}</p>}
+            <Button type="submit" className="w-full min-h-[48px]" disabled={forgotLoading}>
+              {forgotLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : t("sendRecoveryLink", language)}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

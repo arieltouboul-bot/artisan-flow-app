@@ -15,6 +15,7 @@ function ResetPasswordContent() {
   const router = useRouter();
   const language: "fr" = "fr";
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -60,6 +61,10 @@ function ResetPasswordContent() {
     setError(null);
     if (newPassword.length < 6) {
       setError(t("resetPasswordMinLength", language));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError(t("resetPasswordMismatch", language));
       return;
     }
     const supabase = createClient();
@@ -108,6 +113,16 @@ function ResetPasswordContent() {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
+                    className="min-h-[48px]"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("confirmPassword", language)}</label>
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
                     className="min-h-[48px]"
                     required
                   />
