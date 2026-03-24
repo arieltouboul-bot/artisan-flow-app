@@ -286,13 +286,13 @@ export const translations: Record<string, { fr: string; en: string }> = {
   },
   supportInstallTitle: { fr: "Installation iPhone", en: "iPhone Installation" },
   supportInstallBody: {
-    fr: "1. Ouvrez Safari > 2. Appuyez sur Partager (carré avec flèche) > 3. Faites défiler et choisissez 'Sur l'écran d'accueil' > 4. Validez par 'Ajouter'.",
-    en: "1. Open Safari > 2. Tap Share (square icon with arrow) > 3. Scroll down and select 'Add to Home Screen' > 4. Tap 'Add' to confirm.",
+    fr: "1. Ouvrez Safari. 2. Appuyez sur Partager. 3. Choisissez 'Sur l'écran d'accueil'.",
+    en: "1. Open Safari. 2. Tap Share. 3. Select 'Add to Home Screen'.",
   },
   supportMarginsTitle: { fr: "Gestion des Marges", en: "Margin Tracking" },
   supportMarginsBody: {
     fr: "Le Dashboard calcule automatiquement : (Somme des revenus encaissés) - (Coûts des matériaux + Loyers du matériel + Salaires versés). Assurez-vous de bien lier chaque dépense à un projet spécifique.",
-    en: "The Dashboard automatically calculates: (Total Revenue) - (Material Costs + Equipment Rentals + Paid Salaries). Always link your expenses to a specific project.",
+    en: "Profit = Revenue - (Materials + Labor + Rentals).",
   },
   supportTeamTitle: { fr: "Gestion d'Équipe", en: "Team Management" },
   supportTeamBody: {
@@ -303,6 +303,22 @@ export const translations: Record<string, { fr: string; en: string }> = {
   supportSettingsBody: {
     fr: "Vous pouvez changer votre langue (FR/EN) et votre devise (€/$/₪) dans votre profil. Ces changements s'appliquent instantanément à tous vos calculs.",
     en: "You can switch language (FR/EN) and currency (€/$/₪) in your profile. Changes apply instantly across the entire app.",
+  },
+  supportPrivacyTitle: { fr: "Confidentialité", en: "Privacy" },
+  supportPrivacyBody: {
+    fr: "Vos données sont chiffrées et stockées de manière sécurisée sur Supabase.",
+    en: "Your data is encrypted and stored securely on Supabase.",
+  },
+  siretLabel: { fr: "SIRET", en: "Business ID" },
+  addressLabel: { fr: "Adresse", en: "Address" },
+  logoLabel: { fr: "Logo", en: "Logo" },
+  changeLogoBtn: { fr: "Changer le logo", en: "Change logo" },
+  uploadLogoBtn: { fr: "Uploader un logo", en: "Upload logo" },
+  profileCompanyPlaceholder: { fr: "Mon Entreprise SARL", en: "My Company LLC" },
+  profileAddressPlaceholder: { fr: "123 rue Exemple, 75000 Paris", en: "123 Example Street, New York, NY" },
+  currencyUsageHint: {
+    fr: "Utilisée pour les montants (devis, marges, totaux)",
+    en: "Used for amounts (quotes, margins, totals)",
   },
   signupEmailSentModal: {
     fr: "Un e-mail a été envoyé à {email}. Cliquez sur le lien pour activer votre compte.",

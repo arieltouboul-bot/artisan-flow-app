@@ -141,13 +141,13 @@ function ParametresPageContent() {
                 id="company_name"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="Mon Entreprise SARL"
+                placeholder={t("profileCompanyPlaceholder", language)}
                 className="min-h-[48px]"
               />
             </div>
             <div>
               <label htmlFor="siret" className="text-sm font-medium text-gray-700 mb-1 block">
-                SIRET
+                {t("siretLabel", language)}
               </label>
               <Input
                 id="siret"
@@ -159,18 +159,18 @@ function ParametresPageContent() {
             </div>
             <div>
               <label htmlFor="address" className="text-sm font-medium text-gray-700 mb-1 block">
-                Adresse
+                {t("addressLabel", language)}
               </label>
               <Input
                 id="address"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="123 rue Example, 75000 Paris"
+                placeholder={t("profileAddressPlaceholder", language)}
                 className="min-h-[48px]"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Logo</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("logoLabel", language)}</label>
               <div className="flex flex-wrap items-center gap-4">
                 {profile?.logo_url ? (
                   <div className="relative h-20 w-20 rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
@@ -205,7 +205,7 @@ function ParametresPageContent() {
                   ) : (
                     <Upload className="h-4 w-4 mr-2" />
                   )}
-                  {profile?.logo_url ? "Changer le logo" : "Uploader un logo"}
+                  {profile?.logo_url ? t("changeLogoBtn", language) : t("uploadLogoBtn", language)}
                 </Button>
               </div>
             </div>
@@ -260,7 +260,7 @@ function ParametresPageContent() {
             <div>
               <p className="text-sm font-medium text-gray-500">{t("currency", language)}</p>
               <p className="text-xs text-gray-500">
-                {language === "fr" ? "Utilisée pour les montants (devis, marges, totaux)" : "Used for amounts (quotes, margins, totals)"}
+                {t("currencyUsageHint", language)}
               </p>
             </div>
             <select

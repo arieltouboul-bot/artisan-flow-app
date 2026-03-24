@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
-import { ChevronDown, CircleDollarSign, Smartphone, UsersRound, Settings } from "lucide-react";
+import { ChevronDown, CircleDollarSign, ShieldCheck, Smartphone, UsersRound, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +45,14 @@ export default function SupportPage() {
       borderClass: "border-violet-100",
       title: t("supportSettingsTitle", language),
       body: t("supportSettingsBody", language),
+    },
+    {
+      id: "privacy",
+      icon: ShieldCheck,
+      iconClass: "text-cyan-600",
+      borderClass: "border-cyan-100",
+      title: t("supportPrivacyTitle", language),
+      body: t("supportPrivacyBody", language),
     },
   ];
 
