@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient as createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -11,13 +11,14 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const type = requestUrl.searchParams.get("type");
+  const next = requestUrl.searchParams.get("next");
 
   if (!code) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
   const response = NextResponse.next();
-  const supabase = createServerClient(url, key, {
+  const supabase = createRouteHandlerClient(url, key, {
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -36,12 +37,12 @@ export async function GET(request: NextRequest) {
   }
 
   if (type === "recovery") {
-    return NextResponse.redirect(new URL("/auth/reset-password", request.url), {
-      headers: response.headers,
-    });
+    return NextResponse.redirect(new URL("/auth/reset-password", request.url), { headers: response.headers });
   }
 
-  return NextResponse.redirect(new URL("/clients?welcome=1", request.url), {
-    headers: response.headers,
-  });
+  if (next === "/auth/reset-password") {
+    return NextResponse.redirect(new URL("/auth/reset-password", request.url), { headers: response.headers });
+  }
+
+  return NextResponse.redirect(new URL("/dashboard", request.url), { headers: response.headers });
 }

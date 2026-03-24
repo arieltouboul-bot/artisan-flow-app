@@ -1,28 +1,23 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 
 export const dynamic = "force-dynamic";
 
 function ResetPasswordContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { language } = useLanguage();
+  const language: "fr" = "fr";
   const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
-  const [isRecoveryFlow, setIsRecoveryFlow] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -34,21 +29,14 @@ function ResetPasswordContent() {
         setReady(true);
         return;
       }
-      const type = searchParams.get("type");
-      const code = searchParams.get("code");
-      const accessToken = searchParams.get("access_token");
-      const recoveryDetected = type === "recovery" || !!code || !!accessToken;
-      setIsRecoveryFlow(recoveryDetected);
       const { data: sessionData } = await supabase.auth.getSession();
       setHasSession(Boolean(sessionData.session));
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+      } = supabase.auth.onAuthStateChange((_event, session) => {
         setHasSession(Boolean(session));
       });
-      if (!sessionData.session && recoveryDetected) {
-        setError(t("resetPasswordInvalidLink", language));
-      }
+      if (!sessionData.session) setError(t("resetPasswordInvalidLink", language));
       setReady(true);
       return () => subscription.unsubscribe();
     };
@@ -59,7 +47,7 @@ function ResetPasswordContent() {
     return () => {
       cleanup?.();
     };
-  }, [language, searchParams]);
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -72,10 +60,6 @@ function ResetPasswordContent() {
     setError(null);
     if (newPassword.length < 6) {
       setError(t("resetPasswordMinLength", language));
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError(t("resetPasswordMismatch", language));
       return;
     }
     const supabase = createClient();
@@ -128,16 +112,6 @@ function ResetPasswordContent() {
                     required
                   />
                 </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">{t("confirmPassword", language)}</label>
-                  <Input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="min-h-[48px]"
-                    required
-                  />
-                </div>
                 {error && <p className="rounded-lg bg-red-50 p-2 text-sm text-red-600">{error}</p>}
                 <Button type="submit" className="w-full min-h-[48px]" disabled={loading || !ready}>
                   {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : t("resetPasswordSubmit", language)}
@@ -145,7 +119,7 @@ function ResetPasswordContent() {
               </form>
             ) : (
               <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-700">
-                {isRecoveryFlow ? t("resetPasswordInvalidLink", language) : t("resetPasswordAwaitSession", language)}
+                {error ?? t("resetPasswordAwaitSession", language)}
               </p>
             )}
           </CardContent>
