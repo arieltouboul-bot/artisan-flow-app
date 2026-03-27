@@ -76,8 +76,11 @@ export function useProjectTasks(projectId: string | null) {
         is_completed: false,
         sort_order: maxOrder + 1,
       };
-      const { error } = await supabase.from("project_tasks").insert(payload);
-      if (error) {
+      const { data, error } = await supabase.from("project_tasks").insert(payload).select("*").single();
+      if (!error && data) {
+        // Optimistic local insert for immediate mobile feedback.
+        setTasks((prev) => [...prev, mapTask(data as unknown as Record<string, unknown>)]);
+      } else {
         await supabase.from("project_tasks").insert({
           project_id: projectId,
           label: label.trim(),
@@ -85,7 +88,7 @@ export function useProjectTasks(projectId: string | null) {
           sort_order: maxOrder + 1,
         });
       }
-      fetchTasks();
+      await fetchTasks();
     },
     [projectId, tasks, fetchTasks]
   );
@@ -106,8 +109,9 @@ export function useProjectTasks(projectId: string | null) {
         await supabase.from("project_tasks").update({ completed }).eq("id", taskId);
       }
       setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, completed } : t)));
+      await fetchTasks();
     },
-    []
+    [fetchTasks]
   );
 
   const updateTask = useCallback(
@@ -125,8 +129,9 @@ export function useProjectTasks(projectId: string | null) {
         await supabase.from("project_tasks").update({ label: label.trim() }).eq("id", taskId);
       }
       setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, label: label.trim() } : t)));
+      await fetchTasks();
     },
-    []
+    [fetchTasks]
   );
 
   const deleteTask = useCallback(

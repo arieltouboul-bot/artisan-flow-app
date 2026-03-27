@@ -165,7 +165,7 @@ function ClientsPageContent() {
     const supabase = createClient();
     if (!supabase) { setDeletingId(null); return; }
     const { error } = await supabase.from("clients").delete().eq("id", id);
-    if (error) { setDeletingId(null); alert(error.message); }
+    if (error) { setDeletingId(null); alert(t("deleteErrorGeneric", language)); }
     else { setDeletingId(null); await refetch(); }
   };
 

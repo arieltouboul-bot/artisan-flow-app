@@ -263,7 +263,6 @@ export default function FacturesPage() {
           image_url: (e as ExpenseRow).image_url ?? null,
         };
       });
-      console.log("Données envoyées au PDF:", rows);
       const headers = {
         date: t("invoiceDateCol", language),
         vendor: t("invoiceVendorCol", language),
@@ -514,8 +513,6 @@ export default function FacturesPage() {
       project_id: projectId,
       confidence_score: ocrUncertain ? 0.5 : 0.9,
     };
-    console.log("Données envoyées:", payload);
-    console.log("user_id:", user.id, "project_id:", projectId, "image_url:", pendingImageUrl);
     try {
       const { error } = await supabase.from("expenses").insert(payload);
       setFormSaving(false);
@@ -531,7 +528,7 @@ export default function FacturesPage() {
           imageUrl: pendingImageUrl,
         });
         setFormError(error.message || "Erreur insertion facture");
-        alert("Erreur Supabase: " + (error.message || "inconnue"));
+        alert(t("saveErrorGeneric", language));
         return;
       }
     } catch (err) {
@@ -829,7 +826,7 @@ export default function FacturesPage() {
                               const { data: { user } } = await supabase.auth.getUser();
                               if (!user) { setDeletingId(null); return; }
                               const { error } = await supabase.from("expenses").delete().eq("id", e.id).eq("user_id", user.id);
-                              if (error) { setDeletingId(null); alert("Erreur: " + error.message); }
+                              if (error) { setDeletingId(null); alert(t("deleteErrorGeneric", language)); }
                               else location.reload();
                             }}
                             isDeleting={deletingId === e.id}

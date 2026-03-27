@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -35,13 +36,30 @@ export interface ButtonProps
     VariantProps<typeof buttonVariants> {}
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, ...props }, ref) => {
+  ({ className, variant, size, children: rawChildren, ...props }, ref) => {
+    const compactLabels = new Set(["save", "ok", "enregistrer"]);
+    const childText =
+      typeof rawChildren === "string"
+        ? rawChildren.trim().toLowerCase()
+        : null;
+    const shouldCompactSave = Boolean(childText && compactLabels.has(childText));
+    const children = shouldCompactSave ? (
+      <>
+        <span className="hidden sm:inline">{rawChildren}</span>
+        <Check className="inline h-4 w-4 sm:hidden" aria-hidden="true" />
+        <span className="sr-only">{rawChildren}</span>
+      </>
+    ) : (
+      rawChildren
+    );
     return (
       <button
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}
-      />
+      >
+        {children}
+      </button>
     );
   }
 );

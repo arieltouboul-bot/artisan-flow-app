@@ -240,7 +240,7 @@ function ProjetsContent() {
                       if (!supabase) { setDeletingId(null); return; }
                       try { await supabase.from("project_tasks").delete().eq("project_id", project.id); } catch { /* ignore */ }
                       const { error } = await supabase.from("projects").delete().eq("id", project.id);
-                      if (error) { setDeletingId(null); setDeleteError(error.message); alert("Erreur: " + error.message); }
+                      if (error) { setDeletingId(null); setDeleteError(t("deleteErrorGeneric", language)); alert(t("deleteErrorGeneric", language)); }
                       else { setDeletingId(null); await refetch(); }
                     };
                     return (

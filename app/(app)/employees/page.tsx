@@ -103,7 +103,7 @@ function EmployeesPageContent() {
     setDeletingId(id);
     const { error } = await deleteEmployee(id);
     setDeletingId(null);
-    if (error) alert(error instanceof Error ? error.message : String(error));
+    if (error) alert(t("saveErrorGeneric", language));
   };
 
   const paidThisMonth = useMemo(() => {
@@ -574,7 +574,7 @@ function EmployeesPageContent() {
               });
               setEditLoading(false);
               if (result.error) {
-                alert(result.error instanceof Error ? result.error.message : String(result.error));
+                alert(t("saveErrorGeneric", language));
               } else setEditId(null);
             }}
             className="space-y-4"
