@@ -31,5 +31,8 @@ CREATE TABLE IF NOT EXISTS public.quotes (
 CREATE INDEX IF NOT EXISTS idx_quotes_user_id ON public.quotes(user_id);
 CREATE INDEX IF NOT EXISTS idx_quotes_client_id ON public.quotes(client_id);
 ALTER TABLE public.quotes ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all on quotes" ON public.quotes FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "quotes_select_own" ON public.quotes FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "quotes_insert_own" ON public.quotes FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "quotes_update_own" ON public.quotes FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "quotes_delete_own" ON public.quotes FOR DELETE USING (auth.uid() = user_id);
 */

@@ -1,5 +1,5 @@
-/** En préparation (gris), En cours (bleu), Urgent/Retard (rouge), Terminé (vert) */
-export type ProjectStatus = "en_preparation" | "en_cours" | "urgent_retard" | "termine";
+/** En préparation (gris), En cours (bleu), Urgent/Retard (rouge), Terminé (vert), Annulé (gris) */
+export type ProjectStatus = "en_preparation" | "en_cours" | "urgent_retard" | "termine" | "annule";
 
 export interface Client {
   id: string;

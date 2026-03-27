@@ -4,9 +4,10 @@
 -- Table projects (chantiers)
 CREATE TABLE IF NOT EXISTS public.projects (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   client_id uuid NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
   name text NOT NULL,
-  status text NOT NULL DEFAULT 'en_preparation' CHECK (status IN ('en_preparation', 'en_cours', 'urgent_retard', 'termine')),
+  status text NOT NULL DEFAULT 'en_preparation' CHECK (status IN ('en_preparation', 'en_cours', 'urgent_retard', 'termine', 'annule')),
   address text,
   start_date date,
   end_date date,
@@ -36,9 +37,23 @@ CREATE INDEX IF NOT EXISTS idx_project_tasks_project_id ON public.project_tasks(
 
 -- Activer Realtime (Dashboard > Database > Replication) sur public.projects et public.project_tasks si besoin.
 
--- Politique RLS basique : lecture/écriture pour tous (à adapter selon votre auth)
+-- Politiques RLS strictes : propriétaire uniquement
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.project_tasks ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow all on projects" ON public.projects FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all on project_tasks" ON public.project_tasks FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all on projects" ON public.projects;
+DROP POLICY IF EXISTS "Allow all on project_tasks" ON public.project_tasks;
+
+CREATE POLICY "projects_select_own" ON public.projects FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "projects_insert_own" ON public.projects FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "projects_update_own" ON public.projects FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "projects_delete_own" ON public.projects FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "project_tasks_select_own" ON public.project_tasks FOR SELECT
+  USING (EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_tasks.project_id AND p.user_id = auth.uid()));
+CREATE POLICY "project_tasks_insert_own" ON public.project_tasks FOR INSERT
+  WITH CHECK (EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_id AND p.user_id = auth.uid()));
+CREATE POLICY "project_tasks_update_own" ON public.project_tasks FOR UPDATE
+  USING (EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_tasks.project_id AND p.user_id = auth.uid()));
+CREATE POLICY "project_tasks_delete_own" ON public.project_tasks FOR DELETE
+  USING (EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_tasks.project_id AND p.user_id = auth.uid()));

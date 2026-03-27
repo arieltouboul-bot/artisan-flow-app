@@ -28,7 +28,6 @@ import { useProjectRevenues } from "@/hooks/use-project-revenues";
 import {
   totalProjectRevenueEur,
   totalProjectExpensesEur,
-  sumRevenueRowsEur,
 } from "@/lib/project-finance";
 import { useEmployees } from "@/hooks/use-employees";
 import { useProjectEmployees } from "@/hooks/use-project-employees";
@@ -55,18 +54,12 @@ import {
   Banknote,
 } from "lucide-react";
 
-const statusLabels: Record<ProjectStatus, string> = {
-  en_preparation: "En préparation",
-  en_cours: "En cours",
-  urgent_retard: "Urgent / Retard",
-  termine: "Terminé",
-};
-
-const statusVariant: Record<ProjectStatus, "gray" | "default" | "destructive" | "success"> = {
+const statusVariant: Record<string, "gray" | "default" | "destructive" | "success"> = {
   en_preparation: "gray",
   en_cours: "default",
   urgent_retard: "destructive",
   termine: "success",
+  annule: "gray",
 };
 
 function ProjectDetailSkeleton() {
@@ -95,7 +88,7 @@ export default function ProjetDetailPage() {
   const { transactions, loading: transactionsLoading, addTransaction } = useProjectTransactions(id);
   const { expenses, loading: expensesLoading, addExpense, deleteExpense, totalHT: expensesTotalHT, totalTvaRecuperable } = useProjectExpenses(id);
   const { revenueRows, loading: projectRevenuesLoading } = useProjectRevenues(id);
-  const { displayCurrency, profile } = useProfile();
+  const { displayCurrency, profile, upsertProfile } = useProfile();
   const currency = displayCurrency;
   const { employees } = useEmployees();
   const { assignments, loading: teamLoading, assignEmployee, unassignEmployee } = useProjectEmployees(id);
@@ -202,6 +195,15 @@ export default function ProjetDetailPage() {
   const parseNum = (v: string) => {
     const n = parseFloat(String(v).replace(",", "."));
     return Number.isNaN(n) ? 0 : n;
+  };
+
+  const getStatusLabel = (status: ProjectStatus | string) => {
+    if (status === "en_preparation") return t("statusInPreparation", language);
+    if (status === "en_cours") return t("statusInProgress", language);
+    if (status === "urgent_retard") return t("statusUrgentLate", language);
+    if (status === "termine") return t("statusCompleted", language);
+    if (status === "annule") return t("statusCancelled", language);
+    return t("statusInPreparation", language);
   };
 
   const handleSaveFinance = async () => {
@@ -349,11 +351,13 @@ export default function ProjetDetailPage() {
   const progressPercent = totalDays > 0 ? Math.min(100, (elapsedDays / totalDays) * 100) : 0;
   const isOverdue = endDay && todayDay > endDay && currentProject?.status !== "termine";
   const marge = currentProject ? projectMarge(currentProject) : 0;
-  const revenuePaidEur = sumRevenueRowsEur(revenueRows);
   const budgetNum = parseNum(contractAmount);
-  const restant = Math.max(0, budgetNum - revenuePaidEur);
-  const payProgressPct = budgetNum > 0 ? Math.min(100, (revenuePaidEur / budgetNum) * 100) : 0;
-  const isPaymentComplete = budgetNum > 0 && restant < 0.005;
+  const effectiveVatRate = Number.isFinite(profileVatRate) ? profileVatRate : 20;
+  const totalTtc = budgetNum * (1 + effectiveVatRate / 100);
+  const amountCollected = Number(currentProject.amount_collected ?? 0);
+  const restant = Math.max(0, totalTtc - amountCollected);
+  const payProgressPct = totalTtc > 0 ? Math.min(100, (amountCollected / totalTtc) * 100) : 0;
+  const isPaymentComplete = totalTtc > 0 && restant < 0.005;
   const totalRevEur = totalProjectRevenueEur(transactions, revenueRows);
   const totalExpEur = totalProjectExpensesEur(parseNum(materialCosts), expenses) + teamPayrollEur;
   const netProfitProj = totalRevEur - totalExpEur;
@@ -385,11 +389,8 @@ export default function ProjetDetailPage() {
             <Badge variant="destructive" className="text-sm min-h-[28px]">{t("overdue", language)}</Badge>
           )}
           {currentProject && (
-            <Badge
-              variant={(statusVariant as Record<string, "gray" | "default" | "destructive" | "success">)[currentProject.status] ?? "gray"}
-              className="text-sm min-h-[28px]"
-            >
-              {(statusLabels as Record<string, string>)[currentProject.status] ?? t("statusCancelled", language)}
+            <Badge variant={statusVariant[currentProject.status] ?? "gray"} className="text-sm min-h-[28px]">
+              {getStatusLabel(currentProject.status)}
             </Badge>
           )}
           <select
@@ -409,11 +410,11 @@ export default function ProjetDetailPage() {
               refetchProject();
             }}
             className="min-h-[40px] rounded-md border border-gray-200 bg-white px-2 py-1 text-sm"
-            aria-label={language === "fr" ? "Statut du projet" : "Project status"}
+            aria-label={t("projectStatusLabel", language)}
           >
-            <option value="en_preparation">{language === "fr" ? "En préparation" : "In preparation"}</option>
-            <option value="en_cours">{language === "fr" ? "En cours" : "In progress"}</option>
-            <option value="termine">{language === "fr" ? "Terminé" : "Completed"}</option>
+            <option value="en_preparation">{t("statusInPreparation", language)}</option>
+            <option value="en_cours">{t("statusInProgress", language)}</option>
+            <option value="termine">{t("statusCompleted", language)}</option>
             <option value="annule">{t("statusCancelled", language)}</option>
           </select>
           <Button
@@ -481,10 +482,10 @@ export default function ProjetDetailPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <StickyNote className="h-5 w-5 text-brand-blue-500" />
-              {language === "fr" ? "Notes de chantier" : "Site notes"}
+                {t("projectNotesTitle", language)}
               </CardTitle>
               <Button size="sm" onClick={handleSaveNotes} disabled={notesSaving}>
-              {notesSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
+                {notesSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
               </Button>
             </CardHeader>
             <CardContent>
@@ -492,7 +493,7 @@ export default function ProjetDetailPage() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 onBlur={handleSaveNotes}
-                placeholder={language === "fr" ? "Instructions, codes d'accès..." : "Instructions, access codes..."}
+                placeholder={t("projectNotesPlaceholder", language)}
                 rows={4}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
               />
@@ -503,16 +504,16 @@ export default function ProjetDetailPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ListTodo className="h-5 w-5 text-brand-blue-500" />
-                Tâches du chantier
+                {t("projectTasksTitle", language)}
               </CardTitle>
-              <p className="text-sm text-gray-500">Cochez les étapes au fur et à mesure</p>
+              <p className="text-sm text-gray-500">{t("projectTasksHint", language)}</p>
             </CardHeader>
             <CardContent className="space-y-3">
               <form onSubmit={handleAddTask} className="flex gap-2">
                 <Input
                   value={newTaskLabel}
                   onChange={(e) => setNewTaskLabel(e.target.value)}
-                  placeholder="Nouvelle tâche..."
+                  placeholder={t("taskPlaceholder", language)}
                   className="min-h-[48px] flex-1"
                 />
                 <Button type="submit" size="icon" className="min-h-[48px] min-w-[48px]" disabled={!newTaskLabel.trim()}>
@@ -522,7 +523,7 @@ export default function ProjetDetailPage() {
               {tasksLoading ? (
                 <div className="flex items-center gap-2 py-4 text-gray-500">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  Chargement...
+                  {t("loading", language)}
                 </div>
               ) : (
                 <ul className="space-y-2">
@@ -557,7 +558,7 @@ export default function ProjetDetailPage() {
                           size="icon"
                           className="shrink-0 text-red-600 hover:bg-red-50 min-h-[40px] min-w-[40px]"
                           onClick={() => deleteTask(task.id)}
-                          aria-label="Supprimer la tâche"
+                          aria-label={t("delete", language)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -565,7 +566,7 @@ export default function ProjetDetailPage() {
                     ))}
                   </AnimatePresence>
                   {tasks.length === 0 && (
-                    <p className="text-sm text-gray-500 py-4 text-center">Aucune tâche. Ajoutez-en une ci-dessus.</p>
+                    <p className="text-sm text-gray-500 py-4 text-center">{t("projectNoTasksHint", language)}</p>
                   )}
                 </ul>
               )}
@@ -576,22 +577,22 @@ export default function ProjetDetailPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-brand-blue-500" />
-                Équipe assignée
+                {t("projectAssignedTeamTitle", language)}
               </CardTitle>
               <p className="text-sm text-gray-500">
-                Assignez des employés à ce chantier
+                {t("projectAssignedTeamHint", language)}
               </p>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex flex-wrap gap-2 items-end">
                 <div className="flex-1 min-w-[200px]">
-                  <label className="text-sm text-gray-500 block mb-1">Employé</label>
+                  <label className="text-sm text-gray-500 block mb-1">{t("employees", language)}</label>
                   <select
                     value={selectedEmployeeId}
                     onChange={(e) => setSelectedEmployeeId(e.target.value)}
                     className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm min-h-[48px]"
                   >
-                    <option value="">Choisir un employé...</option>
+                    <option value="">{t("projectSelectEmployee", language)}</option>
                     {employees
                       .filter((e) => !assignments.some((a) => a.employee_id === e.id))
                       .map((emp) => (
@@ -612,13 +613,13 @@ export default function ProjetDetailPage() {
                   }}
                   className="min-h-[48px]"
                 >
-                  {assigning ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserPlus className="h-4 w-4 mr-2" /> Ajouter</>}
+                  {assigning ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserPlus className="h-4 w-4 mr-2" /> {t("add", language)}</>}
                 </Button>
               </div>
               {teamLoading ? (
                 <div className="flex items-center gap-2 py-2 text-gray-500">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Chargement...
+                  {t("loading", language)}
                 </div>
               ) : (
                 <ul className="space-y-2">
@@ -636,14 +637,14 @@ export default function ProjetDetailPage() {
                         size="icon"
                         className="text-red-600 hover:bg-red-50 min-h-[40px] min-w-[40px]"
                         onClick={() => unassignEmployee(a.id)}
-                        aria-label="Retirer du chantier"
+                        aria-label={t("projectRemoveFromSite", language)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </li>
                   ))}
                   {assignments.length === 0 && (
-                    <p className="text-sm text-gray-500 py-2">Aucun employé assigné. Choisissez-en un ci-dessus.</p>
+                    <p className="text-sm text-gray-500 py-2">{t("projectNoAssignedEmployees", language)}</p>
                   )}
                 </ul>
               )}
@@ -663,7 +664,7 @@ export default function ProjetDetailPage() {
                 <p className="text-sm text-gray-500">{t("projectFinanceCardSubtitle", language)}</p>
               </div>
               <Button size="sm" onClick={handleSaveFinance} disabled={financeSaving}>
-                {financeSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer"}
+                {financeSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -676,21 +677,13 @@ export default function ProjetDetailPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">{t("projectAmountPaidLabel", language)}</span>
                   <span className="text-xl font-bold text-emerald-600">
-                    {projectRevenuesLoading ? (
-                      <Skeleton className="inline-block h-8 w-28 rounded-md" />
-                    ) : (
-                      formatConvertedCurrency(revenuePaidEur, currency)
-                    )}
+                    {formatConvertedCurrency(amountCollected, currency)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                   <span className="text-sm font-medium text-gray-700">{t("projectRemainingBalanceLabel", language)}</span>
                   <span className={`text-xl font-bold ${restant > 0 ? "text-amber-600" : "text-emerald-600"}`}>
-                    {projectRevenuesLoading ? (
-                      <Skeleton className="inline-block h-8 w-28 rounded-md" />
-                    ) : (
-                      formatConvertedCurrency(restant, currency)
-                    )}
+                    {formatConvertedCurrency(restant, currency)}
                   </span>
                 </div>
                 <div className="pt-2">
@@ -744,12 +737,12 @@ export default function ProjetDetailPage() {
 
               <Button type="button" onClick={() => setPaymentOpen(true)} className="w-full sm:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
-                Ajouter un paiement
+                {t("addPayment", language)}
               </Button>
 
               <div className="pt-2 border-t border-gray-100 space-y-4">
                 <div>
-                  <label className="text-sm text-gray-500 block mb-1">Adresse du chantier</label>
+                  <label className="text-sm text-gray-500 block mb-1">{t("projectAddress", language)}</label>
                   <Input
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
@@ -759,7 +752,7 @@ export default function ProjetDetailPage() {
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="text-sm text-gray-500 block mb-1">Montant contrat (€)</label>
+                  <label className="text-sm text-gray-500 block mb-1">{t("contractAmount", language)}</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -770,7 +763,7 @@ export default function ProjetDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500 block mb-1">Coûts matériaux (€)</label>
+                  <label className="text-sm text-gray-500 block mb-1">{t("materialCosts", language)}</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -784,31 +777,46 @@ export default function ProjetDetailPage() {
               </div>
               {/* Suivi Financier : Marge Brute (CA HT - dépenses HT) et TVA à décaisser */}
               <div className="pt-4 border-t border-gray-200">
-                <p className="text-sm font-medium text-gray-700 mb-2">Suivi Financier</p>
+                <p className="text-sm font-medium text-gray-700 mb-2">{t("financialTracking", language)}</p>
                 <div className="flex flex-wrap gap-6">
                   <div>
-                    <p className="text-sm text-gray-500">Marge Brute</p>
+                    <p className="text-sm text-gray-500">{t("grossMargin", language)}</p>
                     <p className="text-lg font-bold text-emerald-600">
                       {formatConvertedCurrency(parseNum(contractAmount) - expensesTotalHT - teamPayrollEur, currency)}
                     </p>
-                    <p className="text-xs text-gray-400">CA HT − Dépenses HT − Salaires</p>
+                    <p className="text-xs text-gray-400">{t("projectGrossMarginFormula", language)}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">TVA à décaisser</p>
+                    <button
+                      type="button"
+                      className="text-sm text-gray-500 underline-offset-2 hover:underline"
+                      onClick={async () => {
+                        const raw = window.prompt(
+                          language === "fr" ? "Nouveau taux de TVA (%)" : "New VAT rate (%)",
+                          String(effectiveVatRate)
+                        );
+                        if (raw == null) return;
+                        const nextRate = Number(raw.replace(",", "."));
+                        if (!Number.isFinite(nextRate) || nextRate < 0 || nextRate > 100) return;
+                        await upsertProfile({ vat_rate: nextRate });
+                      }}
+                    >
+                      {t("vatToPay", language)} · {effectiveVatRate}%
+                    </button>
                     <p className="text-lg font-bold text-brand-blue-600">
                       {formatConvertedCurrency(
-                        Math.max(0, (parseNum(contractAmount) * (Number.isFinite(profileVatRate) ? profileVatRate : 20)) / 100 - totalTvaRecuperable),
+                        Math.max(0, (parseNum(contractAmount) * effectiveVatRate) / 100 - totalTvaRecuperable),
                         currency
                       )}
                     </p>
-                    <p className="text-xs text-gray-400">TVA collectée − TVA récupérable</p>
+                    <p className="text-xs text-gray-400">{t("vatCollectedDeductible", language)}</p>
                   </div>
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-6 pt-2">
                 <div>
-                  <p className="text-sm text-gray-500">Marge (contrat − coûts matériaux saisis)</p>
+                  <p className="text-sm text-gray-500">{t("projectMarginContractMaterials", language)}</p>
                   <p className={`text-lg font-bold ${(parseNum(contractAmount) - parseNum(materialCosts)) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                     {formatConvertedCurrency(parseNum(contractAmount) - parseNum(materialCosts), currency)}
                   </p>
@@ -816,17 +824,17 @@ export default function ProjetDetailPage() {
               </div>
 
               <div className="pt-2 border-t border-gray-100">
-                <p className="text-sm text-gray-500 mb-2">Dépenses (matériel, location, main d&apos;œuvre, sous-traitance)</p>
+                <p className="text-sm text-gray-500 mb-2">{t("projectExpensesCategories", language)}</p>
                 <p className="text-xs text-gray-500 mb-2">
-                  Salaires liés à ce projet: <span className="font-medium">{formatConvertedCurrency(teamPayrollEur, currency)}</span>
+                  {t("projectLinkedSalaries", language)}: <span className="font-medium">{formatConvertedCurrency(teamPayrollEur, currency)}</span>
                 </p>
                 {expensesLoading ? (
                   <div className="flex items-center gap-2 py-2 text-gray-500">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Chargement...
+                    {t("loading", language)}
                   </div>
                 ) : expenses.length === 0 ? (
-                  <p className="text-sm text-gray-500 py-2">Aucune dépense. Ajoutez-en pour suivre la marge et la TVA.</p>
+                  <p className="text-sm text-gray-500 py-2">{t("noExpenses", language)}</p>
                 ) : (
                   <ul className="space-y-1 text-sm mb-2">
                     {expenses.map((ex) => (
@@ -841,7 +849,7 @@ export default function ProjetDetailPage() {
                             size="icon"
                             className="h-8 w-8 text-red-600 hover:bg-red-50"
                             onClick={() => deleteExpense(ex.id)}
-                            aria-label="Supprimer la dépense"
+                            aria-label={t("delete", language)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -852,13 +860,13 @@ export default function ProjetDetailPage() {
                 )}
                 <Button type="button" variant="outline" size="sm" onClick={() => setExpenseOpen(true)} className="min-h-[44px]">
                   <Plus className="h-4 w-4 mr-2" />
-                  Ajouter une dépense
+                  {t("projectAddExpenseTitle", language)}
                 </Button>
               </div>
 
               {transactions.length > 0 && (
                 <div className="pt-4 border-t border-gray-100">
-                  <p className="text-sm text-gray-500 mb-2">Paiements enregistrés</p>
+                  <p className="text-sm text-gray-500 mb-2">{t("projectPaymentsRecorded", language)}</p>
                   <ul className="space-y-1 text-sm">
                     {transactions.map((tx) => (
                       <li key={tx.id} className="flex justify-between items-center py-1">
@@ -884,20 +892,20 @@ export default function ProjetDetailPage() {
         <TabsContent value="photos" className="space-y-4">
           <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
             <CardHeader>
-              <CardTitle>Galerie chantier</CardTitle>
-              <p className="text-sm text-gray-500">Glissez-déposez ou cliquez pour importer (préparé pour Supabase Storage).</p>
+              <CardTitle>{t("projectGalleryTitle", language)}</CardTitle>
+              <p className="text-sm text-gray-500">{t("projectGalleryHint", language)}</p>
             </CardHeader>
             <CardContent>
               <div className="relative rounded-xl border-2 border-dashed border-gray-200 p-8 text-center min-h-[200px] flex flex-col items-center justify-center">
                 <Upload className="h-12 w-12 text-brand-blue-400 mb-2" />
-                <p className="text-sm font-medium text-gray-700">Glissez des photos ici ou cliquez pour choisir</p>
+                <p className="text-sm font-medium text-gray-700">{t("projectGalleryDropHint", language)}</p>
               </div>
               {photos.length > 0 && (
                 <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
                   {photos.map((photo) => (
                     <div key={photo.id} className="relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={photo.url} alt={photo.name ?? "Chantier"} className="h-full w-full object-cover" />
+                      <img src={photo.url} alt={photo.name ?? t("projects", language)} className="h-full w-full object-cover" />
                     </div>
                   ))}
                 </div>
@@ -949,15 +957,15 @@ export default function ProjetDetailPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Banknote className="h-5 w-5" />
-              Ajouter un paiement
+              {t("addPayment", language)}
             </DialogTitle>
             <p className="text-sm text-gray-500">
-              {language === "fr" ? "Enregistrez un paiement lié à ce chantier." : "Record a payment linked to this project."}
+              {t("projectPaymentHint", language)}
             </p>
           </DialogHeader>
           <form onSubmit={handleAddPayment} className="space-y-4">
             <div>
-              <label className="text-sm text-gray-500 block mb-1">Montant (€)</label>
+              <label className="text-sm text-gray-500 block mb-1">{t("paymentAmount", language)}</label>
               <Input
                 type="number"
                 step="0.01"
@@ -969,7 +977,7 @@ export default function ProjetDetailPage() {
               />
             </div>
             <div>
-              <label className="text-sm text-gray-500 block mb-1">Date du virement</label>
+              <label className="text-sm text-gray-500 block mb-1">{t("paymentDate", language)}</label>
               <Input
                 type="date"
                 required
@@ -978,17 +986,17 @@ export default function ProjetDetailPage() {
               />
             </div>
             <div>
-              <label className="text-sm text-gray-500 block mb-1">Mode de paiement</label>
+              <label className="text-sm text-gray-500 block mb-1">{t("paymentMethod", language)}</label>
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full min-h-[40px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <option value="virement">Virement</option>
-                <option value="especes">Espèces</option>
-                <option value="cheque">Chèque</option>
-                <option value="carte">Carte</option>
-                <option value="autre">Autre</option>
+                <option value="virement">{t("paymentMethodWire", language)}</option>
+                <option value="especes">{t("paymentMethodCash", language)}</option>
+                <option value="cheque">{t("paymentMethodCheck", language)}</option>
+                <option value="carte">{t("paymentMethodCard", language)}</option>
+                <option value="autre">{t("paymentMethodOther", language)}</option>
               </select>
             </div>
             {paymentError && (
@@ -1009,14 +1017,12 @@ export default function ProjetDetailPage() {
       <Dialog open={expenseOpen} onOpenChange={(o) => { setExpenseOpen(o); setExpenseError(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{language === "fr" ? "Ajouter une dépense" : "Add expense"}</DialogTitle>
-            <p className="text-sm text-gray-500">
-              {language === "fr" ? "Matériel, location, main d'œuvre, sous-traitance" : "Materials, rental, labor, subcontracting"}
-            </p>
+            <DialogTitle>{t("projectAddExpenseTitle", language)}</DialogTitle>
+            <p className="text-sm text-gray-500">{t("projectExpenseHint", language)}</p>
           </DialogHeader>
           <form onSubmit={handleAddExpense} className="space-y-4">
             <div>
-              <label className="text-sm text-gray-500 block mb-1">Catégorie</label>
+              <label className="text-sm text-gray-500 block mb-1">{t("category", language)}</label>
               <select
                 value={expenseCategory}
                 onChange={(e) => setExpenseCategory(e.target.value as typeof expenseCategory)}
@@ -1028,7 +1034,7 @@ export default function ProjetDetailPage() {
               </select>
             </div>
             <div>
-              <label className="text-sm text-gray-500 block mb-1">Description</label>
+              <label className="text-sm text-gray-500 block mb-1">{t("description", language)}</label>
               <Input
                 value={expenseDescription}
                 onChange={(e) => setExpenseDescription(e.target.value)}
@@ -1038,7 +1044,7 @@ export default function ProjetDetailPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm text-gray-500 block mb-1">Montant HT (€)</label>
+                <label className="text-sm text-gray-500 block mb-1">{t("totalHT", language)}</label>
                 <Input
                   type="number"
                   step="0.01"
@@ -1050,7 +1056,7 @@ export default function ProjetDetailPage() {
                 />
               </div>
               <div>
-                <label className="text-sm text-gray-500 block mb-1">TVA %</label>
+                <label className="text-sm text-gray-500 block mb-1">{t("vat", language)} %</label>
                 <Input
                   type="number"
                   min="0"
@@ -1063,13 +1069,13 @@ export default function ProjetDetailPage() {
               </div>
             </div>
             <p className="text-xs text-gray-500">
-              {language === "fr" ? "Montant TTC estimé :" : "Estimated amount incl. tax:"}{" "}
+              {t("projectEstimatedTtc", language)}{" "}
               <span className="font-medium">
                 {formatConvertedCurrency(parseNum(expenseAmount) * (1 + (Number(expenseTvaRate) || 0) / 100), currency)}
               </span>
             </p>
             <div>
-              <label className="text-sm text-gray-500 block mb-1">Date</label>
+              <label className="text-sm text-gray-500 block mb-1">{t("dateLabel", language)}</label>
               <Input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className="min-h-[44px]" />
             </div>
             {expenseError && <p className="text-sm text-red-600">{expenseError}</p>}

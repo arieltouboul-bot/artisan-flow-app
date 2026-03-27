@@ -21,6 +21,7 @@ const statusLabels: Record<ProjectStatus, string> = {
   en_cours: "En cours",
   urgent_retard: "Urgent / Retard",
   termine: "Terminé",
+  annule: "Annulé",
 };
 
 function NouveauProjetPageContent() {

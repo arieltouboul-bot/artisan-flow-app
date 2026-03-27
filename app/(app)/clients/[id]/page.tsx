@@ -37,6 +37,7 @@ const statusLabels: Record<ProjectStatus, string> = {
   en_cours: "En cours",
   urgent_retard: "Urgent / Retard",
   termine: "Terminé",
+  annule: "Annulé",
 };
 
 const statusVariant: Record<ProjectStatus, "gray" | "default" | "destructive" | "success"> = {
@@ -44,6 +45,7 @@ const statusVariant: Record<ProjectStatus, "gray" | "default" | "destructive" | 
   en_cours: "default",
   urgent_retard: "destructive",
   termine: "success",
+  annule: "gray",
 };
 
 export default function ClientDetailPage() {

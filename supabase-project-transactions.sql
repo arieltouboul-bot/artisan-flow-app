@@ -39,3 +39,33 @@ CREATE POLICY "project_transactions_delete_via_project"
   USING (
     EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_id AND p.user_id = auth.uid())
   );
+
+-- Synchronise automatiquement projects.amount_collected après chaque mutation
+CREATE OR REPLACE FUNCTION public.sync_project_amount_collected()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  target_project_id uuid;
+BEGIN
+  target_project_id := COALESCE(NEW.project_id, OLD.project_id);
+
+  UPDATE public.projects p
+  SET
+    amount_collected = COALESCE((
+      SELECT SUM(t.amount)::numeric
+      FROM public.project_transactions t
+      WHERE t.project_id = target_project_id
+    ), 0),
+    updated_at = now()
+  WHERE p.id = target_project_id;
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_sync_project_amount_collected ON public.project_transactions;
+CREATE TRIGGER trg_sync_project_amount_collected
+AFTER INSERT OR UPDATE OR DELETE ON public.project_transactions
+FOR EACH ROW
+EXECUTE FUNCTION public.sync_project_amount_collected();
