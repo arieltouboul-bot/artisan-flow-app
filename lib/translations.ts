@@ -520,6 +520,8 @@ export const translations: Record<string, { fr: string; en: string }> = {
   projectMemberAssigned: { fr: "Membre assigne.", en: "Member assigned." },
   projectMemberRemoved: { fr: "Membre retire.", en: "Member removed." },
   taskDeleted: { fr: "Tache supprimee.", en: "Task deleted." },
+  taskAdded: { fr: "Tache ajoutee.", en: "Task added." },
+  taskUpdated: { fr: "Tache mise a jour.", en: "Task updated." },
   projectPlannedStartDate: { fr: "Date de début prévue", en: "Planned start date" },
   projectPlannedEndDate: { fr: "Date de fin prévue", en: "Planned end date" },
   projectDatesTemporalTitle: { fr: "Dates et suivi temporel", en: "Dates & time tracking" },

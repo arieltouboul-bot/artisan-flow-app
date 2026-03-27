@@ -18,6 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { useClients } from "@/hooks/use-clients";
 import { useProjects } from "@/hooks/use-projects";
 import { createClient } from "@/lib/supabase/client";
+import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
 import type { ProjectStatus } from "@/types/database";
 import { formatDate } from "@/lib/utils";
 import {
@@ -52,6 +54,7 @@ export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
   const clientId = params.id as string;
+  const { language } = useLanguage();
   const { clients, loading: clientsLoading } = useClients();
   const { projects, loading: projectsLoading, refetch: refetchProjects } = useProjects(clientId);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
@@ -321,7 +324,7 @@ export default function ClientDetailPage() {
             {submitError && <p className="text-sm text-red-600">{submitError}</p>}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setNewProjectOpen(false)}>
-                Annuler
+                {t("cancel", language)}
               </Button>
               <Button type="submit" disabled={submitLoading}>
                 {submitLoading ? (

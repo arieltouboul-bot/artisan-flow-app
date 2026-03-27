@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useClients } from "@/hooks/use-clients";
 import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
 import { createClient } from "@/lib/supabase/client";
 import type { ProjectStatus } from "@/types/database";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -227,7 +228,7 @@ function NouveauProjetPageContent() {
                 Créer le projet
               </Button>
               <Link href="/projets">
-                <Button type="button" variant="outline">Annuler</Button>
+                <Button type="button" variant="outline">{t("cancel", language)}</Button>
               </Link>
             </div>
           </form>

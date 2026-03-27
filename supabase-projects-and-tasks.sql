@@ -28,10 +28,14 @@ CREATE INDEX IF NOT EXISTS idx_projects_created_at ON public.projects(created_at
 CREATE TABLE IF NOT EXISTS public.project_tasks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id uuid NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   label text NOT NULL,
+  title text,
   completed boolean DEFAULT false,
+  is_completed boolean DEFAULT false,
   sort_order integer DEFAULT 0,
-  created_at timestamptz DEFAULT now()
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_project_tasks_project_id ON public.project_tasks(project_id);

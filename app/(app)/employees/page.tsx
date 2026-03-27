@@ -316,7 +316,7 @@ function EmployeesPageContent() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
-                Annuler
+                {t("cancel", language)}
               </Button>
               <Button type="submit" disabled={submitLoading}>
                 {submitLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Ajouter"}

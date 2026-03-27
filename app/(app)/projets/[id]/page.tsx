@@ -344,6 +344,7 @@ export default function ProjetDetailPage() {
     if (!newTaskLabel.trim()) return;
     addTask(newTaskLabel.trim());
     setNewTaskLabel("");
+    pushToast("success", t("taskAdded", language));
   };
 
   const parseNum = (v: string) => {
@@ -446,7 +447,7 @@ export default function ProjetDetailPage() {
     });
     setExpenseSaving(false);
     if (error) {
-      setExpenseError(error);
+      setExpenseError(t("saveErrorGeneric", language));
       return;
     }
     setExpenseOpen(false);
@@ -603,7 +604,7 @@ export default function ProjetDetailPage() {
       )}
 
       {projectError && currentProject && (
-        <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{projectError}</div>
+        <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{t("saveErrorGeneric", language)}</div>
       )}
 
       {currentProject && (
@@ -765,7 +766,10 @@ export default function ProjetDetailPage() {
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <button
                             type="button"
-                            onClick={() => toggleTask(task.id, !task.completed)}
+                            onClick={() => {
+                              toggleTask(task.id, !task.completed);
+                              pushToast("success", t("taskUpdated", language));
+                            }}
                             className="shrink-0 text-brand-blue-600 hover:opacity-80"
                           >
                             {task.completed ? (
@@ -785,6 +789,7 @@ export default function ProjetDetailPage() {
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" && editingTaskLabel.trim()) {
                                   void updateTask(task.id, editingTaskLabel);
+                                  pushToast("success", t("taskUpdated", language));
                                   setEditingTaskId(null);
                                 }
                                 if (e.key === "Escape") setEditingTaskId(null);
