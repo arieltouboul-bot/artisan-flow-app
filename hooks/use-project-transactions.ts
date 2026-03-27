@@ -64,17 +64,6 @@ export function useProjectTransactions(projectId: string | null) {
 
       if (insertError) return { error: insertError.message };
 
-      const { data: allTx } = await supabase
-        .from("project_transactions")
-        .select("amount")
-        .eq("project_id", projectId);
-      const total = (allTx ?? []).reduce((s: number, r: { amount: number }) => s + Number(r.amount), 0);
-
-      await supabase
-        .from("projects")
-        .update({ amount_collected: total, updated_at: new Date().toISOString() })
-        .eq("id", projectId);
-
       await fetchTransactions();
       return { error: null };
     },

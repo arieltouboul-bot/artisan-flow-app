@@ -95,7 +95,7 @@ export default function ProjetDetailPage() {
   const { transactions, loading: transactionsLoading, addTransaction } = useProjectTransactions(id);
   const { expenses, loading: expensesLoading, addExpense, deleteExpense, totalHT: expensesTotalHT, totalTvaRecuperable } = useProjectExpenses(id);
   const { revenueRows, loading: projectRevenuesLoading } = useProjectRevenues(id);
-  const { displayCurrency } = useProfile();
+  const { displayCurrency, profile } = useProfile();
   const currency = displayCurrency;
   const { employees } = useEmployees();
   const { assignments, loading: teamLoading, assignEmployee, unassignEmployee } = useProjectEmployees(id);
@@ -120,14 +120,18 @@ export default function ProjetDetailPage() {
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState<string | null>(null);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [expenseDescription, setExpenseDescription] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
-  const [expenseTvaRate, setExpenseTvaRate] = useState(20);
+  const profileVatRate = Number(profile?.vat_rate ?? 20);
+  const [expenseTvaRate, setExpenseTvaRate] = useState(Number.isFinite(profileVatRate) ? profileVatRate : 20);
   const [expenseCategory, setExpenseCategory] = useState<"achat_materiel" | "location" | "main_oeuvre" | "sous_traitance">("achat_materiel");
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [expenseSaving, setExpenseSaving] = useState(false);
   const [expenseError, setExpenseError] = useState<string | null>(null);
+  const [expenseSuccess, setExpenseSuccess] = useState<string | null>(null);
   const [teamPayrollEur, setTeamPayrollEur] = useState(0);
 
   const supabase = createClient();
@@ -174,6 +178,12 @@ export default function ProjetDetailPage() {
     void fetchPayroll();
     return () => { mounted = false; };
   }, [supabase, id, expenses.length]);
+
+  useEffect(() => {
+    if (Number.isFinite(profileVatRate)) {
+      setExpenseTvaRate(profileVatRate);
+    }
+  }, [profileVatRate]);
 
   const handleSaveNotes = async () => {
     if (!supabase || !id) return;
@@ -238,7 +248,7 @@ export default function ProjetDetailPage() {
     if (amount <= 0 || !paymentDate) return;
     setPaymentSaving(true);
     setPaymentError(null);
-     setPaymentSuccess(null);
+    setPaymentSuccess(null);
     const { error } = await addTransaction(amount, paymentDate, paymentMethod);
     setPaymentSaving(false);
     if (error) {
@@ -251,7 +261,7 @@ export default function ProjetDetailPage() {
     setPaymentMethod("virement");
     await refetchProject();
     router.refresh();
-    setPaymentSuccess("Paiement enregistré !");
+    setPaymentSuccess(t("paymentSaved", language));
     window.setTimeout(() => {
       setPaymentSuccess(null);
     }, 3000);
@@ -262,7 +272,7 @@ export default function ProjetDetailPage() {
     setExpenseError(null);
     const amount = parseFloat(expenseAmount.replace(",", "."));
     if (Number.isNaN(amount) || amount < 0) {
-      setExpenseError("Montant invalide.");
+      setExpenseError(t("invalidAmount", language));
       return;
     }
     setExpenseSaving(true);
@@ -281,9 +291,11 @@ export default function ProjetDetailPage() {
     setExpenseOpen(false);
     setExpenseDescription("");
     setExpenseAmount("");
-    setExpenseTvaRate(20);
+    setExpenseTvaRate(Number.isFinite(profileVatRate) ? profileVatRate : 20);
     setExpenseCategory("achat_materiel");
     setExpenseDate(new Date().toISOString().slice(0, 10));
+    setExpenseSuccess(t("expenseSaved", language));
+    window.setTimeout(() => setExpenseSuccess(null), 3000);
   };
 
   if (!id) {
@@ -373,27 +385,47 @@ export default function ProjetDetailPage() {
             <Badge variant="destructive" className="text-sm min-h-[28px]">{t("overdue", language)}</Badge>
           )}
           {currentProject && (
-            <Badge variant={statusVariant[currentProject.status]} className="text-sm min-h-[28px]">
-              {statusLabels[currentProject.status]}
+            <Badge
+              variant={(statusVariant as Record<string, "gray" | "default" | "destructive" | "success">)[currentProject.status] ?? "gray"}
+              className="text-sm min-h-[28px]"
+            >
+              {(statusLabels as Record<string, string>)[currentProject.status] ?? t("statusCancelled", language)}
             </Badge>
           )}
+          <select
+            value={currentProject.status}
+            disabled={statusSaving}
+            onChange={async (e) => {
+              if (!supabase || !id) return;
+              setStatusSaving(true);
+              await supabase
+                .from("projects")
+                .update({
+                  status: e.target.value as unknown as ProjectStatus,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", id);
+              setStatusSaving(false);
+              refetchProject();
+            }}
+            className="min-h-[40px] rounded-md border border-gray-200 bg-white px-2 py-1 text-sm"
+            aria-label={language === "fr" ? "Statut du projet" : "Project status"}
+          >
+            <option value="en_preparation">{language === "fr" ? "En préparation" : "In preparation"}</option>
+            <option value="en_cours">{language === "fr" ? "En cours" : "In progress"}</option>
+            <option value="termine">{language === "fr" ? "Terminé" : "Completed"}</option>
+            <option value="annule">{t("statusCancelled", language)}</option>
+          </select>
           <Button
             type="button"
             variant="outline"
             size="icon"
-            className="z-50 min-h-[48px] min-w-[48px] border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-            onClick={async () => {
-              if (!confirm(t("deleteProjectConfirm", language))) return;
-              if (!supabase || !id) return;
-              try { await supabase.from("project_tasks").delete().eq("project_id", id); } catch { /* ignore */ }
-              const { error } = await supabase.from("projects").delete().eq("id", id);
-              if (error) alert(error.message);
-              else router.push("/projets");
-            }}
+            className="z-50 h-9 w-9 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+            onClick={() => setDeleteOpen(true)}
             aria-label={t("deleteProject", language)}
             title={t("deleteProject", language)}
           >
-            <Trash2 className="h-5 w-5" strokeWidth={2} aria-hidden />
+            <Trash2 className="h-4 w-4" strokeWidth={2} aria-hidden />
           </Button>
         </div>
       </div>
@@ -449,10 +481,10 @@ export default function ProjetDetailPage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <StickyNote className="h-5 w-5 text-brand-blue-500" />
-                Notes de chantier
+              {language === "fr" ? "Notes de chantier" : "Site notes"}
               </CardTitle>
               <Button size="sm" onClick={handleSaveNotes} disabled={notesSaving}>
-                {notesSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer"}
+              {notesSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
               </Button>
             </CardHeader>
             <CardContent>
@@ -460,7 +492,7 @@ export default function ProjetDetailPage() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 onBlur={handleSaveNotes}
-                placeholder="Instructions techniques, codes d'accès..."
+                placeholder={language === "fr" ? "Instructions, codes d'accès..." : "Instructions, access codes..."}
                 rows={4}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
               />
@@ -706,6 +738,9 @@ export default function ProjetDetailPage() {
               {paymentSuccess && (
                 <p className="text-sm text-emerald-600">{paymentSuccess}</p>
               )}
+              {expenseSuccess && (
+                <p className="text-sm text-emerald-600">{expenseSuccess}</p>
+              )}
 
               <Button type="button" onClick={() => setPaymentOpen(true)} className="w-full sm:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
@@ -761,7 +796,10 @@ export default function ProjetDetailPage() {
                   <div>
                     <p className="text-sm text-gray-500">TVA à décaisser</p>
                     <p className="text-lg font-bold text-brand-blue-600">
-                      {formatConvertedCurrency(Math.max(0, (parseNum(contractAmount) * 20) / 100 - totalTvaRecuperable), currency)}
+                      {formatConvertedCurrency(
+                        Math.max(0, (parseNum(contractAmount) * (Number.isFinite(profileVatRate) ? profileVatRate : 20)) / 100 - totalTvaRecuperable),
+                        currency
+                      )}
                     </p>
                     <p className="text-xs text-gray-400">TVA collectée − TVA récupérable</p>
                   </div>
@@ -913,7 +951,9 @@ export default function ProjetDetailPage() {
               <Banknote className="h-5 w-5" />
               Ajouter un paiement
             </DialogTitle>
-            <p className="text-sm text-gray-500">Le montant sera enregistré dans project_transactions et amount_collected sera mis à jour.</p>
+            <p className="text-sm text-gray-500">
+              {language === "fr" ? "Enregistrez un paiement lié à ce chantier." : "Record a payment linked to this project."}
+            </p>
           </DialogHeader>
           <form onSubmit={handleAddPayment} className="space-y-4">
             <div>
@@ -956,10 +996,10 @@ export default function ProjetDetailPage() {
             )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setPaymentOpen(false)} disabled={paymentSaving}>
-                Annuler
+                {t("cancel", language)}
               </Button>
               <Button type="submit" disabled={paymentSaving}>
-                {paymentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer"}
+                {paymentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
               </Button>
             </DialogFooter>
           </form>
@@ -969,8 +1009,10 @@ export default function ProjetDetailPage() {
       <Dialog open={expenseOpen} onOpenChange={(o) => { setExpenseOpen(o); setExpenseError(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ajouter une dépense</DialogTitle>
-            <p className="text-sm text-gray-500">Matériel, location, main d&apos;œuvre, sous-traitance</p>
+            <DialogTitle>{language === "fr" ? "Ajouter une dépense" : "Add expense"}</DialogTitle>
+            <p className="text-sm text-gray-500">
+              {language === "fr" ? "Matériel, location, main d'œuvre, sous-traitance" : "Materials, rental, labor, subcontracting"}
+            </p>
           </DialogHeader>
           <form onSubmit={handleAddExpense} className="space-y-4">
             <div>
@@ -1020,6 +1062,12 @@ export default function ProjetDetailPage() {
                 />
               </div>
             </div>
+            <p className="text-xs text-gray-500">
+              {language === "fr" ? "Montant TTC estimé :" : "Estimated amount incl. tax:"}{" "}
+              <span className="font-medium">
+                {formatConvertedCurrency(parseNum(expenseAmount) * (1 + (Number(expenseTvaRate) || 0) / 100), currency)}
+              </span>
+            </p>
             <div>
               <label className="text-sm text-gray-500 block mb-1">Date</label>
               <Input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className="min-h-[44px]" />
@@ -1027,13 +1075,43 @@ export default function ProjetDetailPage() {
             {expenseError && <p className="text-sm text-red-600">{expenseError}</p>}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setExpenseOpen(false)} disabled={expenseSaving}>
-                Annuler
+                {t("cancel", language)}
               </Button>
               <Button type="submit" disabled={expenseSaving}>
-                {expenseSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer"}
+                {expenseSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("deleteProject", language)}</DialogTitle>
+            <p className="text-sm text-gray-500">{t("deleteProjectConfirm", language)}</p>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleteOpen(false)}>
+              {t("cancel", language)}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={async () => {
+                if (!supabase || !id) return;
+                try {
+                  await supabase.from("project_tasks").delete().eq("project_id", id);
+                } catch {
+                  // ignore
+                }
+                const { error } = await supabase.from("projects").delete().eq("id", id);
+                if (error) alert(error.message);
+                else router.push("/projets");
+              }}
+            >
+              {t("delete", language)}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </motion.div>

@@ -562,6 +562,7 @@ export const translations: Record<string, { fr: string; en: string }> = {
   statusInProgress: { fr: "En cours", en: "In progress" },
   statusUrgentLate: { fr: "Urgent / Retard", en: "Urgent / Late" },
   statusCompleted: { fr: "Terminé", en: "Completed" },
+  statusCancelled: { fr: "Annulé", en: "Cancelled" },
   statusAll: { fr: "Tous", en: "All" },
   statusUnpaid: { fr: "Non soldés", en: "Unpaid" },
 
@@ -590,6 +591,8 @@ export const translations: Record<string, { fr: string; en: string }> = {
   paymentDate: { fr: "Date du paiement", en: "Payment date" },
   paymentAmount: { fr: "Montant", en: "Amount" },
   paymentMethod: { fr: "Méthode", en: "Method" },
+  paymentSaved: { fr: "Paiement enregistré !", en: "Payment saved!" },
+  invalidAmount: { fr: "Montant invalide.", en: "Invalid amount." },
   noTasks: { fr: "Aucune tâche", en: "No tasks" },
   addTask: { fr: "Ajouter une tâche", en: "Add task" },
   taskPlaceholder: { fr: "Ex: Commander les carreaux", en: "e.g. Order tiles" },

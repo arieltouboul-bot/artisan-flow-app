@@ -33,6 +33,8 @@ const defaultItem: QuoteItem = {
 function NouveauDevisPageContent() {
   const { language } = useLanguage();
   const { profile, displayCurrency } = useProfile();
+  const profileVatRate = Number(profile?.vat_rate ?? 20);
+  const effectiveVatRate = Number.isFinite(profileVatRate) ? profileVatRate : 20;
   const currency = displayCurrency;
   const { clients } = useClients();
   const [clientId, setClientId] = useState("");
@@ -46,7 +48,7 @@ function NouveauDevisPageContent() {
   });
   const [notes, setNotes] = useState("");
   const [acomptePercentage, setAcomptePercentage] = useState(30);
-  const [items, setItems] = useState<QuoteItem[]>([{ ...defaultItem }]);
+  const [items, setItems] = useState<QuoteItem[]>([{ ...defaultItem, tva_rate: effectiveVatRate }]);
   const [companyName, setCompanyName] = useState("Mon entreprise");
   const [companyAddress, setCompanyAddress] = useState("123 rue Example, 75000 Paris");
   const [companySiret, setCompanySiret] = useState("123 456 789 00012");
@@ -63,16 +65,25 @@ function NouveauDevisPageContent() {
         item.total_sell = q * sell;
         item.margin = item.total_sell - item.total_buy;
       }
-      if (field === "tva_rate") item.tva_rate = typeof value === "number" ? value : 20;
+      if (field === "tva_rate") item.tva_rate = typeof value === "number" ? value : effectiveVatRate;
       next[index] = item;
       return next;
     });
   };
 
+  useEffect(() => {
+    setItems((prev) =>
+      prev.map((it) => ({
+        ...it,
+        tva_rate: it.tva_rate == null ? effectiveVatRate : it.tva_rate,
+      }))
+    );
+  }, [effectiveVatRate]);
+
   const totals = useMemo(() => {
     const total_ht = items.reduce((s, i) => s + i.total_sell, 0);
-    const total_ttc = items.reduce((s, i) => {
-      const rate = i.tva_rate ?? 20;
+      const total_ttc = items.reduce((s, i) => {
+      const rate = i.tva_rate ?? effectiveVatRate;
       return s + i.total_sell * (1 + rate / 100);
     }, 0);
     const total_tva = total_ttc - total_ht;
@@ -104,7 +115,7 @@ function NouveauDevisPageContent() {
         unit_price_sell: i.unit_price_sell,
         total_sell: i.total_sell,
         lineType: i.lineType ?? undefined,
-        tva_rate: i.tva_rate ?? 20,
+        tva_rate: i.tva_rate ?? effectiveVatRate,
       })),
       totalHT: totals.total_ht,
       totalTVA: totals.total_tva,
