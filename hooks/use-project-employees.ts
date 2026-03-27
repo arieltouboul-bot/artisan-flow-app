@@ -39,15 +39,28 @@ export function useProjectEmployees(projectId: string | null) {
       setLoading(false);
       return;
     }
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) {
+      setAssignments([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const { data, error } = await supabase
-      .from("project_employees")
-      .select("*, employee:employees(id, first_name, last_name, role)")
-      .eq("project_id", projectId);
-    if (error) {
-      setAssignments([]);
-    } else {
+      .from("project_members")
+      .select("*, employee:employees(id, first_name, last_name, role, user_id)")
+      .eq("project_id", projectId)
+      .eq("user_id", userId);
+    if (!error) {
       setAssignments(((data ?? []) as Record<string, unknown>[]).map(mapRow));
+    } else {
+      // Backward-compatible fallback for older schemas.
+      const { data: legacyData } = await supabase
+        .from("project_employees")
+        .select("*, employee:employees(id, first_name, last_name, role, user_id)")
+        .eq("project_id", projectId);
+      setAssignments(((legacyData ?? []) as Record<string, unknown>[]).map(mapRow));
     }
     setLoading(false);
   }, [projectId]);
@@ -61,10 +74,18 @@ export function useProjectEmployees(projectId: string | null) {
       if (!projectId) return { error: new Error("Projet manquant") };
       const supabase = createClient();
       if (!supabase) return { error: new Error("Supabase non configuré") };
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) return { error: new Error("Non connecté") };
       const { error: insertError } = await supabase
-        .from("project_employees")
-        .insert({ project_id: projectId, employee_id: employeeId });
-      if (insertError) return { error: insertError };
+        .from("project_members")
+        .insert({ project_id: projectId, employee_id: employeeId, user_id: userId });
+      if (insertError) {
+        const { error: legacyInsertError } = await supabase
+          .from("project_employees")
+          .insert({ project_id: projectId, employee_id: employeeId });
+        if (legacyInsertError) return { error: legacyInsertError };
+      }
       await fetchAssignments();
       return {};
     },
@@ -76,10 +97,17 @@ export function useProjectEmployees(projectId: string | null) {
       const supabase = createClient();
       if (!supabase) return { error: new Error("Supabase non configuré") };
       const { error: delError } = await supabase
-        .from("project_employees")
+        .from("project_members")
         .delete()
-        .eq("id", projectEmployeeId);
-      if (delError) return { error: delError };
+        .eq("id", projectEmployeeId)
+        .eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "");
+      if (delError) {
+        const { error: legacyDelError } = await supabase
+          .from("project_employees")
+          .delete()
+          .eq("id", projectEmployeeId);
+        if (legacyDelError) return { error: legacyDelError };
+      }
       await fetchAssignments();
       return {};
     },

@@ -84,7 +84,7 @@ export default function ProjetDetailPage() {
   const { language } = useLanguage();
   const id = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : String(params?.id ?? "");
   const { project, loading: projectLoading, error: projectError, refetch: refetchProject } = useProject(id || null);
-  const { tasks, loading: tasksLoading, addTask, toggleTask, deleteTask } = useProjectTasks(id);
+  const { tasks, loading: tasksLoading, addTask, toggleTask, updateTask, deleteTask } = useProjectTasks(id);
   const { transactions, loading: transactionsLoading, addTransaction } = useProjectTransactions(id);
   const { expenses, loading: expensesLoading, addExpense, deleteExpense, totalHT: expensesTotalHT, totalTvaRecuperable } = useProjectExpenses(id);
   const { revenueRows, loading: projectRevenuesLoading } = useProjectRevenues(id);
@@ -95,9 +95,16 @@ export default function ProjetDetailPage() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [newTaskLabel, setNewTaskLabel] = useState("");
-  const [notes, setNotes] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
-  const [photos, setPhotos] = useState<{ id: string; url: string; name?: string }[]>([]);
+  const [projectNotes, setProjectNotes] = useState<Array<{ id: string; content: string; created_at?: string }>>([]);
+  const [newNote, setNewNote] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteContent, setEditingNoteContent] = useState("");
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskLabel, setEditingTaskLabel] = useState("");
+  const [photos, setPhotos] = useState<Array<{ id: string; url: string; name?: string; storage_path?: string }>>([]);
+  const [galleryUploading, setGalleryUploading] = useState(false);
+  const [toast, setToast] = useState<{ kind: "success" | "error"; message: string } | null>(null);
   const [address, setAddress] = useState("");
   const [contractAmount, setContractAmount] = useState("");
   const [materialCosts, setMaterialCosts] = useState("");
@@ -133,10 +140,6 @@ export default function ProjetDetailPage() {
   const currentProject = project ?? null;
 
   useEffect(() => {
-    if (currentProject?.notes != null) setNotes(currentProject.notes || "");
-  }, [currentProject?.id, currentProject?.notes]);
-
-  useEffect(() => {
     if (currentProject) {
       setAddress(currentProject.address ?? "");
       setContractAmount(String(currentProject.contract_amount ?? ""));
@@ -151,6 +154,11 @@ export default function ProjetDetailPage() {
     setPageContext({ currentProjectId: id, currentProjectName: currentProject.name });
     return () => setPageContext({});
   }, [id, currentProject?.name, setPageContext]);
+
+  const pushToast = (kind: "success" | "error", message: string) => {
+    setToast({ kind, message });
+    window.setTimeout(() => setToast(null), 2200);
+  };
 
   useEffect(() => {
     if (!supabase || !id) return;
@@ -173,6 +181,50 @@ export default function ProjetDetailPage() {
   }, [supabase, id, expenses.length]);
 
   useEffect(() => {
+    if (!supabase || !id || !currentUserId) return;
+    let mounted = true;
+    const fetchNotes = async () => {
+      const { data } = await supabase
+        .from("project_notes")
+        .select("id, content, created_at")
+        .eq("project_id", id)
+        .eq("user_id", currentUserId)
+        .order("created_at", { ascending: false });
+      if (!mounted) return;
+      setProjectNotes((data ?? []) as Array<{ id: string; content: string; created_at?: string }>);
+    };
+    void fetchNotes();
+    return () => {
+      mounted = false;
+    };
+  }, [supabase, id, currentUserId]);
+
+  useEffect(() => {
+    if (!supabase || !id || !currentUserId) return;
+    let mounted = true;
+    const fetchImages = async () => {
+      const { data } = await supabase
+        .from("project_images")
+        .select("id, public_url, storage_path, created_at")
+        .eq("project_id", id)
+        .eq("user_id", currentUserId)
+        .order("created_at", { ascending: false });
+      if (!mounted) return;
+      setPhotos(
+        ((data ?? []) as Array<{ id: string; public_url: string; storage_path?: string | null }>).map((img) => ({
+          id: img.id,
+          url: img.public_url,
+          storage_path: img.storage_path ?? undefined,
+        }))
+      );
+    };
+    void fetchImages();
+    return () => {
+      mounted = false;
+    };
+  }, [supabase, id, currentUserId]);
+
+  useEffect(() => {
     if (currentProject && Number.isFinite(Number(currentProject.vat_rate))) {
       setExpenseTvaRate(Number(currentProject.vat_rate));
       return;
@@ -193,15 +245,97 @@ export default function ProjetDetailPage() {
     };
   }, [supabase]);
 
-  const handleSaveNotes = async () => {
-    if (!supabase || !id) return;
+  const handleAddProjectNote = async () => {
+    if (!supabase || !id || !currentUserId || !newNote.trim()) return;
     setNotesSaving(true);
-    await supabase
-      .from("projects")
-      .update({ notes: notes || null, updated_at: new Date().toISOString() })
-      .eq("id", id)
+    const { data, error } = await supabase
+      .from("project_notes")
+      .insert({ project_id: id, user_id: currentUserId, content: newNote.trim() })
+      .select("id, content, created_at")
+      .single();
+    setNotesSaving(false);
+    if (error) {
+      pushToast("error", error.message);
+      return;
+    }
+    setProjectNotes((prev) => [data as { id: string; content: string; created_at?: string }, ...prev]);
+    setNewNote("");
+    pushToast("success", language === "fr" ? "Note sauvegardee." : "Note saved.");
+  };
+
+  const handleUpdateProjectNote = async (noteId: string) => {
+    if (!supabase || !currentUserId || !editingNoteContent.trim()) return;
+    setNotesSaving(true);
+    const { error } = await supabase
+      .from("project_notes")
+      .update({ content: editingNoteContent.trim(), updated_at: new Date().toISOString() })
+      .eq("id", noteId)
       .eq("user_id", currentUserId);
     setNotesSaving(false);
+    if (error) {
+      pushToast("error", error.message);
+      return;
+    }
+    setProjectNotes((prev) => prev.map((n) => (n.id === noteId ? { ...n, content: editingNoteContent.trim() } : n)));
+    setEditingNoteId(null);
+    setEditingNoteContent("");
+    pushToast("success", language === "fr" ? "Note mise a jour." : "Note updated.");
+  };
+
+  const handleDeleteProjectNote = async (noteId: string) => {
+    if (!supabase || !currentUserId) return;
+    setNotesSaving(true);
+    const { error } = await supabase.from("project_notes").delete().eq("id", noteId).eq("user_id", currentUserId);
+    setNotesSaving(false);
+    if (error) {
+      pushToast("error", error.message);
+      return;
+    }
+    setProjectNotes((prev) => prev.filter((n) => n.id !== noteId));
+    pushToast("success", language === "fr" ? "Note supprimee." : "Note deleted.");
+  };
+
+  const handleUploadGalleryImage = async (file: File) => {
+    if (!supabase || !id || !currentUserId || !file) return;
+    setGalleryUploading(true);
+    const path = `${id}/${Date.now()}-${file.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from("project-galleries")
+      .upload(path, file, { upsert: false, contentType: file.type });
+    if (uploadError) {
+      setGalleryUploading(false);
+      pushToast("error", uploadError.message);
+      return;
+    }
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("project-galleries").getPublicUrl(path);
+    const { data, error } = await supabase
+      .from("project_images")
+      .insert({ project_id: id, user_id: currentUserId, storage_path: path, public_url: publicUrl })
+      .select("id, public_url, storage_path")
+      .single();
+    setGalleryUploading(false);
+    if (error) {
+      pushToast("error", error.message);
+      return;
+    }
+    setPhotos((prev) => [{ id: data.id, url: data.public_url as string, storage_path: data.storage_path as string }, ...prev]);
+    pushToast("success", language === "fr" ? "Image ajoutee." : "Image uploaded.");
+  };
+
+  const handleDeleteGalleryImage = async (imageId: string, storagePath?: string) => {
+    if (!supabase || !currentUserId) return;
+    if (storagePath) {
+      await supabase.storage.from("project-galleries").remove([storagePath]);
+    }
+    const { error } = await supabase.from("project_images").delete().eq("id", imageId).eq("user_id", currentUserId);
+    if (error) {
+      pushToast("error", error.message);
+      return;
+    }
+    setPhotos((prev) => prev.filter((img) => img.id !== imageId));
+    pushToast("success", language === "fr" ? "Image supprimee." : "Image deleted.");
   };
 
   const handleAddTask = (e: React.FormEvent) => {
@@ -456,6 +590,17 @@ export default function ProjetDetailPage() {
         </div>
       </div>
 
+      {toast && (
+        <div
+          className={cn(
+            "fixed right-4 top-4 z-[100] rounded-lg px-3 py-2 text-sm text-white shadow-lg",
+            toast.kind === "success" ? "bg-emerald-600" : "bg-red-600"
+          )}
+        >
+          {toast.message}
+        </div>
+      )}
+
       {projectError && currentProject && (
         <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{projectError}</div>
       )}
@@ -509,19 +654,67 @@ export default function ProjetDetailPage() {
                 <StickyNote className="h-5 w-5 text-brand-blue-500" />
                 {t("projectNotesTitle", language)}
               </CardTitle>
-              <Button size="sm" onClick={handleSaveNotes} disabled={notesSaving}>
-                {notesSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
+              <Button size="icon" onClick={handleAddProjectNote} disabled={!newNote.trim() || notesSaving}>
+                {notesSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               </Button>
             </CardHeader>
-            <CardContent>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                onBlur={handleSaveNotes}
-                placeholder={t("projectNotesPlaceholder", language)}
-                rows={4}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-              />
+            <CardContent className="space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  placeholder={t("projectNotesPlaceholder", language)}
+                  className="min-h-[44px]"
+                />
+                <Button type="button" size="icon" onClick={handleAddProjectNote} disabled={!newNote.trim() || notesSaving}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              <ul className="space-y-2">
+                {projectNotes.map((note) => (
+                  <li
+                    key={note.id}
+                    className="group flex items-start justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2"
+                  >
+                    {editingNoteId === note.id ? (
+                      <Input
+                        value={editingNoteContent}
+                        onChange={(e) => setEditingNoteContent(e.target.value)}
+                        onBlur={() => void handleUpdateProjectNote(note.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void handleUpdateProjectNote(note.id);
+                          if (e.key === "Escape") {
+                            setEditingNoteId(null);
+                            setEditingNoteContent("");
+                          }
+                        }}
+                        autoFocus
+                        className="min-h-[40px]"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onDoubleClick={() => {
+                          setEditingNoteId(note.id);
+                          setEditingNoteContent(note.content);
+                        }}
+                        className="flex-1 text-left text-sm text-gray-900"
+                      >
+                        {note.content}
+                      </button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 text-red-600 hover:bg-red-50"
+                      onClick={() => void handleDeleteProjectNote(note.id)}
+                      aria-label={t("delete", language)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
             </CardContent>
           </Card>
 
@@ -560,7 +753,7 @@ export default function ProjetDetailPage() {
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, x: -8 }}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2 min-h-[48px]"
+                        className="group flex items-center justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2 min-h-[48px]"
                       >
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <button
@@ -574,14 +767,41 @@ export default function ProjetDetailPage() {
                               <Square className="h-5 w-5" />
                             )}
                           </button>
-                          <span className={task.completed ? "text-gray-500 line-through" : "text-gray-900"}>
-                            {task.label}
-                          </span>
+                          {editingTaskId === task.id ? (
+                            <Input
+                              value={editingTaskLabel}
+                              onChange={(e) => setEditingTaskLabel(e.target.value)}
+                              onBlur={() => {
+                                if (editingTaskLabel.trim()) void updateTask(task.id, editingTaskLabel);
+                                setEditingTaskId(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && editingTaskLabel.trim()) {
+                                  void updateTask(task.id, editingTaskLabel);
+                                  setEditingTaskId(null);
+                                }
+                                if (e.key === "Escape") setEditingTaskId(null);
+                              }}
+                              autoFocus
+                              className="min-h-[36px]"
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              onDoubleClick={() => {
+                                setEditingTaskId(task.id);
+                                setEditingTaskLabel(task.label);
+                              }}
+                              className={cn("text-left", task.completed ? "text-gray-500 line-through" : "text-gray-900")}
+                            >
+                              {task.label}
+                            </button>
+                          )}
                         </div>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="shrink-0 text-red-600 hover:bg-red-50 min-h-[40px] min-w-[40px]"
+                          className="shrink-0 text-red-600 hover:bg-red-50 min-h-[40px] min-w-[40px] opacity-0 transition-opacity group-hover:opacity-100"
                           onClick={() => deleteTask(task.id)}
                           aria-label={t("delete", language)}
                         >
@@ -632,7 +852,9 @@ export default function ProjetDetailPage() {
                   onClick={async () => {
                     if (!selectedEmployeeId) return;
                     setAssigning(true);
-                    await assignEmployee(selectedEmployeeId);
+                    const result = await assignEmployee(selectedEmployeeId);
+                    if (result?.error) pushToast("error", result.error.message);
+                    else pushToast("success", language === "fr" ? "Membre assigne." : "Member assigned.");
                     setSelectedEmployeeId("");
                     setAssigning(false);
                   }}
@@ -661,7 +883,11 @@ export default function ProjetDetailPage() {
                         variant="ghost"
                         size="icon"
                         className="text-red-600 hover:bg-red-50 min-h-[40px] min-w-[40px]"
-                        onClick={() => unassignEmployee(a.id)}
+                        onClick={async () => {
+                          const result = await unassignEmployee(a.id);
+                          if (result?.error) pushToast("error", result.error.message);
+                          else pushToast("success", language === "fr" ? "Membre retire." : "Member removed.");
+                        }}
                         aria-label={t("projectRemoveFromSite", language)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -930,13 +1156,36 @@ export default function ProjetDetailPage() {
               <div className="relative rounded-xl border-2 border-dashed border-gray-200 p-8 text-center min-h-[200px] flex flex-col items-center justify-center">
                 <Upload className="h-12 w-12 text-brand-blue-400 mb-2" />
                 <p className="text-sm font-medium text-gray-700">{t("projectGalleryDropHint", language)}</p>
+                <label className="mt-3">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void handleUploadGalleryImage(file);
+                      e.currentTarget.value = "";
+                    }}
+                  />
+                  <span className="inline-flex cursor-pointer rounded-md bg-brand-blue-600 px-3 py-2 text-sm font-medium text-white">
+                    {galleryUploading ? t("loading", language) : t("addPhoto", language)}
+                  </span>
+                </label>
               </div>
               {photos.length > 0 && (
                 <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
                   {photos.map((photo) => (
-                    <div key={photo.id} className="relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
+                    <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={photo.url} alt={photo.name ?? t("projects", language)} className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteGalleryImage(photo.id, photo.storage_path)}
+                        className="absolute right-2 top-2 h-6 w-6 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                        aria-label={t("delete", language)}
+                      >
+                        X
+                      </button>
                     </div>
                   ))}
                 </div>

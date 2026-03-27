@@ -75,6 +75,16 @@ export function useProjectTasks(projectId: string | null) {
     []
   );
 
+  const updateTask = useCallback(
+    async (taskId: string, label: string) => {
+      const supabase = createClient();
+      if (!supabase) return;
+      await supabase.from("project_tasks").update({ label: label.trim() }).eq("id", taskId);
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, label: label.trim() } : t)));
+    },
+    []
+  );
+
   const deleteTask = useCallback(
     async (taskId: string) => {
       const supabase = createClient();
@@ -85,5 +95,5 @@ export function useProjectTasks(projectId: string | null) {
     [fetchTasks]
   );
 
-  return { tasks, loading, refetch: fetchTasks, addTask, toggleTask, deleteTask };
+  return { tasks, loading, refetch: fetchTasks, addTask, toggleTask, updateTask, deleteTask };
 }
