@@ -9,6 +9,7 @@ export function mapProjectRow(row: Record<string, unknown>): Project {
   const client = row.client as Record<string, unknown> | null;
   return {
     id: row.id as string,
+    user_id: (row.user_id as string) ?? undefined,
     name: row.name as string,
     client_id: row.client_id as string,
     client: client
@@ -34,6 +35,7 @@ export function mapProjectRow(row: Record<string, unknown>): Project {
     contract_amount: (row.contract_amount as number) ?? null,
     material_costs: (row.material_costs as number) ?? null,
     amount_collected: (row.amount_collected as number) ?? null,
+    vat_rate: (row.vat_rate as number) ?? null,
     created_at: (row.created_at as string) ?? new Date().toISOString(),
     updated_at: (row.updated_at as string) ?? new Date().toISOString(),
   };

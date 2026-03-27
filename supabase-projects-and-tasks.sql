@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
   contract_amount numeric DEFAULT 0,
   material_costs numeric DEFAULT 0,
   amount_collected numeric DEFAULT 0,
+  vat_rate numeric DEFAULT 20 CHECK (vat_rate >= 0 AND vat_rate <= 100),
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );

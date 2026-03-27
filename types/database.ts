@@ -32,6 +32,7 @@ export function clientRestantDu(c: Client): number {
 
 export interface Project {
   id: string;
+  user_id?: string;
   name: string;
   client_id: string;
   client?: Client;
@@ -52,6 +53,8 @@ export interface Project {
   material_costs: number | null;
   /** Montant déjà encaissé (€) */
   amount_collected: number | null;
+  /** Taux TVA du projet (%) */
+  vat_rate?: number | null;
   created_at: string;
   updated_at: string;
 }

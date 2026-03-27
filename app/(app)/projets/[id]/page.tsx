@@ -88,7 +88,7 @@ export default function ProjetDetailPage() {
   const { transactions, loading: transactionsLoading, addTransaction } = useProjectTransactions(id);
   const { expenses, loading: expensesLoading, addExpense, deleteExpense, totalHT: expensesTotalHT, totalTvaRecuperable } = useProjectExpenses(id);
   const { revenueRows, loading: projectRevenuesLoading } = useProjectRevenues(id);
-  const { displayCurrency, profile, upsertProfile } = useProfile();
+  const { displayCurrency } = useProfile();
   const currency = displayCurrency;
   const { employees } = useEmployees();
   const { assignments, loading: teamLoading, assignEmployee, unassignEmployee } = useProjectEmployees(id);
@@ -118,14 +118,14 @@ export default function ProjetDetailPage() {
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [expenseDescription, setExpenseDescription] = useState("");
   const [expenseAmount, setExpenseAmount] = useState("");
-  const profileVatRate = Number(profile?.vat_rate ?? 20);
-  const [expenseTvaRate, setExpenseTvaRate] = useState(Number.isFinite(profileVatRate) ? profileVatRate : 20);
+  const [expenseTvaRate, setExpenseTvaRate] = useState(20);
   const [expenseCategory, setExpenseCategory] = useState<"achat_materiel" | "location" | "main_oeuvre" | "sous_traitance">("achat_materiel");
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [expenseSaving, setExpenseSaving] = useState(false);
   const [expenseError, setExpenseError] = useState<string | null>(null);
   const [expenseSuccess, setExpenseSuccess] = useState<string | null>(null);
   const [teamPayrollEur, setTeamPayrollEur] = useState(0);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
 
   const supabase = createClient();
   const { setPageContext } = useAssistant();
@@ -173,15 +173,34 @@ export default function ProjetDetailPage() {
   }, [supabase, id, expenses.length]);
 
   useEffect(() => {
-    if (Number.isFinite(profileVatRate)) {
-      setExpenseTvaRate(profileVatRate);
+    if (currentProject && Number.isFinite(Number(currentProject.vat_rate))) {
+      setExpenseTvaRate(Number(currentProject.vat_rate));
+      return;
     }
-  }, [profileVatRate]);
+    setExpenseTvaRate(20);
+  }, [currentProject?.id, currentProject?.vat_rate]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    let mounted = true;
+    const loadUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (mounted) setCurrentUserId(data.user?.id ?? "");
+    };
+    void loadUser();
+    return () => {
+      mounted = false;
+    };
+  }, [supabase]);
 
   const handleSaveNotes = async () => {
     if (!supabase || !id) return;
     setNotesSaving(true);
-    await supabase.from("projects").update({ notes: notes || null, updated_at: new Date().toISOString() }).eq("id", id);
+    await supabase
+      .from("projects")
+      .update({ notes: notes || null, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("user_id", currentUserId);
     setNotesSaving(false);
   };
 
@@ -217,7 +236,11 @@ export default function ProjetDetailPage() {
       material_costs: Number.isNaN(materialNum) ? 0 : materialNum,
       updated_at: new Date().toISOString(),
     };
-    const { error: updateError } = await supabase.from("projects").update(payload).eq("id", id);
+    const { error: updateError } = await supabase
+      .from("projects")
+      .update(payload)
+      .eq("id", id)
+      .eq("user_id", currentUserId);
     setFinanceSaving(false);
     if (!updateError) {
       refetchProject();
@@ -235,7 +258,8 @@ export default function ProjetDetailPage() {
         end_date: plannedEndDate.trim() || null,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", currentUserId);
     setPlanningSaving(false);
     if (!error) {
       refetchProject();
@@ -293,7 +317,7 @@ export default function ProjetDetailPage() {
     setExpenseOpen(false);
     setExpenseDescription("");
     setExpenseAmount("");
-    setExpenseTvaRate(Number.isFinite(profileVatRate) ? profileVatRate : 20);
+    setExpenseTvaRate(Number.isFinite(Number(currentProject?.vat_rate)) ? Number(currentProject?.vat_rate) : 20);
     setExpenseCategory("achat_materiel");
     setExpenseDate(new Date().toISOString().slice(0, 10));
     setExpenseSuccess(t("expenseSaved", language));
@@ -351,8 +375,8 @@ export default function ProjetDetailPage() {
   const progressPercent = totalDays > 0 ? Math.min(100, (elapsedDays / totalDays) * 100) : 0;
   const isOverdue = endDay && todayDay > endDay && currentProject?.status !== "termine";
   const marge = currentProject ? projectMarge(currentProject) : 0;
-  const budgetNum = parseNum(contractAmount);
-  const effectiveVatRate = Number.isFinite(profileVatRate) ? profileVatRate : 20;
+  const budgetNum = Number(currentProject.contract_amount ?? 0);
+  const effectiveVatRate = Number.isFinite(Number(currentProject.vat_rate)) ? Number(currentProject.vat_rate) : 20;
   const totalTtc = budgetNum * (1 + effectiveVatRate / 100);
   const amountCollected = Number(currentProject.amount_collected ?? 0);
   const restant = Math.max(0, totalTtc - amountCollected);
@@ -405,7 +429,8 @@ export default function ProjetDetailPage() {
                   status: e.target.value as unknown as ProjectStatus,
                   updated_at: new Date().toISOString(),
                 })
-                .eq("id", id);
+                .eq("id", id)
+                .eq("user_id", currentUserId);
               setStatusSaving(false);
               refetchProject();
             }}
@@ -746,7 +771,7 @@ export default function ProjetDetailPage() {
                   <Input
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Ex: 12 rue de la Paix, 75001 Paris"
+                    placeholder={t("projectAddressPlaceholder", language)}
                     className="min-h-[48px]"
                   />
                 </div>
@@ -791,14 +816,20 @@ export default function ProjetDetailPage() {
                       type="button"
                       className="text-sm text-gray-500 underline-offset-2 hover:underline"
                       onClick={async () => {
+                        if (!supabase || !id || !currentUserId) return;
                         const raw = window.prompt(
-                          language === "fr" ? "Nouveau taux de TVA (%)" : "New VAT rate (%)",
+                          t("projectVatPrompt", language),
                           String(effectiveVatRate)
                         );
                         if (raw == null) return;
                         const nextRate = Number(raw.replace(",", "."));
                         if (!Number.isFinite(nextRate) || nextRate < 0 || nextRate > 100) return;
-                        await upsertProfile({ vat_rate: nextRate });
+                        await supabase
+                          .from("projects")
+                          .update({ vat_rate: nextRate, updated_at: new Date().toISOString() })
+                          .eq("id", id)
+                          .eq("user_id", currentUserId);
+                        await refetchProject();
                       }}
                     >
                       {t("vatToPay", language)} · {effectiveVatRate}%
@@ -1038,7 +1069,7 @@ export default function ProjetDetailPage() {
               <Input
                 value={expenseDescription}
                 onChange={(e) => setExpenseDescription(e.target.value)}
-                placeholder="Ex: Achat carrelage"
+                placeholder={t("projectExpenseDescriptionPlaceholder", language)}
                 className="min-h-[44px]"
               />
             </div>
@@ -1056,7 +1087,26 @@ export default function ProjetDetailPage() {
                 />
               </div>
               <div>
-                <label className="text-sm text-gray-500 block mb-1">{t("vat", language)} %</label>
+                <button
+                  type="button"
+                  className="text-sm text-gray-500 mb-1 underline-offset-2 hover:underline"
+                  onClick={async () => {
+                    if (!supabase || !id || !currentUserId) return;
+                    const raw = window.prompt(t("projectVatPrompt", language), String(effectiveVatRate));
+                    if (raw == null) return;
+                    const nextRate = Number(raw.replace(",", "."));
+                    if (!Number.isFinite(nextRate) || nextRate < 0 || nextRate > 100) return;
+                    await supabase
+                      .from("projects")
+                      .update({ vat_rate: nextRate, updated_at: new Date().toISOString() })
+                      .eq("id", id)
+                      .eq("user_id", currentUserId);
+                    setExpenseTvaRate(nextRate);
+                    await refetchProject();
+                  }}
+                >
+                  {t("vat", language)} %
+                </button>
                 <Input
                   type="number"
                   min="0"
@@ -1110,7 +1160,12 @@ export default function ProjetDetailPage() {
                 } catch {
                   // ignore
                 }
-                const { error } = await supabase.from("projects").delete().eq("id", id);
+                if (!currentUserId) return;
+                const { error } = await supabase
+                  .from("projects")
+                  .delete()
+                  .eq("id", id)
+                  .eq("user_id", currentUserId);
                 if (error) alert(error.message);
                 else router.push("/projets");
               }}
