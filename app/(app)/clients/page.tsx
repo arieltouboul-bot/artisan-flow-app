@@ -451,16 +451,16 @@ function ClientsPageContent() {
             {submitError && <p className="text-sm text-red-600">{submitError}</p>}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
-                Annuler
+                {t("cancel", language)}
               </Button>
               <Button type="submit" disabled={submitLoading}>
                 {submitLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Enregistrement...
+                    {t("loading", language)}
                   </>
                 ) : (
-                  "Enregistrer"
+                  t("save", language)
                 )}
               </Button>
             </DialogFooter>

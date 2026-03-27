@@ -43,6 +43,7 @@ import {
   FileText,
   Upload,
   Trash2,
+  X,
   Loader2,
   CheckSquare,
   Square,
@@ -255,12 +256,12 @@ export default function ProjetDetailPage() {
       .single();
     setNotesSaving(false);
     if (error) {
-      pushToast("error", error.message);
+      pushToast("error", t("saveErrorGeneric", language));
       return;
     }
     setProjectNotes((prev) => [data as { id: string; content: string; created_at?: string }, ...prev]);
     setNewNote("");
-    pushToast("success", language === "fr" ? "Note sauvegardee." : "Note saved.");
+    pushToast("success", t("projectNoteSaved", language));
   };
 
   const handleUpdateProjectNote = async (noteId: string) => {
@@ -268,18 +269,18 @@ export default function ProjetDetailPage() {
     setNotesSaving(true);
     const { error } = await supabase
       .from("project_notes")
-      .update({ content: editingNoteContent.trim(), updated_at: new Date().toISOString() })
+      .update({ content: editingNoteContent.trim() })
       .eq("id", noteId)
       .eq("user_id", currentUserId);
     setNotesSaving(false);
     if (error) {
-      pushToast("error", error.message);
+      pushToast("error", t("saveErrorGeneric", language));
       return;
     }
     setProjectNotes((prev) => prev.map((n) => (n.id === noteId ? { ...n, content: editingNoteContent.trim() } : n)));
     setEditingNoteId(null);
     setEditingNoteContent("");
-    pushToast("success", language === "fr" ? "Note mise a jour." : "Note updated.");
+    pushToast("success", t("projectNoteUpdated", language));
   };
 
   const handleDeleteProjectNote = async (noteId: string) => {
@@ -288,11 +289,11 @@ export default function ProjetDetailPage() {
     const { error } = await supabase.from("project_notes").delete().eq("id", noteId).eq("user_id", currentUserId);
     setNotesSaving(false);
     if (error) {
-      pushToast("error", error.message);
+      pushToast("error", t("deleteErrorGeneric", language));
       return;
     }
     setProjectNotes((prev) => prev.filter((n) => n.id !== noteId));
-    pushToast("success", language === "fr" ? "Note supprimee." : "Note deleted.");
+    pushToast("success", t("projectNoteDeleted", language));
   };
 
   const handleUploadGalleryImage = async (file: File) => {
@@ -304,7 +305,7 @@ export default function ProjetDetailPage() {
       .upload(path, file, { upsert: false, contentType: file.type });
     if (uploadError) {
       setGalleryUploading(false);
-      pushToast("error", uploadError.message);
+      pushToast("error", t("saveErrorGeneric", language));
       return;
     }
     const {
@@ -317,11 +318,11 @@ export default function ProjetDetailPage() {
       .single();
     setGalleryUploading(false);
     if (error) {
-      pushToast("error", error.message);
+      pushToast("error", t("saveErrorGeneric", language));
       return;
     }
     setPhotos((prev) => [{ id: data.id, url: data.public_url as string, storage_path: data.storage_path as string }, ...prev]);
-    pushToast("success", language === "fr" ? "Image ajoutee." : "Image uploaded.");
+    pushToast("success", t("projectImageUploaded", language));
   };
 
   const handleDeleteGalleryImage = async (imageId: string, storagePath?: string) => {
@@ -331,11 +332,11 @@ export default function ProjetDetailPage() {
     }
     const { error } = await supabase.from("project_images").delete().eq("id", imageId).eq("user_id", currentUserId);
     if (error) {
-      pushToast("error", error.message);
+      pushToast("error", t("deleteErrorGeneric", language));
       return;
     }
     setPhotos((prev) => prev.filter((img) => img.id !== imageId));
-    pushToast("success", language === "fr" ? "Image supprimee." : "Image deleted.");
+    pushToast("success", t("projectImageDeleted", language));
   };
 
   const handleAddTask = (e: React.FormEvent) => {
@@ -412,7 +413,7 @@ export default function ProjetDetailPage() {
     const { error } = await addTransaction(amount, paymentDate, paymentMethod);
     setPaymentSaving(false);
     if (error) {
-      setPaymentError(error);
+      setPaymentError(t("saveErrorGeneric", language));
       return;
     }
     setPaymentOpen(false);
@@ -663,6 +664,12 @@ export default function ProjetDetailPage() {
                 <Input
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void handleAddProjectNote();
+                    }
+                  }}
                   placeholder={t("projectNotesPlaceholder", language)}
                   className="min-h-[44px]"
                 />
@@ -694,7 +701,7 @@ export default function ProjetDetailPage() {
                     ) : (
                       <button
                         type="button"
-                        onDoubleClick={() => {
+                        onClick={() => {
                           setEditingNoteId(note.id);
                           setEditingNoteContent(note.content);
                         }}
@@ -710,7 +717,7 @@ export default function ProjetDetailPage() {
                       onClick={() => void handleDeleteProjectNote(note.id)}
                       aria-label={t("delete", language)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <X className="h-4 w-4" />
                     </Button>
                   </li>
                 ))}
@@ -788,7 +795,7 @@ export default function ProjetDetailPage() {
                           ) : (
                             <button
                               type="button"
-                              onDoubleClick={() => {
+                              onClick={() => {
                                 setEditingTaskId(task.id);
                                 setEditingTaskLabel(task.label);
                               }}
@@ -802,10 +809,13 @@ export default function ProjetDetailPage() {
                           variant="ghost"
                           size="icon"
                           className="shrink-0 text-red-600 hover:bg-red-50 min-h-[40px] min-w-[40px] opacity-0 transition-opacity group-hover:opacity-100"
-                          onClick={() => deleteTask(task.id)}
+                          onClick={() => {
+                            deleteTask(task.id);
+                            pushToast("success", t("taskDeleted", language));
+                          }}
                           aria-label={t("delete", language)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <X className="h-4 w-4" />
                         </Button>
                       </motion.li>
                     ))}
@@ -853,8 +863,8 @@ export default function ProjetDetailPage() {
                     if (!selectedEmployeeId) return;
                     setAssigning(true);
                     const result = await assignEmployee(selectedEmployeeId);
-                    if (result?.error) pushToast("error", result.error.message);
-                    else pushToast("success", language === "fr" ? "Membre assigne." : "Member assigned.");
+                    if (result?.error) pushToast("error", t("saveErrorGeneric", language));
+                    else pushToast("success", t("projectMemberAssigned", language));
                     setSelectedEmployeeId("");
                     setAssigning(false);
                   }}
@@ -885,12 +895,12 @@ export default function ProjetDetailPage() {
                         className="text-red-600 hover:bg-red-50 min-h-[40px] min-w-[40px]"
                         onClick={async () => {
                           const result = await unassignEmployee(a.id);
-                          if (result?.error) pushToast("error", result.error.message);
-                          else pushToast("success", language === "fr" ? "Membre retire." : "Member removed.");
+                          if (result?.error) pushToast("error", t("deleteErrorGeneric", language));
+                          else pushToast("success", t("projectMemberRemoved", language));
                         }}
                         aria-label={t("projectRemoveFromSite", language)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <X className="h-4 w-4" />
                       </Button>
                     </li>
                   ))}
@@ -1184,7 +1194,7 @@ export default function ProjetDetailPage() {
                         className="absolute right-2 top-2 h-6 w-6 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
                         aria-label={t("delete", language)}
                       >
-                        X
+                        <X className="mx-auto h-4 w-4" />
                       </button>
                     </div>
                   ))}
@@ -1415,7 +1425,7 @@ export default function ProjetDetailPage() {
                   .delete()
                   .eq("id", id)
                   .eq("user_id", currentUserId);
-                if (error) alert(error.message);
+                if (error) pushToast("error", t("deleteErrorGeneric", language));
                 else router.push("/projets");
               }}
             >

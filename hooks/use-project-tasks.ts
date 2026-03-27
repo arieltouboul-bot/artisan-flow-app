@@ -69,7 +69,14 @@ export function useProjectTasks(projectId: string | null) {
     async (taskId: string, completed: boolean) => {
       const supabase = createClient();
       if (!supabase) return;
-      await supabase.from("project_tasks").update({ completed }).eq("id", taskId);
+      // Support both schemas: is_completed (new) and completed (legacy)
+      const { error: isCompletedErr } = await supabase
+        .from("project_tasks")
+        .update({ is_completed: completed })
+        .eq("id", taskId);
+      if (isCompletedErr) {
+        await supabase.from("project_tasks").update({ completed }).eq("id", taskId);
+      }
       setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, completed } : t)));
     },
     []

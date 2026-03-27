@@ -925,10 +925,10 @@ export default function FacturesPage() {
                 }}
                 disabled={formSaving || ocrLoading}
               >
-                Annuler
+                {t("cancel", language)}
               </Button>
               <Button type="submit" disabled={formSaving || ocrLoading}>
-                {formSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enregistrer"}
+                {formSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
               </Button>
             </DialogFooter>
           </form>
