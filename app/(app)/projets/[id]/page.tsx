@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,7 +23,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { useProject } from "@/hooks/use-projects";
 import { useProjectTasks } from "@/hooks/use-project-tasks";
 import { useProjectTransactions } from "@/hooks/use-project-transactions";
-import { useProjectExpenses, EXPENSE_CATEGORIES } from "@/hooks/use-project-expenses";
+import { useProjectExpenses, EXPENSE_CATEGORY_ORDER } from "@/hooks/use-project-expenses";
 import { useProjectRevenues } from "@/hooks/use-project-revenues";
 import {
   totalProjectRevenueEur,
@@ -161,6 +161,23 @@ export default function ProjetDetailPage() {
     setToast({ kind, message });
     window.setTimeout(() => setToast(null), 2200);
   };
+
+  const openVatRateEditor = useCallback(async () => {
+    if (!supabase || !id || !currentUserId || !currentProject) return;
+    const currentRate = Number.isFinite(Number(currentProject.vat_rate)) ? Number(currentProject.vat_rate) : 20;
+    const raw = window.prompt(t("projectVatPrompt", language), String(currentRate));
+    if (raw == null) return;
+    const nextRate = Number(String(raw).replace(",", "."));
+    if (!Number.isFinite(nextRate) || nextRate < 0 || nextRate > 100) return;
+    await supabase
+      .from("projects")
+      .update({ vat_rate: nextRate, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("user_id", currentUserId);
+    setExpenseTvaRate(nextRate);
+    await refetchProject();
+    router.refresh();
+  }, [supabase, id, currentUserId, currentProject, language, refetchProject, router]);
 
   useEffect(() => {
     if (!supabase || !id) return;
@@ -354,6 +371,14 @@ export default function ProjetDetailPage() {
     return Number.isNaN(n) ? 0 : n;
   };
 
+  const expenseCategoryLabel = (cat: string) => {
+    if (cat === "achat_materiel") return t("expenseCategoryMaterial", language);
+    if (cat === "location") return t("expenseCategoryRental", language);
+    if (cat === "main_oeuvre") return t("expenseCategoryLabor", language);
+    if (cat === "sous_traitance") return t("expenseCategorySubcontract", language);
+    return cat;
+  };
+
   const getStatusLabel = (status: ProjectStatus | string) => {
     if (status === "en_preparation") return t("statusInPreparation", language);
     if (status === "en_cours") return t("statusInProgress", language);
@@ -513,10 +538,16 @@ export default function ProjetDetailPage() {
   const progressPercent = totalDays > 0 ? Math.min(100, (elapsedDays / totalDays) * 100) : 0;
   const isOverdue = endDay && todayDay > endDay && currentProject?.status !== "termine";
   const marge = currentProject ? projectMarge(currentProject) : 0;
-  const budgetNum = Number(currentProject.contract_amount ?? 0);
+  const budgetNum = (() => {
+    const n = parseFloat(String(currentProject.contract_amount ?? 0).replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  })();
   const effectiveVatRate = Number.isFinite(Number(currentProject.vat_rate)) ? Number(currentProject.vat_rate) : 20;
   const totalTtc = budgetNum * (1 + effectiveVatRate / 100);
-  const amountCollected = Number(currentProject.amount_collected ?? 0);
+  const amountCollected = (() => {
+    const n = parseFloat(String(currentProject.amount_collected ?? 0).replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  })();
   const restant = Math.max(0, totalTtc - amountCollected);
   const payProgressPct = totalTtc > 0 ? Math.min(100, (amountCollected / totalTtc) * 100) : 0;
   const isPaymentComplete = totalTtc > 0 && restant < 0.005;
@@ -888,27 +919,24 @@ export default function ProjetDetailPage() {
               ) : (
                 <ul className="space-y-2">
                   {assignments.map((a) => (
-                    <li
-                      key={a.id}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2 min-h-[48px]"
-                    >
-                      <span className="text-gray-900">
-                        {a.employee?.first_name} {a.employee?.last_name}
-                        {a.employee?.role && <span className="text-gray-500"> · {a.employee.role}</span>}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-600 hover:bg-red-50 min-h-[40px] min-w-[40px]"
-                        onClick={async () => {
+                    <li key={a.id} className="list-none">
+                      <SwipeActionsRow
+                        actions="delete-only"
+                        onDelete={async () => {
                           const result = await unassignEmployee(a.id);
                           if (result?.error) pushToast("error", t("deleteErrorGeneric", language));
                           else pushToast("success", t("projectMemberRemoved", language));
                         }}
-                        aria-label={t("projectRemoveFromSite", language)}
+                        deleteLabel={t("projectRemoveFromSite", language)}
+                        className="border-gray-100 bg-gray-50/50"
                       >
-                        <X className="h-4 w-4" />
-                      </Button>
+                        <div className="flex min-h-[48px] items-center px-3 py-2">
+                          <span className="text-gray-900">
+                            {a.employee?.first_name} {a.employee?.last_name}
+                            {a.employee?.role && <span className="text-gray-500"> · {a.employee.role}</span>}
+                          </span>
+                        </div>
+                      </SwipeActionsRow>
                     </li>
                   ))}
                   {assignments.length === 0 && (
@@ -941,6 +969,19 @@ export default function ProjetDetailPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">{t("contractAmount", language)}</span>
                   <span className="text-xl font-bold text-gray-900">{formatConvertedCurrency(budgetNum, currency)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void openVatRateEditor()}
+                    className="text-left text-sm font-medium text-brand-blue-600 underline-offset-2 hover:underline"
+                  >
+                    {t("projectTotalTtcLabel", language)}{" "}
+                    <span className="text-gray-500 font-normal">({t("vat", language)} {effectiveVatRate}%)</span>
+                  </button>
+                  <span className="text-xl font-bold text-gray-900 shrink-0">
+                    {formatConvertedCurrency(totalTtc, currency)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500">{t("projectAmountPaidLabel", language)}</span>
@@ -1058,22 +1099,7 @@ export default function ProjetDetailPage() {
                     <button
                       type="button"
                       className="text-sm text-gray-500 underline-offset-2 hover:underline"
-                      onClick={async () => {
-                        if (!supabase || !id || !currentUserId) return;
-                        const raw = window.prompt(
-                          t("projectVatPrompt", language),
-                          String(effectiveVatRate)
-                        );
-                        if (raw == null) return;
-                        const nextRate = Number(raw.replace(",", "."));
-                        if (!Number.isFinite(nextRate) || nextRate < 0 || nextRate > 100) return;
-                        await supabase
-                          .from("projects")
-                          .update({ vat_rate: nextRate, updated_at: new Date().toISOString() })
-                          .eq("id", id)
-                          .eq("user_id", currentUserId);
-                        await refetchProject();
-                      }}
+                      onClick={() => void openVatRateEditor()}
                     >
                       {t("vatToPay", language)} · {effectiveVatRate}%
                     </button>
@@ -1114,7 +1140,7 @@ export default function ProjetDetailPage() {
                     {expenses.map((ex) => (
                       <li key={ex.id} className="flex justify-between items-center py-1">
                         <span>
-                          {formatDate(ex.date)} — {EXPENSE_CATEGORIES.find((c) => c.value === ex.category)?.label ?? ex.category} · {ex.description || "—"}
+                          {formatDate(ex.date)} — {expenseCategoryLabel(ex.category)} · {ex.description || "—"}
                         </span>
                         <span className="flex items-center gap-2">
                           <span className="font-medium">{formatConvertedCurrency(ex.amount_ht, currency)} HT</span>
@@ -1325,8 +1351,10 @@ export default function ProjetDetailPage() {
                 onChange={(e) => setExpenseCategory(e.target.value as typeof expenseCategory)}
                 className="w-full min-h-[44px] rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
-                {EXPENSE_CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
+                {EXPENSE_CATEGORY_ORDER.map((c) => (
+                  <option key={c} value={c}>
+                    {expenseCategoryLabel(c)}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1356,20 +1384,7 @@ export default function ProjetDetailPage() {
                 <button
                   type="button"
                   className="text-sm text-gray-500 mb-1 underline-offset-2 hover:underline"
-                  onClick={async () => {
-                    if (!supabase || !id || !currentUserId) return;
-                    const raw = window.prompt(t("projectVatPrompt", language), String(effectiveVatRate));
-                    if (raw == null) return;
-                    const nextRate = Number(raw.replace(",", "."));
-                    if (!Number.isFinite(nextRate) || nextRate < 0 || nextRate > 100) return;
-                    await supabase
-                      .from("projects")
-                      .update({ vat_rate: nextRate, updated_at: new Date().toISOString() })
-                      .eq("id", id)
-                      .eq("user_id", currentUserId);
-                    setExpenseTvaRate(nextRate);
-                    await refetchProject();
-                  }}
+                  onClick={() => void openVatRateEditor()}
                 >
                   {t("vat", language)} %
                 </button>

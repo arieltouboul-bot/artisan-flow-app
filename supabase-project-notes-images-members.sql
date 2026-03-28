@@ -1,4 +1,6 @@
 -- Notes, galerie projet, et membres projet
+-- Pour mettre à jour automatiquement updated_at sur project_notes (et project_tasks si colonne présente),
+-- exécuter aussi : supabase-updated-at-triggers.sql
 
 CREATE TABLE IF NOT EXISTS public.project_notes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -282,11 +282,11 @@ function EmployeesPageContent() {
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nouvel employé</DialogTitle>
+            <DialogTitle>{t("addEmployee", language)}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAdd} className="space-y-4">
             <div>
-              <label className="text-sm text-gray-600 block mb-1">Prénom</label>
+              <label className="text-sm text-gray-600 block mb-1">{t("firstName", language)}</label>
               <Input
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
@@ -296,21 +296,21 @@ function EmployeesPageContent() {
               />
             </div>
             <div>
-              <label className="text-sm text-gray-600 block mb-1">Nom</label>
+              <label className="text-sm text-gray-600 block mb-1">{t("lastName", language)}</label>
               <Input
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                placeholder="Nom"
+                placeholder={t("lastName", language)}
                 className="min-h-[48px]"
                 required
               />
             </div>
             <div>
-              <label className="text-sm text-gray-600 block mb-1">Rôle</label>
+              <label className="text-sm text-gray-600 block mb-1">{t("role", language)}</label>
               <Input
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                placeholder="Ex: Chef de chantier, Carreleur..."
+                placeholder={t("employeeRoleExamplePlaceholder", language)}
                 className="min-h-[48px]"
               />
             </div>
@@ -319,7 +319,7 @@ function EmployeesPageContent() {
                 {t("cancel", language)}
               </Button>
               <Button type="submit" disabled={submitLoading}>
-                {submitLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Ajouter"}
+                {submitLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("add", language)}
               </Button>
             </DialogFooter>
           </form>
@@ -580,16 +580,16 @@ function EmployeesPageContent() {
             className="space-y-4"
           >
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">{language === "fr" ? "Prénom" : "First name"}</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("firstName", language)}</label>
               <Input value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} className="min-h-[44px]" required />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">{language === "fr" ? "Nom" : "Last name"}</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("lastName", language)}</label>
               <Input value={editLastName} onChange={(e) => setEditLastName(e.target.value)} className="min-h-[44px]" required />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">{language === "fr" ? "Rôle" : "Role"}</label>
-              <Input value={editRole} onChange={(e) => setEditRole(e.target.value)} placeholder={language === "fr" ? "Ex: Chef de chantier..." : "e.g. Site manager..."} className="min-h-[44px]" />
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("role", language)}</label>
+              <Input value={editRole} onChange={(e) => setEditRole(e.target.value)} placeholder={t("employeeRoleExamplePlaceholder", language)} className="min-h-[44px]" />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditId(null)} disabled={editLoading}>{t("cancel", language)}</Button>

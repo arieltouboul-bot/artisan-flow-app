@@ -336,7 +336,7 @@ export default function FacturesPage() {
       alert("Utilisateur non connecté.");
       return;
     }
-    if (!confirm("Supprimer cette facture ?")) return;
+    if (!confirm(t("deleteInvoiceConfirm", language))) return;
 
     setDeletingId(expenseId);
     const { error: deleteErr } = await supabase
@@ -674,7 +674,7 @@ export default function FacturesPage() {
                 const ttc = e.amount_ht + tvaAmount;
                 const vendor = e.description.split(" — ")[0] || e.description;
                 const runDelete = async () => {
-                  if (!confirm(language === "en" ? "Delete this invoice?" : "Supprimer cette facture ?")) return;
+                  if (!confirm(t("deleteInvoiceConfirm", language))) return;
                   setDeletingId(e.id);
                   const supabase = createClient();
                   if (!supabase) {
@@ -807,7 +807,7 @@ export default function FacturesPage() {
                             onOpenChange={(open) => setOpenMenuId(open ? e.id : null)}
                             onEdit={() => openEdit(e.id)}
                             onDelete={async () => {
-                              if (!confirm("Supprimer?")) return;
+                              if (!confirm(t("deleteShortConfirm", language))) return;
                               setDeletingId(e.id);
                               const supabase = createClient();
                               if (!supabase) { setDeletingId(null); return; }

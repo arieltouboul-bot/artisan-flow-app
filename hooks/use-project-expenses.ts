@@ -18,11 +18,11 @@ function mapRow(row: Record<string, unknown>): Expense {
   };
 }
 
-export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string }[] = [
-  { value: "achat_materiel", label: "Achat Matériel" },
-  { value: "location", label: "Location" },
-  { value: "main_oeuvre", label: "Main d'œuvre" },
-  { value: "sous_traitance", label: "Sous-traitance" },
+export const EXPENSE_CATEGORY_ORDER: ExpenseCategory[] = [
+  "achat_materiel",
+  "location",
+  "main_oeuvre",
+  "sous_traitance",
 ];
 
 export function useProjectExpenses(projectId: string | null) {

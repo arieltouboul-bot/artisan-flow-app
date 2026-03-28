@@ -483,7 +483,7 @@ export default function MaterielPage() {
                 <div className="space-y-3 px-1">
                   {filteredItems.map((item) => {
                     const runDel = async () => {
-                      if (!confirm(language === "en" ? "Delete this item?" : "Supprimer cet article ?")) return;
+                      if (!confirm(t("deleteMaterialItemConfirm", language))) return;
                       setDeletingId(`item-${item.id}`);
                       const res = await deleteItem(item.id);
                       setDeletingId(null);
@@ -649,7 +649,7 @@ export default function MaterielPage() {
                             setRentalAddOpen(true);
                           }}
                           onDelete={async () => {
-                            if (!confirm(language === "fr" ? "Supprimer cette location ?" : "Delete this rental?")) return;
+                            if (!confirm(t("deleteRentalConfirm", language))) return;
                             setDeletingId(delId);
                             const res = await deleteRental(r.id);
                             setDeletingId(null);
@@ -681,7 +681,7 @@ export default function MaterielPage() {
                             setRentalAddOpen(true);
                           }}
                           onDelete={async () => {
-                            if (!confirm(language === "fr" ? "Supprimer cette location ?" : "Delete this rental?")) return;
+                            if (!confirm(t("deleteRentalConfirm", language))) return;
                             setDeletingId(delId);
                             const res = await deleteRental(r.id);
                             setDeletingId(null);
@@ -739,7 +739,7 @@ export default function MaterielPage() {
                 <div className="space-y-3 px-1">
                   {suppliers.map((s) => {
                     const runDel = async () => {
-                      if (!confirm(language === "en" ? "Delete this supplier?" : "Supprimer ce fournisseur ?")) return;
+                      if (!confirm(t("deleteSupplierConfirm", language))) return;
                       setDeletingId(`supplier-${s.id}`);
                       const res = await deleteSupplier(s.id);
                       setDeletingId(null);
@@ -986,7 +986,7 @@ export default function MaterielPage() {
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">{t("category", language)}</label>
-              <Input value={addCategory} onChange={(e) => setAddCategory(e.target.value)} placeholder="Ex: Peinture" className="min-h-[44px]" />
+              <Input value={addCategory} onChange={(e) => setAddCategory(e.target.value)} placeholder={t("materialCategoryExample", language)} className="min-h-[44px]" />
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 mb-1 block">{t("supplierOptional", language)}</label>
@@ -1041,7 +1041,7 @@ export default function MaterielPage() {
               <textarea
                 value={pasteText}
                 onChange={(e) => setPasteText(e.target.value)}
-                placeholder={language === "fr" ? "Ex: Brico Dépôt, 12 rue des pros, 0123456789" : "e.g. Brico Dépôt, 12 rue des pros, 0123456789"}
+                placeholder={t("supplierDetailsExamplePlaceholder", language)}
                 rows={3}
                 className={cn("w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm min-h-[80px] resize-y")}
               />

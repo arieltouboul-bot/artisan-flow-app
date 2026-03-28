@@ -254,15 +254,11 @@ export default function CalendarPage() {
   };
 
   const handleDeleteAppointment = async (id: string) => {
-    const ok = window.confirm(
-      language === "en"
-        ? "Delete this appointment permanently?"
-        : "Supprimer ce rendez-vous définitivement ?"
-    );
+    const ok = window.confirm(t("deleteAppointmentConfirm", language));
     if (!ok) return;
     const res = await deleteAppointment(id);
     if (res?.error) {
-      alert(res.error);
+      alert(t("saveErrorGeneric", language));
       return;
     }
     setDetailAppointment(null);
@@ -542,7 +538,7 @@ export default function CalendarPage() {
               <Input
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
-                placeholder={language === "fr" ? "Ex: RDV Pose Travertin - Client Martin" : "e.g. Travertine install - Client Martin"}
+                placeholder={t("calendarAppointmentTitleExample", language)}
                 className="min-h-[48px]"
                 required
               />

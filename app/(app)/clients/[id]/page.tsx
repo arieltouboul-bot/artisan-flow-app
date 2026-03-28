@@ -19,7 +19,7 @@ import { useClients } from "@/hooks/use-clients";
 import { useProjects } from "@/hooks/use-projects";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/context/language-context";
-import { t } from "@/lib/translations";
+import { t, tReplace } from "@/lib/translations";
 import type { ProjectStatus } from "@/types/database";
 import { formatDate } from "@/lib/utils";
 import {
@@ -34,14 +34,6 @@ import {
   MapPin,
 } from "lucide-react";
 
-const statusLabels: Record<ProjectStatus, string> = {
-  en_preparation: "En préparation",
-  en_cours: "En cours",
-  urgent_retard: "Urgent / Retard",
-  termine: "Terminé",
-  annule: "Annulé",
-};
-
 const statusVariant: Record<ProjectStatus, "gray" | "default" | "destructive" | "success"> = {
   en_preparation: "gray",
   en_cours: "default",
@@ -55,6 +47,15 @@ export default function ClientDetailPage() {
   const router = useRouter();
   const clientId = params.id as string;
   const { language } = useLanguage();
+
+  const projectStatusLabel = (s: ProjectStatus) => {
+    if (s === "en_preparation") return t("statusInPreparation", language);
+    if (s === "en_cours") return t("statusInProgress", language);
+    if (s === "urgent_retard") return t("statusUrgentLate", language);
+    if (s === "termine") return t("statusCompleted", language);
+    if (s === "annule") return t("statusCancelled", language);
+    return t("statusInPreparation", language);
+  };
   const { clients, loading: clientsLoading } = useClients();
   const { projects, loading: projectsLoading, refetch: refetchProjects } = useProjects(clientId);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
@@ -73,17 +74,17 @@ export default function ClientDetailPage() {
     e.preventDefault();
     setSubmitError(null);
     if (!formName.trim()) {
-      setSubmitError("Le nom du projet est obligatoire.");
+      setSubmitError(t("projectValidationNameRequired", language));
       return;
     }
     const supabase = createClient();
     if (!supabase) {
-      setSubmitError("Supabase non configuré.");
+      setSubmitError(t("errorSupabaseUnavailable", language));
       return;
     }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      setSubmitError("Vous devez être connecté.");
+      setSubmitError(t("errorMustSignIn", language));
       setSubmitLoading(false);
       return;
     }
@@ -106,7 +107,7 @@ export default function ClientDetailPage() {
     const { error: insertError } = await supabase.from("projects").insert(payload);
     setSubmitLoading(false);
     if (insertError) {
-      setSubmitError(insertError.message);
+      setSubmitError(t("saveErrorGeneric", language));
       return;
     }
     setNewProjectOpen(false);
@@ -127,9 +128,9 @@ export default function ClientDetailPage() {
         animate={{ opacity: 1 }}
         className="flex flex-col items-center justify-center py-16"
       >
-        <p className="text-gray-500">Client introuvable</p>
+        <p className="text-gray-500">{t("clientNotFound", language)}</p>
         <Link href="/clients">
-          <Button className="mt-4 min-h-[48px]">Retour aux clients</Button>
+          <Button className="mt-4 min-h-[48px]">{t("backToClients", language)}</Button>
         </Link>
       </motion.div>
     );
@@ -180,18 +181,18 @@ export default function ClientDetailPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <FolderKanban className="h-5 w-5 text-brand-blue-500" />
-            Projets / Chantiers
+            {t("clientDetailProjectsTitle", language)}
           </CardTitle>
           <Button onClick={() => setNewProjectOpen(true)} className="shrink-0">
             <UserPlus className="h-5 w-5 mr-2" />
-            Nouveau projet
+            {t("newProject", language)}
           </Button>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
               <Loader2 className="h-12 w-12 mb-2 animate-spin opacity-50" />
-              <p>Chargement...</p>
+              <p>{t("loading", language)}</p>
             </div>
           ) : projects.length === 0 ? (
             <motion.div
@@ -200,9 +201,9 @@ export default function ClientDetailPage() {
               className="flex flex-col items-center justify-center py-12 text-gray-500"
             >
               <FolderKanban className="h-12 w-12 mb-2 opacity-50" />
-              <p>Aucun projet pour ce client</p>
+              <p>{t("noProjectsForThisClient", language)}</p>
               <Button variant="outline" className="mt-4" onClick={() => setNewProjectOpen(true)}>
-                Créer un premier projet
+                {t("createFirstProject", language)}
               </Button>
             </motion.div>
           ) : (
@@ -231,7 +232,7 @@ export default function ClientDetailPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <Badge variant={statusVariant[project.status]}>
-                            {statusLabels[project.status]}
+                            {projectStatusLabel(project.status)}
                           </Badge>
                           <ChevronRight className="h-5 w-5 text-gray-400" />
                         </div>
@@ -248,19 +249,21 @@ export default function ClientDetailPage() {
       <Dialog open={newProjectOpen} onOpenChange={setNewProjectOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nouveau projet</DialogTitle>
-            <p className="text-sm text-gray-500">Client : {client?.name}</p>
+            <DialogTitle>{t("newProject", language)}</DialogTitle>
+            <p className="text-sm text-gray-500">
+              {tReplace("dialogClientContext", language, { name: client?.name ?? "—" })}
+            </p>
           </DialogHeader>
           <form onSubmit={handleNewProject} className="space-y-4">
             <div>
               <label htmlFor="project-name" className="text-sm font-medium text-gray-700 mb-1 block">
-                Nom du projet *
+                {t("projectName", language)} *
               </label>
               <Input
                 id="project-name"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-                placeholder="Ex: Rénovation cuisine"
+                placeholder={t("projectNameExampleShort", language)}
                 className="min-h-[48px]"
                 required
               />
@@ -268,7 +271,7 @@ export default function ClientDetailPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="start-date" className="text-sm font-medium text-gray-700 mb-1 block">
-                  Date de début
+                  {t("startDate", language)}
                 </label>
                 <Input
                   id="start-date"
@@ -280,7 +283,7 @@ export default function ClientDetailPage() {
               </div>
               <div>
                 <label htmlFor="end-date" className="text-sm font-medium text-gray-700 mb-1 block">
-                  Date de fin prévue
+                  {t("projectPlannedEndDate", language)}
                 </label>
                 <Input
                   id="end-date"
@@ -293,7 +296,7 @@ export default function ClientDetailPage() {
             </div>
             <div>
               <label htmlFor="status" className="text-sm font-medium text-gray-700 mb-1 block">
-                Statut
+                {t("projectStatusLabel", language)}
               </label>
               <select
                 id="status"
@@ -301,22 +304,24 @@ export default function ClientDetailPage() {
                 onChange={(e) => setFormStatus(e.target.value as ProjectStatus)}
                 className="w-full min-h-[48px] rounded-lg border border-gray-200 px-3 py-2 text-sm"
               >
-                {(Object.keys(statusLabels) as ProjectStatus[]).map((s) => (
+                {(
+                  ["en_preparation", "en_cours", "urgent_retard", "termine", "annule"] as ProjectStatus[]
+                ).map((s) => (
                   <option key={s} value={s}>
-                    {statusLabels[s]}
+                    {projectStatusLabel(s)}
                   </option>
                 ))}
               </select>
             </div>
             <div>
               <label htmlFor="notes" className="text-sm font-medium text-gray-700 mb-1 block">
-                Notes (instructions, codes d&apos;accès)
+                {t("clientProjectNotesFieldLabel", language)}
               </label>
               <textarea
                 id="notes"
                 value={formNotes}
                 onChange={(e) => setFormNotes(e.target.value)}
-                placeholder="Instructions techniques..."
+                placeholder={t("projectCreationNotesPlaceholder", language)}
                 rows={3}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
               />
@@ -330,10 +335,10 @@ export default function ClientDetailPage() {
                 {submitLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Création...
+                    {t("creatingProject", language)}
                   </>
                 ) : (
-                  "Créer le projet"
+                  t("createProjectSubmit", language)
                 )}
               </Button>
             </DialogFooter>

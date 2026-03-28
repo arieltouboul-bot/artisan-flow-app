@@ -17,17 +17,17 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-const statusLabels: Record<ProjectStatus, string> = {
-  en_preparation: "En préparation",
-  en_cours: "En cours",
-  urgent_retard: "Urgent / Retard",
-  termine: "Terminé",
-  annule: "Annulé",
-};
-
 function NouveauProjetPageContent() {
   const router = useRouter();
   const { language } = useLanguage();
+  const projectStatusLabel = (s: ProjectStatus) => {
+    if (s === "en_preparation") return t("statusInPreparation", language);
+    if (s === "en_cours") return t("statusInProgress", language);
+    if (s === "urgent_retard") return t("statusUrgentLate", language);
+    if (s === "termine") return t("statusCompleted", language);
+    if (s === "annule") return t("statusCancelled", language);
+    return t("statusInPreparation", language);
+  };
   const searchParams = useSearchParams();
   const { clients, loading: clientsLoading, refetch: refetchClients } = useClients();
   const [clientId, setClientId] = useState(searchParams.get("clientId") ?? "");
@@ -46,21 +46,21 @@ function NouveauProjetPageContent() {
     e.preventDefault();
     setError(null);
     if (!name.trim()) {
-      setError("Le nom du projet est obligatoire.");
+      setError(t("projectValidationNameRequired", language));
       return;
     }
     if (!clientId) {
-      setError("Veuillez sélectionner un client.");
+      setError(t("projectValidationClientRequired", language));
       return;
     }
     const supabase = createClient();
     if (!supabase) {
-      setError("Supabase non configuré.");
+      setError(t("errorSupabaseUnavailable", language));
       return;
     }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      setError("Vous devez être connecté.");
+      setError(t("errorMustSignIn", language));
       return;
     }
     setSubmitLoading(true);
@@ -86,7 +86,7 @@ function NouveauProjetPageContent() {
       .single();
     setSubmitLoading(false);
     if (insertError) {
-      setError(insertError.message);
+      setError(t("saveErrorGeneric", language));
       return;
     }
     if (data?.id) router.push(`/projets/${data.id}`);
@@ -114,7 +114,7 @@ function NouveauProjetPageContent() {
       .single();
     setNewClientSaving(false);
     if (insertError) {
-      setError(insertError.message);
+      setError(t("saveErrorGeneric", language));
       return;
     }
     setNewClientOpen(false);
@@ -136,22 +136,22 @@ function NouveauProjetPageContent() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Nouveau projet</h1>
-          <p className="text-gray-500">Créez un chantier et associez-le à un client</p>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">{t("newProject", language)}</h1>
+          <p className="text-gray-500">{t("newProjectSubtitle", language)}</p>
         </div>
       </div>
 
       <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
         <CardHeader>
-          <CardTitle>Informations du projet</CardTitle>
+          <CardTitle>{t("projectInformationCardTitle", language)}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Client *</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("clientFieldLabel", language)} *</label>
               <div className="mb-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => setNewClientOpen((v) => !v)}>
-                  + {language === "fr" ? "Nouveau Client" : "New Client"}
+                  + {t("newClient", language)}
                 </Button>
               </div>
               {newClientOpen && (
@@ -159,11 +159,11 @@ function NouveauProjetPageContent() {
                   <Input
                     value={newClientName}
                     onChange={(e) => setNewClientName(e.target.value)}
-                    placeholder={language === "fr" ? "Nom du client" : "Client name"}
+                    placeholder={t("clientNamePlaceholderShort", language)}
                     className="min-h-[44px]"
                   />
                   <Button type="button" onClick={handleCreateClientInline} disabled={newClientSaving}>
-                    {newClientSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : language === "fr" ? "Créer" : "Create"}
+                    {newClientSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("createShort", language)}
                   </Button>
                 </div>
               )}
@@ -173,59 +173,63 @@ function NouveauProjetPageContent() {
                 className="w-full min-h-[48px] rounded-lg border border-gray-200 px-3 py-2"
                 required
               >
-                <option value="">Sélectionner un client</option>
+                <option value="">{t("selectClientPlaceholder", language)}</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Nom du projet *</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("projectName", language)} *</label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Rénovation cuisine"
+                placeholder={t("projectNameExampleShort", language)}
                 className="min-h-[48px]"
                 required
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">Date de début</label>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("startDate", language)}</label>
                 <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="min-h-[48px]" />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">Date de fin prévue</label>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t("projectPlannedEndDate", language)}</label>
                 <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="min-h-[48px]" />
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Statut</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("projectStatusLabel", language)}</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as ProjectStatus)}
                 className="w-full min-h-[48px] rounded-lg border border-gray-200 px-3 py-2"
               >
-                {(Object.keys(statusLabels) as ProjectStatus[]).map((s) => (
-                  <option key={s} value={s}>{statusLabels[s]}</option>
+                {(
+                  ["en_preparation", "en_cours", "urgent_retard", "termine", "annule"] as ProjectStatus[]
+                ).map((s) => (
+                  <option key={s} value={s}>
+                    {projectStatusLabel(s)}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Notes</label>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t("notesFieldLabel", language)}</label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                placeholder="Instructions, codes d'accès..."
+                placeholder={t("projectNotesPlaceholder", language)}
               />
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex gap-2">
               <Button type="submit" disabled={submitLoading || clientsLoading}>
                 {submitLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Créer le projet
+                {t("createProjectSubmit", language)}
               </Button>
               <Link href="/projets">
                 <Button type="button" variant="outline">{t("cancel", language)}</Button>

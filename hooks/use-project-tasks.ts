@@ -95,6 +95,7 @@ export function useProjectTasks(projectId: string | null) {
 
   const toggleTask = useCallback(
     async (taskId: string, completed: boolean) => {
+      setTasks((prev) => prev.map((row) => (row.id === taskId ? { ...row, completed } : row)));
       const supabase = createClient();
       if (!supabase) return;
       const { data: authData } = await supabase.auth.getUser();
@@ -108,7 +109,6 @@ export function useProjectTasks(projectId: string | null) {
       if (isCompletedErr) {
         await supabase.from("project_tasks").update({ completed }).eq("id", taskId);
       }
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, completed } : t)));
       await fetchTasks();
     },
     [fetchTasks]
