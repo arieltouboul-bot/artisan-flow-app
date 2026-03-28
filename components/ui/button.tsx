@@ -52,17 +52,15 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       typeof rawChildren === "string" ? validationMobileLayout(rawChildren) : "none";
     const children =
       layout === "check" ? (
-        <>
-          <span className="hidden sm:inline">{rawChildren}</span>
-          <Check className="inline h-[18px] w-[18px] sm:hidden" aria-hidden="true" />
-          <span className="sr-only">{rawChildren}</span>
-        </>
+        <span className="inline-flex items-center justify-center gap-1.5">
+          <Check className="h-[18px] w-[18px] shrink-0 opacity-95" strokeWidth={2.25} aria-hidden="true" />
+          <span>{rawChildren}</span>
+        </span>
       ) : layout === "save" ? (
-        <>
-          <span className="hidden sm:inline">{rawChildren}</span>
-          <Save className="inline h-[18px] w-[18px] sm:hidden" aria-hidden="true" />
-          <span className="sr-only">{rawChildren}</span>
-        </>
+        <span className="inline-flex items-center justify-center gap-1.5">
+          <Save className="h-[18px] w-[18px] shrink-0 opacity-95" strokeWidth={2.25} aria-hidden="true" />
+          <span className="max-w-[11rem] truncate sm:max-w-none">{rawChildren}</span>
+        </span>
       ) : (
         rawChildren
       );

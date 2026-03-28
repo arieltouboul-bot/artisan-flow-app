@@ -30,24 +30,15 @@ export function useProjectTasks(projectId: string | null) {
       setLoading(false);
       return;
     }
-    const { data: authData } = await supabase.auth.getUser();
-    const userId = authData.user?.id;
-    const baseQuery = supabase
+    // Liste par projet uniquement : le filtre user_id excluait les lignes legacy (user_id NULL).
+    // La sécurité repose sur les politiques RLS (projet appartenant à auth.uid()).
+    const { data, error } = await supabase
       .from("project_tasks")
       .select("*")
       .eq("project_id", projectId)
       .order("sort_order", { ascending: true });
-    const { data, error } = userId
-      ? await baseQuery.eq("user_id", userId)
-      : await baseQuery;
     if (error) {
-      // Backward-compatible fallback when user_id column doesn't exist yet.
-      const { data: fallbackData } = await supabase
-        .from("project_tasks")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("sort_order", { ascending: true });
-      setTasks(((fallbackData ?? []) as Record<string, unknown>[]).map(mapTask));
+      setTasks([]);
     } else {
       setTasks(((data ?? []) as Record<string, unknown>[]).map(mapTask));
     }
@@ -67,26 +58,47 @@ export function useProjectTasks(projectId: string | null) {
       const { data: authData } = await supabase.auth.getUser();
       const userId = authData.user?.id;
       const maxOrder = Math.max(0, ...tasks.map((t) => t.sort_order));
-      const payload = {
-        project_id: projectId,
-        user_id: userId,
-        label: label.trim(),
-        title: label.trim(),
-        completed: false,
-        is_completed: false,
-        sort_order: maxOrder + 1,
-      };
-      const { data, error } = await supabase.from("project_tasks").insert(payload).select("*").single();
-      if (!error && data) {
-        // Optimistic local insert for immediate mobile feedback.
-        setTasks((prev) => [...prev, mapTask(data as unknown as Record<string, unknown>)]);
-      } else {
-        await supabase.from("project_tasks").insert({
-          project_id: projectId,
-          label: label.trim(),
-          completed: false,
-          sort_order: maxOrder + 1,
-        });
+      const sort_order = maxOrder + 1;
+      const labelTrim = label.trim();
+      const withOwner = userId
+        ? {
+            project_id: projectId,
+            user_id: userId,
+            label: labelTrim,
+            title: labelTrim,
+            completed: false,
+            is_completed: false,
+            sort_order,
+          }
+        : null;
+      let inserted: Record<string, unknown> | null = null;
+      if (withOwner) {
+        const { data, error } = await supabase.from("project_tasks").insert(withOwner).select("*").single();
+        if (!error && data) inserted = data as Record<string, unknown>;
+      }
+      if (!inserted) {
+        const { data, error } = await supabase
+          .from("project_tasks")
+          .insert({
+            project_id: projectId,
+            label: labelTrim,
+            completed: false,
+            sort_order,
+          })
+          .select("*")
+          .single();
+        if (!error && data) inserted = data as Record<string, unknown>;
+        else if (error) {
+          await supabase.from("project_tasks").insert({
+            project_id: projectId,
+            label: labelTrim,
+            completed: false,
+            sort_order,
+          });
+        }
+      }
+      if (inserted) {
+        setTasks((prev) => [...prev, mapTask(inserted!)]);
       }
       await fetchTasks();
     },
@@ -101,13 +113,16 @@ export function useProjectTasks(projectId: string | null) {
       const { data: authData } = await supabase.auth.getUser();
       const userId = authData.user?.id;
       // Support both schemas: is_completed (new) and completed (legacy)
-      const { error: isCompletedErr } = await supabase
-        .from("project_tasks")
-        .update({ is_completed: completed })
-        .eq("id", taskId)
-        .eq("user_id", userId ?? "");
+      let isQ = supabase.from("project_tasks").update({ is_completed: completed }).eq("id", taskId);
+      if (userId) isQ = isQ.eq("user_id", userId);
+      const { error: isCompletedErr } = await isQ;
       if (isCompletedErr) {
-        await supabase.from("project_tasks").update({ completed }).eq("id", taskId);
+        let legQ = supabase.from("project_tasks").update({ completed }).eq("id", taskId);
+        if (userId) legQ = legQ.eq("user_id", userId);
+        const { error: legErr } = await legQ;
+        if (legErr) {
+          await supabase.from("project_tasks").update({ completed }).eq("id", taskId);
+        }
       }
       await fetchTasks();
     },
@@ -120,13 +135,17 @@ export function useProjectTasks(projectId: string | null) {
       if (!supabase) return;
       const { data: authData } = await supabase.auth.getUser();
       const userId = authData.user?.id;
-      const { error } = await supabase
+      let up = supabase
         .from("project_tasks")
         .update({ label: label.trim(), title: label.trim() })
-        .eq("id", taskId)
-        .eq("user_id", userId ?? "");
+        .eq("id", taskId);
+      if (userId) up = up.eq("user_id", userId);
+      const { error } = await up;
       if (error) {
-        await supabase.from("project_tasks").update({ label: label.trim() }).eq("id", taskId);
+        let leg = supabase.from("project_tasks").update({ label: label.trim() }).eq("id", taskId);
+        if (userId) leg = leg.eq("user_id", userId);
+        const { error: e2 } = await leg;
+        if (e2) await supabase.from("project_tasks").update({ label: label.trim() }).eq("id", taskId);
       }
       setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, label: label.trim() } : t)));
       await fetchTasks();
@@ -140,15 +159,13 @@ export function useProjectTasks(projectId: string | null) {
       if (!supabase) return;
       const { data: authData } = await supabase.auth.getUser();
       const userId = authData.user?.id;
-      const { error } = await supabase
-        .from("project_tasks")
-        .delete()
-        .eq("id", taskId)
-        .eq("user_id", userId ?? "");
+      let del = supabase.from("project_tasks").delete().eq("id", taskId);
+      if (userId) del = del.eq("user_id", userId);
+      const { error } = await del;
       if (error) {
         await supabase.from("project_tasks").delete().eq("id", taskId);
       }
-      fetchTasks();
+      await fetchTasks();
     },
     [fetchTasks]
   );

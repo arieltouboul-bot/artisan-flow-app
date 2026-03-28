@@ -54,6 +54,8 @@ import {
   Users,
   UserPlus,
   Banknote,
+  Save,
+  Download,
 } from "lucide-react";
 
 const statusVariant: Record<string, "gray" | "default" | "destructive" | "success"> = {
@@ -105,6 +107,11 @@ export default function ProjetDetailPage() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskLabel, setEditingTaskLabel] = useState("");
   const [photos, setPhotos] = useState<Array<{ id: string; url: string; name?: string; storage_path?: string }>>([]);
+  const [galleryViewer, setGalleryViewer] = useState<{
+    id: string;
+    url: string;
+    storage_path?: string;
+  } | null>(null);
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [toast, setToast] = useState<{ kind: "success" | "error"; message: string } | null>(null);
   const [address, setAddress] = useState("");
@@ -218,30 +225,26 @@ export default function ProjetDetailPage() {
     };
   }, [supabase, id, currentUserId]);
 
-  useEffect(() => {
+  const refetchGalleryImages = useCallback(async () => {
     if (!supabase || !id || !currentUserId) return;
-    let mounted = true;
-    const fetchImages = async () => {
-      const { data } = await supabase
-        .from("project_images")
-        .select("id, public_url, storage_path, created_at")
-        .eq("project_id", id)
-        .eq("user_id", currentUserId)
-        .order("created_at", { ascending: false });
-      if (!mounted) return;
-      setPhotos(
-        ((data ?? []) as Array<{ id: string; public_url: string; storage_path?: string | null }>).map((img) => ({
-          id: img.id,
-          url: img.public_url,
-          storage_path: img.storage_path ?? undefined,
-        }))
-      );
-    };
-    void fetchImages();
-    return () => {
-      mounted = false;
-    };
+    const { data } = await supabase
+      .from("project_images")
+      .select("id, public_url, storage_path, created_at")
+      .eq("project_id", id)
+      .eq("user_id", currentUserId)
+      .order("created_at", { ascending: false });
+    setPhotos(
+      ((data ?? []) as Array<{ id: string; public_url: string; storage_path?: string | null }>).map((img) => ({
+        id: img.id,
+        url: img.public_url,
+        storage_path: img.storage_path ?? undefined,
+      }))
+    );
   }, [supabase, id, currentUserId]);
+
+  useEffect(() => {
+    void refetchGalleryImages();
+  }, [refetchGalleryImages]);
 
   useEffect(() => {
     if (currentProject && Number.isFinite(Number(currentProject.vat_rate))) {
@@ -329,17 +332,17 @@ export default function ProjetDetailPage() {
     const {
       data: { publicUrl },
     } = supabase.storage.from("project-galleries").getPublicUrl(path);
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("project_images")
       .insert({ project_id: id, user_id: currentUserId, storage_path: path, public_url: publicUrl })
-      .select("id, public_url, storage_path")
+      .select("id")
       .single();
     setGalleryUploading(false);
     if (error) {
       pushToast("error", t("saveErrorGeneric", language));
       return;
     }
-    setPhotos((prev) => [{ id: data.id, url: data.public_url as string, storage_path: data.storage_path as string }, ...prev]);
+    await refetchGalleryImages();
     pushToast("success", t("projectImageUploaded", language));
   };
 
@@ -353,7 +356,8 @@ export default function ProjetDetailPage() {
       pushToast("error", t("deleteErrorGeneric", language));
       return;
     }
-    setPhotos((prev) => prev.filter((img) => img.id !== imageId));
+    setGalleryViewer((v) => (v?.id === imageId ? null : v));
+    await refetchGalleryImages();
     pushToast("success", t("projectImageDeleted", language));
   };
 
@@ -959,8 +963,16 @@ export default function ProjetDetailPage() {
                 </CardTitle>
                 <p className="text-sm text-gray-500">{t("projectFinanceCardSubtitle", language)}</p>
               </div>
-              <Button size="sm" onClick={handleSaveFinance} disabled={financeSaving}>
-                {financeSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
+              <Button size="sm" onClick={handleSaveFinance} disabled={financeSaving} className="gap-1.5 shrink-0">
+                {financeSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="hidden sm:inline">{t("saveChanges", language)}</span>
+                    <span className="sm:hidden">{t("save", language)}</span>
+                  </>
+                )}
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1216,18 +1228,35 @@ export default function ProjetDetailPage() {
                 </label>
               </div>
               {photos.length > 0 && (
-                <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                   {photos.map((photo) => (
-                    <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={photo.url} alt={photo.name ?? t("projects", language)} className="h-full w-full object-cover" />
+                    <div
+                      key={photo.id}
+                      className="group relative aspect-square overflow-hidden rounded-xl border border-gray-200/80 bg-gray-100 shadow-sm ring-offset-2 transition hover:shadow-md focus-within:ring-2 focus-within:ring-brand-blue-500"
+                    >
                       <button
                         type="button"
-                        onClick={() => void handleDeleteGalleryImage(photo.id, photo.storage_path)}
-                        className="absolute right-2 top-2 h-6 w-6 rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                        className="absolute inset-0 z-10 cursor-zoom-in"
+                        onClick={() => setGalleryViewer({ id: photo.id, url: photo.url, storage_path: photo.storage_path })}
+                        aria-label={t("galleryLightboxTitle", language)}
+                      />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={photo.url}
+                        alt={t("galleryImageAlt", language)}
+                        className="pointer-events-none h-full w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void handleDeleteGalleryImage(photo.id, photo.storage_path);
+                        }}
+                        className="absolute right-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-black/65 text-white opacity-100 shadow-md transition hover:bg-red-600 sm:opacity-0 sm:group-hover:opacity-100"
                         aria-label={t("delete", language)}
                       >
-                        <X className="mx-auto h-4 w-4" />
+                        <X className="h-4 w-4" />
                       </button>
                     </div>
                   ))}
@@ -1268,8 +1297,16 @@ export default function ProjetDetailPage() {
             <Button type="button" variant="outline" onClick={() => setPlanningOpen(false)} disabled={planningSaving}>
               {t("close", language)}
             </Button>
-            <Button type="button" onClick={() => void handleSavePlanning()} disabled={planningSaving}>
-              {planningSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
+            <Button type="button" onClick={() => void handleSavePlanning()} disabled={planningSaving} className="gap-1.5">
+              {planningSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Save className="h-4 w-4 shrink-0" aria-hidden />
+                  <span className="hidden sm:inline">{t("saveChanges", language)}</span>
+                  <span className="sm:hidden">{t("save", language)}</span>
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
