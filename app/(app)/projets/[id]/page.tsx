@@ -66,6 +66,10 @@ const statusVariant: Record<string, "gray" | "default" | "destructive" | "succes
   annule: "gray",
 };
 
+/** Boutons primaires : contraste explicite (évite texte/icônes illisibles sur fond bleu). */
+const projectPrimaryBtn =
+  "bg-blue-600 text-white font-bold hover:bg-blue-700 hover:text-white active:bg-blue-800 shadow-sm [&_svg]:text-white [&_span]:text-white";
+
 function ProjectDetailSkeleton() {
   return (
     <div className="space-y-6" aria-busy="true" aria-label="Loading">
@@ -349,6 +353,10 @@ export default function ProjetDetailPage() {
     }
     if (uploadError) {
       setGalleryUploading(false);
+      console.error("[gallery] storage upload failed", {
+        message: uploadError.message,
+        name: uploadError.name,
+      });
       pushToast("error", t("saveErrorGeneric", language));
       return;
     }
@@ -357,7 +365,13 @@ export default function ProjetDetailPage() {
     } = supabase.storage.from("project-galleries").getPublicUrl(path);
     const { data: imgRow, error } = await supabase
       .from("project_images")
-      .insert({ project_id: id, user_id: currentUserId, storage_path: path, public_url: publicUrl })
+      .insert({
+        project_id: id,
+        user_id: currentUserId,
+        storage_path: path,
+        public_url: publicUrl,
+        file_name: file.name,
+      })
       .select("id")
       .single();
     setGalleryUploading(false);
@@ -370,6 +384,12 @@ export default function ProjetDetailPage() {
       });
     }
     if (error) {
+      console.error("[gallery] project_images insert failed", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
       pushToast("error", t("saveErrorGeneric", language));
       return;
     }
@@ -540,7 +560,7 @@ export default function ProjetDetailPage() {
       >
         <p className="text-gray-500">{t("projectNotFoundTitle", language)}</p>
         <Link href="/projets">
-          <Button className="mt-4 min-h-[48px]">{t("backToProjects", language)}</Button>
+          <Button className={cn("mt-4 min-h-[48px]", projectPrimaryBtn)}>{t("backToProjects", language)}</Button>
         </Link>
       </motion.div>
     );
@@ -564,7 +584,7 @@ export default function ProjetDetailPage() {
         <p className="text-gray-900 font-medium">{t("projectNotFoundTitle", language)}</p>
         <p className="text-gray-500 mt-2 max-w-md">{t("projectNotFoundHint", language)}</p>
         <Link href="/projets">
-          <Button className="mt-6 min-h-[48px]">{t("backToProjects", language)}</Button>
+          <Button className={cn("mt-6 min-h-[48px]", projectPrimaryBtn)}>{t("backToProjects", language)}</Button>
         </Link>
       </motion.div>
     );
@@ -608,7 +628,11 @@ export default function ProjetDetailPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
           <Link href={currentProject ? `/clients/${currentProject.client_id}` : "/projets"}>
-            <Button variant="ghost" size="icon" className="min-h-[48px] min-w-[48px]">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="min-h-[48px] min-w-[48px] text-brand-blue-700 hover:bg-brand-blue-50 hover:text-brand-blue-800 [&_svg]:text-current"
+            >
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
@@ -751,8 +775,19 @@ export default function ProjetDetailPage() {
                   placeholder={t("projectNotesPlaceholder", language)}
                   className="min-h-[44px]"
                 />
-                <Button type="button" size="icon" onClick={handleAddProjectNote} disabled={!newNote.trim() || notesSaving}>
-                  <Plus className="h-4 w-4" />
+                <Button
+                  type="button"
+                  size="icon"
+                  className={projectPrimaryBtn}
+                  onClick={handleAddProjectNote}
+                  disabled={!newNote.trim() || notesSaving}
+                  aria-label={t("add", language)}
+                >
+                  {notesSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-white" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
               <ul className="space-y-2">
@@ -816,7 +851,13 @@ export default function ProjetDetailPage() {
                   placeholder={t("taskPlaceholder", language)}
                   className="min-h-[48px] flex-1"
                 />
-                <Button type="submit" size="icon" className="min-h-[48px] min-w-[48px]" disabled={!newTaskLabel.trim()}>
+                <Button
+                  type="submit"
+                  size="icon"
+                  className={cn("min-h-[48px] min-w-[48px]", projectPrimaryBtn)}
+                  disabled={!newTaskLabel.trim()}
+                  aria-label={t("add", language)}
+                >
                   <Plus className="h-5 w-5" />
                 </Button>
               </form>
@@ -950,9 +991,16 @@ export default function ProjetDetailPage() {
                     setSelectedEmployeeId("");
                     setAssigning(false);
                   }}
-                  className="min-h-[48px]"
+                  className={cn("min-h-[48px]", projectPrimaryBtn)}
                 >
-                  {assigning ? <Loader2 className="h-4 w-4 animate-spin" /> : <><UserPlus className="h-4 w-4 mr-2" /> {t("add", language)}</>}
+                  {assigning ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-white" />
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4 mr-2 shrink-0" />
+                      {t("add", language)}
+                    </>
+                  )}
                 </Button>
               </div>
               {teamLoading ? (
@@ -1007,15 +1055,18 @@ export default function ProjetDetailPage() {
                 size="sm"
                 onClick={handleSaveFinance}
                 disabled={financeSaving}
-                className="gap-1.5 shrink-0 text-white ring-2 ring-white/40 ring-offset-2 ring-offset-brand-blue-500 sm:ring-0 sm:ring-offset-0 [&_svg]:text-white"
+                className={cn(
+                  "gap-1.5 shrink-0 ring-2 ring-white/50 ring-offset-2 ring-offset-white sm:ring-0 sm:ring-offset-0",
+                  projectPrimaryBtn
+                )}
               >
                 {financeSaving ? (
                   <Loader2 className="h-4 w-4 animate-spin text-white" />
                 ) : (
                   <>
-                    <Save className="h-4 w-4 shrink-0 stroke-[2.5]" aria-hidden />
-                    <span className="hidden sm:inline font-medium">{t("saveChanges", language)}</span>
-                    <span className="inline sm:hidden text-sm font-semibold">{t("save", language)}</span>
+                    <Save className="mr-0 h-4 w-4 shrink-0 stroke-[2.5] sm:mr-0" aria-hidden />
+                    <span className="hidden sm:inline">{t("saveChanges", language)}</span>
+                    <span className="inline sm:hidden">{t("save", language)}</span>
                   </>
                 )}
               </Button>
@@ -1101,8 +1152,8 @@ export default function ProjetDetailPage() {
                 <p className="text-sm text-emerald-600">{expenseSuccess}</p>
               )}
 
-              <Button type="button" onClick={() => setPaymentOpen(true)} className="w-full sm:w-auto">
-                <Plus className="h-4 w-4 mr-2" />
+              <Button type="button" onClick={() => setPaymentOpen(true)} className={cn("w-full sm:w-auto", projectPrimaryBtn)}>
+                <Plus className="h-4 w-4 mr-2 shrink-0" />
                 {t("addPayment", language)}
               </Button>
 
@@ -1267,17 +1318,22 @@ export default function ProjetDetailPage() {
                       e.currentTarget.value = "";
                     }}
                   />
-                  <span className="inline-flex cursor-pointer rounded-md bg-brand-blue-600 px-3 py-2 text-sm font-medium text-white">
+                  <span
+                    className={cn(
+                      "inline-flex min-h-[44px] cursor-pointer items-center justify-center rounded-md px-4 py-2 text-sm",
+                      projectPrimaryBtn
+                    )}
+                  >
                     {galleryUploading ? t("loading", language) : t("addPhoto", language)}
                   </span>
                 </label>
               </div>
               {photos.length > 0 && (
-                <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                <div className="mt-6 grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                   {photos.map((photo) => (
                     <div
                       key={photo.id}
-                      className="group relative aspect-square w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-100 shadow-sm transition hover:shadow-md focus-within:ring-2 focus-within:ring-brand-blue-500 focus-within:ring-offset-2"
+                      className="group relative aspect-square w-full max-w-[120px] overflow-hidden rounded-md border border-gray-200 bg-gray-100 shadow-sm transition hover:shadow-md focus-within:ring-2 focus-within:ring-blue-600 focus-within:ring-offset-2 sm:max-w-none"
                     >
                       <button
                         type="button"
@@ -1323,12 +1379,11 @@ export default function ProjetDetailPage() {
           </DialogHeader>
           {galleryViewer && (
             <>
-              <div className="flex flex-wrap items-center justify-end gap-2 border-b border-white/10 bg-black/80 px-3 py-2">
+              <div className="flex flex-wrap items-center justify-end gap-2 border-b border-white/10 bg-black/90 px-3 py-3">
                 <Button
                   type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="gap-1.5 bg-white/15 text-white hover:bg-white/25 [&_svg]:text-white"
+                  size="lg"
+                  className={cn("gap-2 px-6 text-base shadow-lg", projectPrimaryBtn)}
                   onClick={() => {
                     if (!galleryViewer) return;
                     const a = document.createElement("a");
@@ -1341,18 +1396,18 @@ export default function ProjetDetailPage() {
                     a.remove();
                   }}
                 >
-                  <Download className="h-4 w-4 shrink-0" />
+                  <Download className="h-5 w-5 shrink-0" aria-hidden />
                   {t("download", language)}
                 </Button>
                 <Button
                   type="button"
                   size="icon"
                   variant="outline"
-                  className="border-white/30 bg-white/10 text-white hover:bg-white/20 [&_svg]:text-white"
+                  className="min-h-12 min-w-12 border-2 border-white/40 bg-white/15 text-white hover:bg-white/25 [&_svg]:text-white"
                   onClick={() => setGalleryViewer(null)}
                   aria-label={t("close", language)}
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-5 w-5" />
                 </Button>
               </div>
               <div className="flex min-h-0 flex-1 items-center justify-center bg-black p-2">
@@ -1402,15 +1457,18 @@ export default function ProjetDetailPage() {
               type="button"
               onClick={() => void handleSavePlanning()}
               disabled={planningSaving}
-              className="gap-1.5 text-white ring-2 ring-white/40 ring-offset-2 ring-offset-brand-blue-500 sm:ring-0 sm:ring-offset-0 [&_svg]:text-white"
+              className={cn(
+                "gap-1.5 ring-2 ring-blue-600/30 ring-offset-2 ring-offset-background sm:ring-0 sm:ring-offset-0",
+                projectPrimaryBtn
+              )}
             >
               {planningSaving ? (
                 <Loader2 className="h-4 w-4 animate-spin text-white" />
               ) : (
                 <>
-                  <Save className="h-4 w-4 shrink-0 stroke-[2.5]" aria-hidden />
-                  <span className="hidden sm:inline font-medium">{t("saveChanges", language)}</span>
-                  <span className="inline sm:hidden text-sm font-semibold">{t("save", language)}</span>
+                  <Save className="mr-0 h-4 w-4 shrink-0 stroke-[2.5] sm:mr-0" aria-hidden />
+                  <span className="hidden sm:inline">{t("saveChanges", language)}</span>
+                  <span className="inline sm:hidden">{t("save", language)}</span>
                 </>
               )}
             </Button>
@@ -1472,8 +1530,8 @@ export default function ProjetDetailPage() {
               <Button type="button" variant="outline" onClick={() => setPaymentOpen(false)} disabled={paymentSaving}>
                 {t("cancel", language)}
               </Button>
-              <Button type="submit" disabled={paymentSaving}>
-                {paymentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
+              <Button type="submit" disabled={paymentSaving} className={projectPrimaryBtn}>
+                {paymentSaving ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : t("save", language)}
               </Button>
             </DialogFooter>
           </form>
@@ -1557,8 +1615,8 @@ export default function ProjetDetailPage() {
               <Button type="button" variant="outline" onClick={() => setExpenseOpen(false)} disabled={expenseSaving}>
                 {t("cancel", language)}
               </Button>
-              <Button type="submit" disabled={expenseSaving}>
-                {expenseSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
+              <Button type="submit" disabled={expenseSaving} className={projectPrimaryBtn}>
+                {expenseSaving ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : t("save", language)}
               </Button>
             </DialogFooter>
           </form>
