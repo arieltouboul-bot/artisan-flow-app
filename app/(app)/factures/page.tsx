@@ -517,29 +517,17 @@ export default function FacturesPage() {
       const { error } = await supabase.from("expenses").insert(payload);
       setFormSaving(false);
       if (error) {
-        console.error("Factures insert expense error (ultra-détaillé):", {
-          message: error.message,
-          code: (error as any).code,
-          details: (error as any).details,
-          hint: (error as any).hint,
-          payload,
-          userId: user.id,
-          projectId,
-          imageUrl: pendingImageUrl,
-        });
-        setFormError(error.message || "Erreur insertion facture");
+        setFormError(t("saveErrorGeneric", language));
         alert(t("saveErrorGeneric", language));
         return;
       }
-    } catch (err) {
+    } catch {
       setFormSaving(false);
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("Factures insert threw exception:", err);
-      setFormError(msg);
-      alert("Erreur Supabase: " + msg);
+      setFormError(t("saveErrorGeneric", language));
+      alert(t("saveErrorGeneric", language));
       return;
     }
-    alert("Facture enregistrée !");
+    alert(t("expenseSaved", language));
     if (ocrRawVendor && ocrRawVendor.trim().toLowerCase() !== vendor.toLowerCase()) {
       saveVendorMapping(ocrRawVendor, vendor);
     }
@@ -703,7 +691,7 @@ export default function FacturesPage() {
                   const { error } = await supabase.from("expenses").delete().eq("id", e.id).eq("user_id", user.id);
                   if (error) {
                     setDeletingId(null);
-                    alert(language === "en" ? "Error: " + error.message : "Erreur : " + error.message);
+                    alert(t("deleteErrorGeneric", language));
                   } else location.reload();
                 };
                 return (

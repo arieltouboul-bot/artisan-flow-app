@@ -1,7 +1,18 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { Check } from "lucide-react";
+import { Check, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+function validationMobileLayout(label: string): "none" | "check" | "save" {
+  const t = label.trim();
+  if (!t) return "none";
+  const lower = t.toLowerCase();
+  if (lower === "ok" || lower === "✓") return "check";
+  if (lower === "save" || lower === "enregistrer") return "save";
+  if (/\b(save|enregistrer|sauvegarder)\b/i.test(t)) return "save";
+  if (t.length >= 12 && /save|enregistrer|sauvegard/i.test(t)) return "save";
+  return "none";
+}
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 min-h-[44px] min-w-[44px] px-6",
@@ -37,21 +48,24 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, children: rawChildren, ...props }, ref) => {
-    const compactLabels = new Set(["save", "ok", "enregistrer"]);
-    const childText =
-      typeof rawChildren === "string"
-        ? rawChildren.trim().toLowerCase()
-        : null;
-    const shouldCompactSave = Boolean(childText && compactLabels.has(childText));
-    const children = shouldCompactSave ? (
-      <>
-        <span className="hidden sm:inline">{rawChildren}</span>
-        <Check className="inline h-4 w-4 sm:hidden" aria-hidden="true" />
-        <span className="sr-only">{rawChildren}</span>
-      </>
-    ) : (
-      rawChildren
-    );
+    const layout =
+      typeof rawChildren === "string" ? validationMobileLayout(rawChildren) : "none";
+    const children =
+      layout === "check" ? (
+        <>
+          <span className="hidden sm:inline">{rawChildren}</span>
+          <Check className="inline h-[18px] w-[18px] sm:hidden" aria-hidden="true" />
+          <span className="sr-only">{rawChildren}</span>
+        </>
+      ) : layout === "save" ? (
+        <>
+          <span className="hidden sm:inline">{rawChildren}</span>
+          <Save className="inline h-[18px] w-[18px] sm:hidden" aria-hidden="true" />
+          <span className="sr-only">{rawChildren}</span>
+        </>
+      ) : (
+        rawChildren
+      );
     return (
       <button
         className={cn(buttonVariants({ variant, size, className }))}

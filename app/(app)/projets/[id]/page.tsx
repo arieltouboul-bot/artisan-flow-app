@@ -36,6 +36,7 @@ import { useLanguage } from "@/context/language-context";
 import { useAssistant } from "@/context/assistant-context";
 import { t } from "@/lib/translations";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SwipeActionsRow } from "@/components/ui/swipe-actions-row";
 import { projectMarge, projectRestantDu, type ProjectStatus } from "@/types/database";
 import {
   ArrowLeft,
@@ -339,11 +340,12 @@ export default function ProjetDetailPage() {
     pushToast("success", t("projectImageDeleted", language));
   };
 
-  const handleAddTask = (e: React.FormEvent) => {
+  const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskLabel.trim()) return;
-    addTask(newTaskLabel.trim());
+    const label = newTaskLabel.trim();
     setNewTaskLabel("");
+    await addTask(label);
     pushToast("success", t("taskAdded", language));
   };
 
@@ -680,46 +682,43 @@ export default function ProjetDetailPage() {
               </div>
               <ul className="space-y-2">
                 {projectNotes.map((note) => (
-                  <li
-                    key={note.id}
-                    className="group flex items-start justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2"
-                  >
-                    {editingNoteId === note.id ? (
-                      <Input
-                        value={editingNoteContent}
-                        onChange={(e) => setEditingNoteContent(e.target.value)}
-                        onBlur={() => void handleUpdateProjectNote(note.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") void handleUpdateProjectNote(note.id);
-                          if (e.key === "Escape") {
-                            setEditingNoteId(null);
-                            setEditingNoteContent("");
-                          }
-                        }}
-                        autoFocus
-                        className="min-h-[40px]"
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingNoteId(note.id);
-                          setEditingNoteContent(note.content);
-                        }}
-                        className="flex-1 text-left text-sm text-gray-900"
-                      >
-                        {note.content}
-                      </button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 text-red-600 hover:bg-red-50"
-                      onClick={() => void handleDeleteProjectNote(note.id)}
-                      aria-label={t("delete", language)}
+                  <li key={note.id} className="list-none">
+                    <SwipeActionsRow
+                      actions="delete-only"
+                      onDelete={() => void handleDeleteProjectNote(note.id)}
+                      deleteLabel={t("delete", language)}
+                      className="border-gray-100 bg-gray-50/50"
                     >
-                      <X className="h-4 w-4" />
-                    </Button>
+                      <div className="flex min-h-[48px] items-start gap-2 px-3 py-2">
+                        {editingNoteId === note.id ? (
+                          <Input
+                            value={editingNoteContent}
+                            onChange={(e) => setEditingNoteContent(e.target.value)}
+                            onBlur={() => void handleUpdateProjectNote(note.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") void handleUpdateProjectNote(note.id);
+                              if (e.key === "Escape") {
+                                setEditingNoteId(null);
+                                setEditingNoteContent("");
+                              }
+                            }}
+                            autoFocus
+                            className="min-h-[40px] flex-1"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingNoteId(note.id);
+                              setEditingNoteContent(note.content);
+                            }}
+                            className="flex-1 text-left text-sm text-gray-900"
+                          >
+                            {note.content}
+                          </button>
+                        )}
+                      </div>
+                    </SwipeActionsRow>
                   </li>
                 ))}
               </ul>
@@ -761,67 +760,70 @@ export default function ProjetDetailPage() {
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, x: -8 }}
-                        className="group flex items-center justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2 min-h-[48px]"
+                        className="list-none"
                       >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              toggleTask(task.id, !task.completed);
-                              pushToast("success", t("taskUpdated", language));
-                            }}
-                            className="shrink-0 text-brand-blue-600 hover:opacity-80"
-                          >
-                            {task.completed ? (
-                              <CheckSquare className="h-5 w-5 text-emerald-600" />
-                            ) : (
-                              <Square className="h-5 w-5" />
-                            )}
-                          </button>
-                          {editingTaskId === task.id ? (
-                            <Input
-                              value={editingTaskLabel}
-                              onChange={(e) => setEditingTaskLabel(e.target.value)}
-                              onBlur={() => {
-                                if (editingTaskLabel.trim()) void updateTask(task.id, editingTaskLabel);
-                                setEditingTaskId(null);
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && editingTaskLabel.trim()) {
-                                  void updateTask(task.id, editingTaskLabel);
-                                  pushToast("success", t("taskUpdated", language));
-                                  setEditingTaskId(null);
-                                }
-                                if (e.key === "Escape") setEditingTaskId(null);
-                              }}
-                              autoFocus
-                              className="min-h-[36px]"
-                            />
-                          ) : (
+                        <SwipeActionsRow
+                          actions="delete-only"
+                          onDelete={() => {
+                            void deleteTask(task.id);
+                            pushToast("success", t("taskDeleted", language));
+                          }}
+                          deleteLabel={t("delete", language)}
+                          className="border-gray-100 bg-gray-50/50"
+                        >
+                          <div className="flex min-h-[48px] items-center gap-2 px-3 py-2">
                             <button
                               type="button"
                               onClick={() => {
-                                setEditingTaskId(task.id);
-                                setEditingTaskLabel(task.label);
+                                void toggleTask(task.id, !task.completed);
                               }}
-                              className={cn("text-left", task.completed ? "text-gray-500 line-through" : "text-gray-900")}
+                              className="shrink-0 text-brand-blue-600 hover:opacity-80"
+                              aria-label={task.completed ? t("markIncomplete", language) : t("markComplete", language)}
                             >
-                              {task.label}
+                              {task.completed ? (
+                                <CheckSquare className="h-5 w-5 text-emerald-600" />
+                              ) : (
+                                <Square className="h-5 w-5" />
+                              )}
                             </button>
-                          )}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="shrink-0 text-red-600 hover:bg-red-50 min-h-[40px] min-w-[40px] opacity-0 transition-opacity group-hover:opacity-100"
-                          onClick={() => {
-                            deleteTask(task.id);
-                            pushToast("success", t("taskDeleted", language));
-                          }}
-                          aria-label={t("delete", language)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                            <div className="min-w-0 flex-1">
+                              {editingTaskId === task.id ? (
+                                <Input
+                                  value={editingTaskLabel}
+                                  onChange={(e) => setEditingTaskLabel(e.target.value)}
+                                  onBlur={() => {
+                                    if (editingTaskLabel.trim()) void updateTask(task.id, editingTaskLabel);
+                                    setEditingTaskId(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && editingTaskLabel.trim()) {
+                                      void updateTask(task.id, editingTaskLabel);
+                                      pushToast("success", t("taskUpdated", language));
+                                      setEditingTaskId(null);
+                                    }
+                                    if (e.key === "Escape") setEditingTaskId(null);
+                                  }}
+                                  autoFocus
+                                  className="min-h-[36px]"
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingTaskId(task.id);
+                                    setEditingTaskLabel(task.label);
+                                  }}
+                                  className={cn(
+                                    "w-full text-left text-sm",
+                                    task.completed ? "text-gray-500 line-through" : "text-gray-900"
+                                  )}
+                                >
+                                  {task.label}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </SwipeActionsRow>
                       </motion.li>
                     ))}
                   </AnimatePresence>
