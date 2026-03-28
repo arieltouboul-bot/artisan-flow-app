@@ -87,15 +87,25 @@ export default function ProjetDetailPage() {
   const router = useRouter();
   const { language } = useLanguage();
   const id = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : String(params?.id ?? "");
-  const { project, loading: projectLoading, error: projectError, refetch: refetchProject } = useProject(id || null);
-  const { tasks, loading: tasksLoading, addTask, toggleTask, updateTask, deleteTask } = useProjectTasks(id);
-  const { transactions, loading: transactionsLoading, addTransaction } = useProjectTransactions(id);
-  const { expenses, loading: expensesLoading, addExpense, deleteExpense, totalHT: expensesTotalHT, totalTvaRecuperable } = useProjectExpenses(id);
-  const { revenueRows, loading: projectRevenuesLoading } = useProjectRevenues(id);
+  const { project, loading: projectLoading, error: projectError, refetch: refetchProject } = useProject(
+    id || null
+  );
+  const { tasks, loading: tasksLoading, addTask, toggleTask, updateTask, deleteTask, refetch: refetchTasks } =
+    useProjectTasks(id || null);
+  const { transactions, loading: transactionsLoading, addTransaction } = useProjectTransactions(id || null);
+  const {
+    expenses,
+    loading: expensesLoading,
+    addExpense,
+    deleteExpense,
+    totalHT: expensesTotalHT,
+    totalTvaRecuperable,
+  } = useProjectExpenses(id || null);
+  const { revenueRows, loading: projectRevenuesLoading } = useProjectRevenues(id || null);
   const { displayCurrency } = useProfile();
   const currency = displayCurrency;
   const { employees } = useEmployees();
-  const { assignments, loading: teamLoading, assignEmployee, unassignEmployee } = useProjectEmployees(id);
+  const { assignments, loading: teamLoading, assignEmployee, unassignEmployee } = useProjectEmployees(id || null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [newTaskLabel, setNewTaskLabel] = useState("");
@@ -226,13 +236,23 @@ export default function ProjetDetailPage() {
   }, [supabase, id, currentUserId]);
 
   const refetchGalleryImages = useCallback(async () => {
-    if (!supabase || !id || !currentUserId) return;
-    const { data } = await supabase
+    if (!supabase || !id) return;
+    const { data, error } = await supabase
       .from("project_images")
       .select("id, public_url, storage_path, created_at")
       .eq("project_id", id)
-      .eq("user_id", currentUserId)
       .order("created_at", { ascending: false });
+    if (process.env.NODE_ENV === "development") {
+      console.log("[gallery] refetch", {
+        project_id: id,
+        rowCount: data?.length ?? 0,
+        error: error?.message ?? null,
+      });
+    }
+    if (error) {
+      setPhotos([]);
+      return;
+    }
     setPhotos(
       ((data ?? []) as Array<{ id: string; public_url: string; storage_path?: string | null }>).map((img) => ({
         id: img.id,
@@ -240,7 +260,7 @@ export default function ProjetDetailPage() {
         storage_path: img.storage_path ?? undefined,
       }))
     );
-  }, [supabase, id, currentUserId]);
+  }, [supabase, id]);
 
   useEffect(() => {
     void refetchGalleryImages();
@@ -324,6 +344,9 @@ export default function ProjetDetailPage() {
     const { error: uploadError } = await supabase.storage
       .from("project-galleries")
       .upload(path, file, { upsert: false, contentType: file.type });
+    if (process.env.NODE_ENV === "development") {
+      console.log("[gallery] storage upload", { path, ok: !uploadError, error: uploadError?.message ?? null });
+    }
     if (uploadError) {
       setGalleryUploading(false);
       pushToast("error", t("saveErrorGeneric", language));
@@ -332,12 +355,20 @@ export default function ProjetDetailPage() {
     const {
       data: { publicUrl },
     } = supabase.storage.from("project-galleries").getPublicUrl(path);
-    const { error } = await supabase
+    const { data: imgRow, error } = await supabase
       .from("project_images")
       .insert({ project_id: id, user_id: currentUserId, storage_path: path, public_url: publicUrl })
       .select("id")
       .single();
     setGalleryUploading(false);
+    if (process.env.NODE_ENV === "development") {
+      console.log("[gallery] project_images insert", {
+        project_id: id,
+        ok: !error,
+        error: error?.message ?? null,
+        id: imgRow?.id ?? null,
+      });
+    }
     if (error) {
       pushToast("error", t("saveErrorGeneric", language));
       return;
@@ -363,11 +394,20 @@ export default function ProjetDetailPage() {
 
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTaskLabel.trim()) return;
+    if (!newTaskLabel.trim() || !id) return;
     const label = newTaskLabel.trim();
     setNewTaskLabel("");
-    await addTask(label);
-    pushToast("success", t("taskAdded", language));
+    const result = await addTask(label);
+    if (process.env.NODE_ENV === "development") {
+      console.log("[tasks] handleAddTask result", { project_id: id, ...result });
+    }
+    if (result.ok) {
+      await refetchTasks();
+      router.refresh();
+      pushToast("success", t("taskAdded", language));
+    } else {
+      pushToast("error", t("saveErrorGeneric", language));
+    }
   };
 
   const parseNum = (v: string) => {
@@ -963,14 +1003,19 @@ export default function ProjetDetailPage() {
                 </CardTitle>
                 <p className="text-sm text-gray-500">{t("projectFinanceCardSubtitle", language)}</p>
               </div>
-              <Button size="sm" onClick={handleSaveFinance} disabled={financeSaving} className="gap-1.5 shrink-0">
+              <Button
+                size="sm"
+                onClick={handleSaveFinance}
+                disabled={financeSaving}
+                className="gap-1.5 shrink-0 text-white ring-2 ring-white/40 ring-offset-2 ring-offset-brand-blue-500 sm:ring-0 sm:ring-offset-0 [&_svg]:text-white"
+              >
                 {financeSaving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
                 ) : (
                   <>
-                    <Save className="h-4 w-4 shrink-0" aria-hidden />
-                    <span className="hidden sm:inline">{t("saveChanges", language)}</span>
-                    <span className="sm:hidden">{t("save", language)}</span>
+                    <Save className="h-4 w-4 shrink-0 stroke-[2.5]" aria-hidden />
+                    <span className="hidden sm:inline font-medium">{t("saveChanges", language)}</span>
+                    <span className="inline sm:hidden text-sm font-semibold">{t("save", language)}</span>
                   </>
                 )}
               </Button>
@@ -1198,7 +1243,7 @@ export default function ProjetDetailPage() {
         <TabsList className="min-h-[48px] p-1">
           <TabsTrigger value="photos" className="min-h-[44px] px-4">
             <ImagePlus className="mr-2 h-4 w-4" />
-            Photos
+            {t("projectPhotosTab", language)}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="photos" className="space-y-4">
@@ -1228,11 +1273,11 @@ export default function ProjetDetailPage() {
                 </label>
               </div>
               {photos.length > 0 && (
-                <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                   {photos.map((photo) => (
                     <div
                       key={photo.id}
-                      className="group relative aspect-square overflow-hidden rounded-xl border border-gray-200/80 bg-gray-100 shadow-sm ring-offset-2 transition hover:shadow-md focus-within:ring-2 focus-within:ring-brand-blue-500"
+                      className="group relative aspect-square w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-100 shadow-sm transition hover:shadow-md focus-within:ring-2 focus-within:ring-brand-blue-500 focus-within:ring-offset-2"
                     >
                       <button
                         type="button"
@@ -1267,6 +1312,62 @@ export default function ProjetDetailPage() {
         </TabsContent>
       </Tabs>
 
+      <Dialog open={!!galleryViewer} onOpenChange={(open) => !open && setGalleryViewer(null)}>
+        <DialogContent
+          showClose={false}
+          className="fixed inset-0 left-0 top-0 z-[120] flex h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 bg-black p-0 text-white shadow-none data-[state=open]:slide-in-from-left-0 data-[state=open]:slide-in-from-top-0 data-[state=closed]:slide-out-to-left-0 data-[state=closed]:slide-out-to-top-0 sm:max-w-none"
+          aria-describedby={undefined}
+        >
+          <DialogHeader className="sr-only">
+            <DialogTitle>{t("galleryLightboxTitle", language)}</DialogTitle>
+          </DialogHeader>
+          {galleryViewer && (
+            <>
+              <div className="flex flex-wrap items-center justify-end gap-2 border-b border-white/10 bg-black/80 px-3 py-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1.5 bg-white/15 text-white hover:bg-white/25 [&_svg]:text-white"
+                  onClick={() => {
+                    if (!galleryViewer) return;
+                    const a = document.createElement("a");
+                    a.href = galleryViewer.url;
+                    a.download = `chantier-${id.slice(0, 8)}-${galleryViewer.id.slice(0, 8)}.jpg`;
+                    a.rel = "noopener noreferrer";
+                    a.target = "_blank";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                  }}
+                >
+                  <Download className="h-4 w-4 shrink-0" />
+                  {t("download", language)}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className="border-white/30 bg-white/10 text-white hover:bg-white/20 [&_svg]:text-white"
+                  onClick={() => setGalleryViewer(null)}
+                  aria-label={t("close", language)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex min-h-0 flex-1 items-center justify-center bg-black p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={galleryViewer.url}
+                  alt={t("galleryImageAlt", language)}
+                  className="max-h-full max-w-full object-contain"
+                />
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={planningOpen} onOpenChange={setPlanningOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -1297,14 +1398,19 @@ export default function ProjetDetailPage() {
             <Button type="button" variant="outline" onClick={() => setPlanningOpen(false)} disabled={planningSaving}>
               {t("close", language)}
             </Button>
-            <Button type="button" onClick={() => void handleSavePlanning()} disabled={planningSaving} className="gap-1.5">
+            <Button
+              type="button"
+              onClick={() => void handleSavePlanning()}
+              disabled={planningSaving}
+              className="gap-1.5 text-white ring-2 ring-white/40 ring-offset-2 ring-offset-brand-blue-500 sm:ring-0 sm:ring-offset-0 [&_svg]:text-white"
+            >
               {planningSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin text-white" />
               ) : (
                 <>
-                  <Save className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="hidden sm:inline">{t("saveChanges", language)}</span>
-                  <span className="sm:hidden">{t("save", language)}</span>
+                  <Save className="h-4 w-4 shrink-0 stroke-[2.5]" aria-hidden />
+                  <span className="hidden sm:inline font-medium">{t("saveChanges", language)}</span>
+                  <span className="inline sm:hidden text-sm font-semibold">{t("save", language)}</span>
                 </>
               )}
             </Button>

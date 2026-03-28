@@ -51,58 +51,110 @@ export function useProjectTasks(projectId: string | null) {
   }, [fetchTasks]);
 
   const addTask = useCallback(
-    async (label: string) => {
-      if (!projectId) return;
+    async (label: string): Promise<{ ok: boolean; error?: string }> => {
+      if (!projectId) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[tasks] addTask aborted: missing projectId");
+        }
+        return { ok: false, error: "missing_project_id" };
+      }
       const supabase = createClient();
-      if (!supabase) return;
+      if (!supabase) {
+        return { ok: false, error: "no_supabase_client" };
+      }
+
+      const { data: topRow } = await supabase
+        .from("project_tasks")
+        .select("sort_order")
+        .eq("project_id", projectId)
+        .order("sort_order", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const prevOrder = Number(topRow?.sort_order ?? 0);
+      const sort_order = Number.isFinite(prevOrder) ? prevOrder + 1 : 1;
+      const labelTrim = label.trim();
+
       const { data: authData } = await supabase.auth.getUser();
       const userId = authData.user?.id;
-      const maxOrder = Math.max(0, ...tasks.map((t) => t.sort_order));
-      const sort_order = maxOrder + 1;
-      const labelTrim = label.trim();
-      const withOwner = userId
-        ? {
-            project_id: projectId,
-            user_id: userId,
-            label: labelTrim,
-            title: labelTrim,
-            completed: false,
-            is_completed: false,
-            sort_order,
-          }
-        : null;
+
+      const legacyPayload = {
+        project_id: projectId,
+        label: labelTrim,
+        completed: false,
+        sort_order,
+      };
+
+      let lastError: { message: string } | null = null;
       let inserted: Record<string, unknown> | null = null;
-      if (withOwner) {
-        const { data, error } = await supabase.from("project_tasks").insert(withOwner).select("*").single();
-        if (!error && data) inserted = data as Record<string, unknown>;
-      }
-      if (!inserted) {
-        const { data, error } = await supabase
-          .from("project_tasks")
-          .insert({
+      let writeOk = false;
+
+      if (userId) {
+        const fullPayload = {
+          ...legacyPayload,
+          user_id: userId,
+          title: labelTrim,
+          is_completed: false,
+        };
+        const r1 = await supabase.from("project_tasks").insert(fullPayload).select("*").single();
+        if (process.env.NODE_ENV === "development") {
+          console.log("[tasks] insert (with user_id)", {
             project_id: projectId,
-            label: labelTrim,
-            completed: false,
-            sort_order,
-          })
-          .select("*")
-          .single();
-        if (!error && data) inserted = data as Record<string, unknown>;
-        else if (error) {
-          await supabase.from("project_tasks").insert({
-            project_id: projectId,
-            label: labelTrim,
-            completed: false,
-            sort_order,
+            ok: !r1.error,
+            code: (r1.error as { code?: string } | null)?.code,
+            message: r1.error?.message,
           });
         }
+        if (!r1.error) {
+          writeOk = true;
+          if (r1.data) inserted = r1.data as Record<string, unknown>;
+        } else lastError = r1.error;
       }
+
+      if (!writeOk) {
+        const r2 = await supabase.from("project_tasks").insert(legacyPayload).select("*").single();
+        if (process.env.NODE_ENV === "development") {
+          console.log("[tasks] insert (legacy)", {
+            project_id: projectId,
+            ok: !r2.error,
+            code: (r2.error as { code?: string } | null)?.code,
+            message: r2.error?.message,
+          });
+        }
+        if (!r2.error) {
+          writeOk = true;
+          if (r2.data) inserted = r2.data as Record<string, unknown>;
+        } else {
+          lastError = r2.error;
+          const r3 = await supabase.from("project_tasks").insert(legacyPayload);
+          if (process.env.NODE_ENV === "development") {
+            console.log("[tasks] insert (no select)", { project_id: projectId, ok: !r3.error, message: r3.error?.message });
+          }
+          if (!r3.error) {
+            writeOk = true;
+          } else {
+            lastError = r3.error;
+          }
+        }
+      }
+
       if (inserted) {
         setTasks((prev) => [...prev, mapTask(inserted!)]);
       }
+
       await fetchTasks();
+
+      if (process.env.NODE_ENV === "development") {
+        console.log("[tasks] addTask done", {
+          project_id: projectId,
+          ok: writeOk,
+          rowId: (inserted?.id as string) ?? null,
+        });
+      }
+
+      return { ok: writeOk, error: writeOk ? undefined : lastError?.message };
     },
-    [projectId, tasks, fetchTasks]
+    [projectId, fetchTasks]
   );
 
   const toggleTask = useCallback(
