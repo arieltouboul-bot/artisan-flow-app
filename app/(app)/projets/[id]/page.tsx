@@ -220,6 +220,19 @@ export default function ProjetDetailPage() {
   }, [supabase, id, expenses.length]);
 
   useEffect(() => {
+    if (!id) return;
+    try {
+      const cached = window.localStorage.getItem(notesCacheKey);
+      if (cached) {
+        setProjectNotes(JSON.parse(cached) as Array<{ id: string; content: string; created_at?: string }>);
+        setNotesLoaded(true);
+      }
+    } catch {
+      // ignore malformed cache
+    }
+  }, [id, notesCacheKey]);
+
+  useEffect(() => {
     if (!supabase || !id || !currentUserId) return;
     try {
       const cached = window.localStorage.getItem(notesCacheKey);
@@ -256,6 +269,14 @@ export default function ProjetDetailPage() {
       mounted = false;
     };
   }, [supabase, id, currentUserId, notesCacheKey]);
+
+  useEffect(() => {
+    if (!id) return;
+    if (currentUserId) return;
+    // Avoid indefinite loading indicators when auth is unavailable/offline.
+    setNotesLoaded(true);
+    setPhotosLoaded(true);
+  }, [id, currentUserId]);
 
   const refetchGalleryImages = useCallback(async () => {
     if (!supabase || !id) return;
@@ -369,6 +390,15 @@ export default function ProjetDetailPage() {
     return JSON.stringify(note);
   }, []);
 
+  const ensureUserId = useCallback(async () => {
+    if (currentUserId) return currentUserId;
+    if (!supabase) return "";
+    const { data } = await supabase.auth.getUser();
+    const uid = data.user?.id ?? "";
+    if (uid) setCurrentUserId(uid);
+    return uid;
+  }, [currentUserId, supabase]);
+
   const getNotePreview = useCallback(
     (raw: string) => {
       const p = parseNote(raw);
@@ -379,7 +409,12 @@ export default function ProjetDetailPage() {
   );
 
   const handleAddProjectNote = async () => {
-    if (!supabase || !id || !currentUserId || !newNote.trim()) return;
+    if (!supabase || !id || !newNote.trim()) return;
+    const uid = await ensureUserId();
+    if (!uid) {
+      pushToast("error", t("saveErrorGeneric", language));
+      return;
+    }
     const optimisticId = `temp-note-${Date.now()}`;
     const optimisticNote = {
       id: optimisticId,
@@ -391,7 +426,7 @@ export default function ProjetDetailPage() {
     setNotesSaving(true);
     const { data, error } = await supabase
       .from("project_notes")
-      .insert({ project_id: id, user_id: currentUserId, content: stringifyNote({ text: newNote.trim(), checklist: [] }) })
+      .insert({ project_id: id, user_id: uid, content: stringifyNote({ text: newNote.trim(), checklist: [] }) })
       .select("id, content, created_at")
       .single();
     setNotesSaving(false);
@@ -408,13 +443,23 @@ export default function ProjetDetailPage() {
   };
 
   const handleUpdateProjectNote = async (noteId: string, payload: ParsedNote) => {
-    if (!supabase || !currentUserId) return;
+    if (!supabase || !id) return;
+    const uid = await ensureUserId();
+    if (!uid) {
+      pushToast("error", t("saveErrorGeneric", language));
+      return;
+    }
     setNotesSaving(true);
     const { error } = await supabase
       .from("project_notes")
-      .update({ content: stringifyNote(payload) })
+      .update({
+        content: stringifyNote(payload),
+        project_id: id,
+        user_id: uid,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", noteId)
-      .eq("user_id", currentUserId);
+      .eq("user_id", uid);
     setNotesSaving(false);
     if (error) {
       pushToast("error", t("saveErrorGeneric", language));
@@ -425,9 +470,14 @@ export default function ProjetDetailPage() {
   };
 
   const handleDeleteProjectNote = async (noteId: string) => {
-    if (!supabase || !currentUserId) return;
+    if (!supabase) return;
+    const uid = await ensureUserId();
+    if (!uid) {
+      pushToast("error", t("deleteErrorGeneric", language));
+      return;
+    }
     setNotesSaving(true);
-    const { error } = await supabase.from("project_notes").delete().eq("id", noteId).eq("user_id", currentUserId);
+    const { error } = await supabase.from("project_notes").delete().eq("id", noteId).eq("user_id", uid);
     setNotesSaving(false);
     if (error) {
       pushToast("error", t("deleteErrorGeneric", language));
@@ -481,17 +531,6 @@ export default function ProjetDetailPage() {
     if (!supabase || !id || !currentUserId || !files?.length) return;
     setGalleryUploading(true);
     setGalleryUploadProgress(0);
-    const { error: bucketError } = await supabase.storage.from("project-galleries").list(id, { limit: 1 });
-    if (bucketError) {
-      console.error("[gallery] bucket access failed", {
-        message: bucketError.message,
-        name: bucketError.name,
-      });
-      setGalleryUploading(false);
-      setGalleryUploadProgress(0);
-      pushToast("error", t("saveErrorGeneric", language));
-      return;
-    }
     const fileArray = Array.from(files);
     let failed = 0;
     for (let i = 0; i < fileArray.length; i += 1) {
@@ -1385,15 +1424,21 @@ export default function ProjetDetailPage() {
                         onClick={() => setGalleryViewer({ id: photo.id, url: photo.url, storage_path: photo.storage_path })}
                         aria-label={t("galleryLightboxTitle", language)}
                       />
-                      <Image
-                        src={photo.url}
-                        alt={t("galleryImageAlt", language)}
-                        fill
-                        sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 16vw"
-                        className="pointer-events-none object-cover"
-                        placeholder="blur"
-                        blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0nMTYnIGhlaWdodD0nMTYnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zyc+PHJlY3Qgd2lkdGg9JzE2JyBoZWlnaHQ9JzE2JyBmaWxsPScjZTdlN2U3Jy8+PC9zdmc+"
-                      />
+                      {photo.url.startsWith("blob:") ? (
+                        // Optimistic preview while upload is still in-flight.
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={photo.url} alt={t("galleryImageAlt", language)} className="pointer-events-none h-full w-full object-cover" />
+                      ) : (
+                        <Image
+                          src={photo.url}
+                          alt={t("galleryImageAlt", language)}
+                          fill
+                          sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 16vw"
+                          className="pointer-events-none object-cover"
+                          placeholder="blur"
+                          blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0nMTYnIGhlaWdodD0nMTYnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zyc+PHJlY3Qgd2lkdGg9JzE2JyBoZWlnaHQ9JzE2JyBmaWxsPScjZTdlN2U3Jy8+PC9zdmc+"
+                        />
+                      )}
                       <button
                         type="button"
                         onClick={(e) => {
