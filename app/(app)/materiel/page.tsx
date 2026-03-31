@@ -385,7 +385,7 @@ export default function MaterielPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setExtractError(data.error || "Erreur");
+        setExtractError(data.error || "Error");
         setExtractLoading(false);
         return;
       }
@@ -395,7 +395,7 @@ export default function MaterielPage() {
       setPasteText("");
       setExtractError(null);
     } catch {
-      setExtractError(language === "fr" ? "Erreur réseau." : "Network error.");
+      setExtractError("Network error.");
     }
     setExtractLoading(false);
   };
@@ -487,7 +487,7 @@ export default function MaterielPage() {
                       setDeletingId(`item-${item.id}`);
                       const res = await deleteItem(item.id);
                       setDeletingId(null);
-                      if (res?.error) alert("Erreur: " + res.error);
+                      if (res?.error) alert(`Error: ${res.error}`);
                     };
                     return (
                       <SwipeActionsRow
@@ -542,11 +542,11 @@ export default function MaterielPage() {
                               onOpenChange={(open) => setOpenMenuId(open ? `item-${item.id}` : null)}
                               onEdit={() => setEditItem(item)}
                               onDelete={async () => {
-                                if (!confirm("Supprimer?")) return;
+                                if (!confirm(t("deleteShortConfirm", language))) return;
                                 setDeletingId(`item-${item.id}`);
                                 const res = await deleteItem(item.id);
                                 setDeletingId(null);
-                                if (res?.error) alert("Erreur: " + res.error);
+                                if (res?.error) alert(`Error: ${res.error}`);
                               }}
                               isDeleting={deletingId === `item-${item.id}`}
                             />
@@ -743,7 +743,7 @@ export default function MaterielPage() {
                       setDeletingId(`supplier-${s.id}`);
                       const res = await deleteSupplier(s.id);
                       setDeletingId(null);
-                      if (res?.error) alert("Erreur: " + res.error);
+                      if (res?.error) alert(`Error: ${res.error}`);
                     };
                     return (
                       <SwipeActionsRow
@@ -786,11 +786,11 @@ export default function MaterielPage() {
                               onOpenChange={(open) => setOpenMenuId(open ? `supplier-${s.id}` : null)}
                               onEdit={() => setEditSupplier(s)}
                               onDelete={async () => {
-                                if (!confirm("Supprimer?")) return;
+                                if (!confirm(t("deleteShortConfirm", language))) return;
                                 setDeletingId(`supplier-${s.id}`);
                                 const res = await deleteSupplier(s.id);
                                 setDeletingId(null);
-                                if (res?.error) alert("Erreur: " + res.error);
+                                if (res?.error) alert(`Error: ${res.error}`);
                               }}
                               isDeleting={deletingId === `supplier-${s.id}`}
                             />

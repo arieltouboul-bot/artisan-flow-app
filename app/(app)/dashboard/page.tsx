@@ -188,7 +188,7 @@ export default function DashboardPage() {
 
       const margin = totalRevenues - (totalMaterials + totalRentals + totalSalaries);
       if ([totalRevenues, totalMaterials, totalRentals, totalSalaries, margin].some((n) => Number.isNaN(n))) {
-        setGlobalMarginError("Erreur de calcul");
+        setGlobalMarginError("Calculation error");
         setGlobalMarginEur(null);
         return;
       }

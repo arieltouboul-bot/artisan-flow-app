@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,6 @@ import { formatConvertedCurrency, formatDate, cn } from "@/lib/utils";
 import { amountInCurrencyToEur } from "@/lib/utils";
 import { useProfile } from "@/hooks/use-profile";
 import { useProject } from "@/hooks/use-projects";
-import { useProjectTasks } from "@/hooks/use-project-tasks";
 import { useProjectTransactions } from "@/hooks/use-project-transactions";
 import { useProjectExpenses, EXPENSE_CATEGORY_ORDER } from "@/hooks/use-project-expenses";
 import { useProjectRevenues } from "@/hooks/use-project-revenues";
@@ -46,15 +45,13 @@ import {
   Trash2,
   X,
   Loader2,
+  Check,
   CheckSquare,
-  Square,
   Plus,
   StickyNote,
-  ListTodo,
   Users,
   UserPlus,
   Banknote,
-  Save,
   Download,
 } from "lucide-react";
 
@@ -94,8 +91,6 @@ export default function ProjetDetailPage() {
   const { project, loading: projectLoading, error: projectError, refetch: refetchProject } = useProject(
     id || null
   );
-  const { tasks, loading: tasksLoading, addTask, toggleTask, updateTask, deleteTask, refetch: refetchTasks } =
-    useProjectTasks(id || null);
   const { transactions, loading: transactionsLoading, addTransaction } = useProjectTransactions(id || null);
   const {
     expenses,
@@ -112,14 +107,12 @@ export default function ProjetDetailPage() {
   const { assignments, loading: teamLoading, assignEmployee, unassignEmployee } = useProjectEmployees(id || null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [assigning, setAssigning] = useState(false);
-  const [newTaskLabel, setNewTaskLabel] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
   const [projectNotes, setProjectNotes] = useState<Array<{ id: string; content: string; created_at?: string }>>([]);
   const [newNote, setNewNote] = useState("");
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingNoteContent, setEditingNoteContent] = useState("");
-  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [editingTaskLabel, setEditingTaskLabel] = useState("");
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+  const [activeNoteText, setActiveNoteText] = useState("");
+  const [activeChecklistDraft, setActiveChecklistDraft] = useState("");
   const [photos, setPhotos] = useState<Array<{ id: string; url: string; name?: string; storage_path?: string }>>([]);
   const [galleryViewer, setGalleryViewer] = useState<{
     id: string;
@@ -127,6 +120,7 @@ export default function ProjetDetailPage() {
     storage_path?: string;
   } | null>(null);
   const [galleryUploading, setGalleryUploading] = useState(false);
+  const [galleryUploadProgress, setGalleryUploadProgress] = useState(0);
   const [toast, setToast] = useState<{ kind: "success" | "error"; message: string } | null>(null);
   const [address, setAddress] = useState("");
   const [contractAmount, setContractAmount] = useState("");
@@ -291,12 +285,39 @@ export default function ProjetDetailPage() {
     };
   }, [supabase]);
 
+  type ChecklistItem = { id: string; label: string; done: boolean };
+  type ParsedNote = { text: string; checklist: ChecklistItem[] };
+  const parseNote = useCallback((raw: string): ParsedNote => {
+    try {
+      const parsed = JSON.parse(raw) as { text?: string; checklist?: ChecklistItem[] };
+      if (typeof parsed?.text === "string" && Array.isArray(parsed?.checklist)) {
+        return { text: parsed.text, checklist: parsed.checklist };
+      }
+    } catch {
+      // legacy note text
+    }
+    return { text: raw, checklist: [] };
+  }, []);
+
+  const stringifyNote = useCallback((note: ParsedNote) => {
+    return JSON.stringify(note);
+  }, []);
+
+  const getNotePreview = useCallback(
+    (raw: string) => {
+      const p = parseNote(raw);
+      const base = p.text.trim() || p.checklist.map((c) => c.label).join(" • ");
+      return base.length > 80 ? `${base.slice(0, 80)}…` : base;
+    },
+    [parseNote]
+  );
+
   const handleAddProjectNote = async () => {
     if (!supabase || !id || !currentUserId || !newNote.trim()) return;
     setNotesSaving(true);
     const { data, error } = await supabase
       .from("project_notes")
-      .insert({ project_id: id, user_id: currentUserId, content: newNote.trim() })
+      .insert({ project_id: id, user_id: currentUserId, content: stringifyNote({ text: newNote.trim(), checklist: [] }) })
       .select("id, content, created_at")
       .single();
     setNotesSaving(false);
@@ -309,12 +330,12 @@ export default function ProjetDetailPage() {
     pushToast("success", t("projectNoteSaved", language));
   };
 
-  const handleUpdateProjectNote = async (noteId: string) => {
-    if (!supabase || !currentUserId || !editingNoteContent.trim()) return;
+  const handleUpdateProjectNote = async (noteId: string, payload: ParsedNote) => {
+    if (!supabase || !currentUserId) return;
     setNotesSaving(true);
     const { error } = await supabase
       .from("project_notes")
-      .update({ content: editingNoteContent.trim() })
+      .update({ content: stringifyNote(payload) })
       .eq("id", noteId)
       .eq("user_id", currentUserId);
     setNotesSaving(false);
@@ -322,9 +343,7 @@ export default function ProjetDetailPage() {
       pushToast("error", t("saveErrorGeneric", language));
       return;
     }
-    setProjectNotes((prev) => prev.map((n) => (n.id === noteId ? { ...n, content: editingNoteContent.trim() } : n)));
-    setEditingNoteId(null);
-    setEditingNoteContent("");
+    setProjectNotes((prev) => prev.map((n) => (n.id === noteId ? { ...n, content: stringifyNote(payload) } : n)));
     pushToast("success", t("projectNoteUpdated", language));
   };
 
@@ -341,60 +360,133 @@ export default function ProjetDetailPage() {
     pushToast("success", t("projectNoteDeleted", language));
   };
 
-  const handleUploadGalleryImage = async (file: File) => {
-    if (!supabase || !id || !currentUserId || !file) return;
+  const activeParsedNote = useCallback(() => {
+    const note = projectNotes.find((n) => n.id === activeNoteId);
+    return note ? parseNote(note.content) : null;
+  }, [activeNoteId, parseNote, projectNotes]);
+
+  const handleToggleChecklistItem = async (itemId: string, nextDone: boolean) => {
+    if (!activeNoteId) return;
+    const parsed = activeParsedNote();
+    if (!parsed) return;
+    const updated: ParsedNote = {
+      ...parsed,
+      text: activeNoteText,
+      checklist: parsed.checklist.map((item) => (item.id === itemId ? { ...item, done: nextDone } : item)),
+    };
+    await handleUpdateProjectNote(activeNoteId, updated);
+  };
+
+  const handleAddChecklistItem = async () => {
+    if (!activeNoteId || !activeChecklistDraft.trim()) return;
+    const parsed = activeParsedNote();
+    if (!parsed) return;
+    const updated: ParsedNote = {
+      ...parsed,
+      text: activeNoteText,
+      checklist: [
+        ...parsed.checklist,
+        { id: crypto.randomUUID(), label: activeChecklistDraft.trim(), done: false },
+      ],
+    };
+    await handleUpdateProjectNote(activeNoteId, updated);
+    setActiveChecklistDraft("");
+  };
+
+  const handleSaveActiveNoteText = async () => {
+    if (!activeNoteId) return;
+    const parsed = activeParsedNote();
+    if (!parsed) return;
+    await handleUpdateProjectNote(activeNoteId, { ...parsed, text: activeNoteText });
+  };
+
+  const handleUploadGalleryImage = async (files: FileList | File[]) => {
+    if (!supabase || !id || !currentUserId || !files?.length) return;
     setGalleryUploading(true);
-    const path = `${id}/${Date.now()}-${file.name}`;
-    const { error: uploadError } = await supabase.storage
-      .from("project-galleries")
-      .upload(path, file, { upsert: false, contentType: file.type });
-    if (process.env.NODE_ENV === "development") {
-      console.log("[gallery] storage upload", { path, ok: !uploadError, error: uploadError?.message ?? null });
-    }
-    if (uploadError) {
+    setGalleryUploadProgress(0);
+    const { error: bucketError } = await supabase.storage.from("project-galleries").list(id, { limit: 1 });
+    if (bucketError) {
+      console.error("[gallery] bucket access failed", {
+        message: bucketError.message,
+        name: bucketError.name,
+      });
       setGalleryUploading(false);
-      console.error("[gallery] storage upload failed", {
-        message: uploadError.message,
-        name: uploadError.name,
-      });
+      setGalleryUploadProgress(0);
       pushToast("error", t("saveErrorGeneric", language));
       return;
     }
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("project-galleries").getPublicUrl(path);
-    const { data: imgRow, error } = await supabase
-      .from("project_images")
-      .insert({
-        project_id: id,
-        user_id: currentUserId,
-        storage_path: path,
-        public_url: publicUrl,
-        file_name: file.name,
-      })
-      .select("id")
-      .single();
+    const fileArray = Array.from(files);
+    let failed = 0;
+    for (let i = 0; i < fileArray.length; i += 1) {
+      const file = fileArray[i];
+      const path = `${id}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("project-galleries")
+        .upload(path, file, { upsert: false, contentType: file.type });
+      if (process.env.NODE_ENV === "development") {
+        console.log("[gallery] storage upload", { path, ok: !uploadError, error: uploadError?.message ?? null });
+      }
+      if (uploadError) {
+        failed += 1;
+        console.error("[gallery] storage upload failed", {
+          file: file.name,
+          message: uploadError.message,
+          name: uploadError.name,
+        });
+        setGalleryUploadProgress(Math.round(((i + 1) / fileArray.length) * 100));
+        continue;
+      }
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("project-galleries").getPublicUrl(path);
+
+      let insertError: { message?: string; details?: string; hint?: string; code?: string } | null = null;
+      const insertWithFileName = await supabase
+        .from("project_images")
+        .insert({
+          project_id: id,
+          user_id: currentUserId,
+          storage_path: path,
+          public_url: publicUrl,
+          file_name: file.name,
+        })
+        .select("id")
+        .single();
+
+      if (insertWithFileName.error?.code === "42703") {
+        const fallbackInsert = await supabase
+          .from("project_images")
+          .insert({
+            project_id: id,
+            user_id: currentUserId,
+            storage_path: path,
+            public_url: publicUrl,
+          })
+          .select("id")
+          .single();
+        insertError = fallbackInsert.error;
+      } else {
+        insertError = insertWithFileName.error;
+      }
+
+      if (insertError) {
+        failed += 1;
+        console.error("[gallery] project_images insert failed", {
+          file: file.name,
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code,
+        });
+      }
+
+      setGalleryUploadProgress(Math.round(((i + 1) / fileArray.length) * 100));
+    }
     setGalleryUploading(false);
-    if (process.env.NODE_ENV === "development") {
-      console.log("[gallery] project_images insert", {
-        project_id: id,
-        ok: !error,
-        error: error?.message ?? null,
-        id: imgRow?.id ?? null,
-      });
-    }
-    if (error) {
-      console.error("[gallery] project_images insert failed", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-      });
-      pushToast("error", t("saveErrorGeneric", language));
-      return;
-    }
+    setGalleryUploadProgress(0);
     await refetchGalleryImages();
-    pushToast("success", t("projectImageUploaded", language));
+    if (failed > 0) pushToast("error", t("saveErrorGeneric", language));
+    else pushToast("success", t("projectImageUploaded", language));
   };
 
   const handleDeleteGalleryImage = async (imageId: string, storagePath?: string) => {
@@ -410,24 +502,6 @@ export default function ProjetDetailPage() {
     setGalleryViewer((v) => (v?.id === imageId ? null : v));
     await refetchGalleryImages();
     pushToast("success", t("projectImageDeleted", language));
-  };
-
-  const handleAddTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTaskLabel.trim() || !id) return;
-    const label = newTaskLabel.trim();
-    setNewTaskLabel("");
-    const result = await addTask(label);
-    if (process.env.NODE_ENV === "development") {
-      console.log("[tasks] handleAddTask result", { project_id: id, ...result });
-    }
-    if (result.ok) {
-      await refetchTasks();
-      router.refresh();
-      pushToast("success", t("taskAdded", language));
-    } else {
-      pushToast("error", t("saveErrorGeneric", language));
-    }
   };
 
   const parseNum = (v: string) => {
@@ -757,8 +831,8 @@ export default function ProjetDetailPage() {
                 <StickyNote className="h-5 w-5 text-brand-blue-500" />
                 {t("projectNotesTitle", language)}
               </CardTitle>
-              <Button size="icon" onClick={handleAddProjectNote} disabled={!newNote.trim() || notesSaving}>
-                {notesSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              <Button size="icon" onClick={handleAddProjectNote} disabled={!newNote.trim() || notesSaving} className={projectPrimaryBtn}>
+                {notesSaving ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : <Plus className="h-4 w-4" />}
               </Button>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -800,154 +874,24 @@ export default function ProjetDetailPage() {
                       className="border-gray-100 bg-gray-50/50"
                     >
                       <div className="flex min-h-[48px] items-start gap-2 px-3 py-2">
-                        {editingNoteId === note.id ? (
-                          <Input
-                            value={editingNoteContent}
-                            onChange={(e) => setEditingNoteContent(e.target.value)}
-                            onBlur={() => void handleUpdateProjectNote(note.id)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") void handleUpdateProjectNote(note.id);
-                              if (e.key === "Escape") {
-                                setEditingNoteId(null);
-                                setEditingNoteContent("");
-                              }
-                            }}
-                            autoFocus
-                            className="min-h-[40px] flex-1"
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingNoteId(note.id);
-                              setEditingNoteContent(note.content);
-                            }}
-                            className="flex-1 text-left text-sm text-gray-900"
-                          >
-                            {note.content}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const parsed = parseNote(note.content);
+                            setActiveNoteId(note.id);
+                            setActiveNoteText(parsed.text);
+                            setActiveChecklistDraft("");
+                          }}
+                          className="flex-1 text-left"
+                        >
+                          <p className="line-clamp-3 text-sm text-gray-900">{getNotePreview(note.content)}</p>
+                          <p className="mt-1 text-xs text-gray-500">{formatDate(note.created_at ?? new Date().toISOString())}</p>
+                        </button>
                       </div>
                     </SwipeActionsRow>
                   </li>
                 ))}
               </ul>
-            </CardContent>
-          </Card>
-
-          <Card className="overflow-hidden transition-shadow hover:shadow-brand-glow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ListTodo className="h-5 w-5 text-brand-blue-500" />
-                {t("projectTasksTitle", language)}
-              </CardTitle>
-              <p className="text-sm text-gray-500">{t("projectTasksHint", language)}</p>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <form onSubmit={handleAddTask} className="flex gap-2">
-                <Input
-                  value={newTaskLabel}
-                  onChange={(e) => setNewTaskLabel(e.target.value)}
-                  placeholder={t("taskPlaceholder", language)}
-                  className="min-h-[48px] flex-1"
-                />
-                <Button
-                  type="submit"
-                  size="icon"
-                  className={cn("min-h-[48px] min-w-[48px]", projectPrimaryBtn)}
-                  disabled={!newTaskLabel.trim()}
-                  aria-label={t("add", language)}
-                >
-                  <Plus className="h-5 w-5" />
-                </Button>
-              </form>
-              {tasksLoading ? (
-                <div className="flex items-center gap-2 py-4 text-gray-500">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  {t("loading", language)}
-                </div>
-              ) : (
-                <ul className="space-y-2">
-                  <AnimatePresence mode="popLayout">
-                    {tasks.map((task) => (
-                      <motion.li
-                        key={task.id}
-                        layout
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, x: -8 }}
-                        className="list-none"
-                      >
-                        <SwipeActionsRow
-                          actions="delete-only"
-                          onDelete={() => {
-                            void deleteTask(task.id);
-                            pushToast("success", t("taskDeleted", language));
-                          }}
-                          deleteLabel={t("delete", language)}
-                          className="border-gray-100 bg-gray-50/50"
-                        >
-                          <div className="flex min-h-[48px] items-center gap-2 px-3 py-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                void toggleTask(task.id, !task.completed);
-                              }}
-                              className="shrink-0 text-brand-blue-600 hover:opacity-80"
-                              aria-label={task.completed ? t("markIncomplete", language) : t("markComplete", language)}
-                            >
-                              {task.completed ? (
-                                <CheckSquare className="h-5 w-5 text-emerald-600" />
-                              ) : (
-                                <Square className="h-5 w-5" />
-                              )}
-                            </button>
-                            <div className="min-w-0 flex-1">
-                              {editingTaskId === task.id ? (
-                                <Input
-                                  value={editingTaskLabel}
-                                  onChange={(e) => setEditingTaskLabel(e.target.value)}
-                                  onBlur={() => {
-                                    if (editingTaskLabel.trim()) void updateTask(task.id, editingTaskLabel);
-                                    setEditingTaskId(null);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter" && editingTaskLabel.trim()) {
-                                      void updateTask(task.id, editingTaskLabel);
-                                      pushToast("success", t("taskUpdated", language));
-                                      setEditingTaskId(null);
-                                    }
-                                    if (e.key === "Escape") setEditingTaskId(null);
-                                  }}
-                                  autoFocus
-                                  className="min-h-[36px]"
-                                />
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingTaskId(task.id);
-                                    setEditingTaskLabel(task.label);
-                                  }}
-                                  className={cn(
-                                    "w-full text-left text-sm",
-                                    task.completed ? "text-gray-500 line-through" : "text-gray-900"
-                                  )}
-                                >
-                                  {task.label}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </SwipeActionsRow>
-                      </motion.li>
-                    ))}
-                  </AnimatePresence>
-                  {tasks.length === 0 && (
-                    <p className="text-sm text-gray-500 py-4 text-center">{t("projectNoTasksHint", language)}</p>
-                  )}
-                </ul>
-              )}
             </CardContent>
           </Card>
 
@@ -1064,9 +1008,9 @@ export default function ProjetDetailPage() {
                   <Loader2 className="h-4 w-4 animate-spin text-white" />
                 ) : (
                   <>
-                    <Save className="mr-0 h-4 w-4 shrink-0 stroke-[2.5] sm:mr-0" aria-hidden />
-                    <span className="hidden sm:inline">{t("saveChanges", language)}</span>
-                    <span className="inline sm:hidden">{t("save", language)}</span>
+                    <Check className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="hidden sm:inline">Save changes</span>
+                    <span className="inline sm:hidden">Save</span>
                   </>
                 )}
               </Button>
@@ -1311,10 +1255,10 @@ export default function ProjetDetailPage() {
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     className="hidden"
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) void handleUploadGalleryImage(file);
+                      if (e.target.files?.length) void handleUploadGalleryImage(e.target.files);
                       e.currentTarget.value = "";
                     }}
                   />
@@ -1324,7 +1268,7 @@ export default function ProjetDetailPage() {
                       projectPrimaryBtn
                     )}
                   >
-                    {galleryUploading ? t("loading", language) : t("addPhoto", language)}
+                    {galleryUploading ? `${t("loading", language)} ${galleryUploadProgress}%` : t("addPhoto", language)}
                   </span>
                 </label>
               </div>
@@ -1363,10 +1307,69 @@ export default function ProjetDetailPage() {
                   ))}
                 </div>
               )}
+              {photos.length === 0 && !galleryUploading && (
+                <p className="mt-4 text-sm text-gray-500">{t("noPhotos", language)}</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!activeNoteId} onOpenChange={(open) => !open && setActiveNoteId(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t("projectNotesTitle", language)}</DialogTitle>
+          </DialogHeader>
+          {activeNoteId && (
+            <div className="space-y-3">
+              <textarea
+                value={activeNoteText}
+                onChange={(e) => setActiveNoteText(e.target.value)}
+                onBlur={() => void handleSaveActiveNoteText()}
+                className="min-h-[120px] max-h-[38vh] w-full rounded-md border border-gray-200 p-3 text-sm"
+                placeholder={t("projectNotesPlaceholder", language)}
+              />
+              <div className="space-y-2 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                {(activeParsedNote()?.checklist ?? []).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => void handleToggleChecklistItem(item.id, !item.done)}
+                    className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left"
+                  >
+                    <CheckSquare className={cn("h-4 w-4 shrink-0", item.done ? "text-emerald-600" : "text-gray-400")} />
+                    <span className={cn("text-sm", item.done ? "text-gray-500 line-through" : "text-gray-900")}>{item.label}</span>
+                  </button>
+                ))}
+                <div className="flex gap-2 pt-1">
+                  <Input
+                    value={activeChecklistDraft}
+                    onChange={(e) => setActiveChecklistDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleAddChecklistItem();
+                      }
+                    }}
+                    placeholder={t("taskPlaceholder", language)}
+                    className="min-h-[44px]"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    className={projectPrimaryBtn}
+                    disabled={!activeChecklistDraft.trim() || notesSaving}
+                    onClick={() => void handleAddChecklistItem()}
+                    aria-label={t("add", language)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!galleryViewer} onOpenChange={(open) => !open && setGalleryViewer(null)}>
         <DialogContent
@@ -1388,7 +1391,7 @@ export default function ProjetDetailPage() {
                     if (!galleryViewer) return;
                     const a = document.createElement("a");
                     a.href = galleryViewer.url;
-                    a.download = `chantier-${id.slice(0, 8)}-${galleryViewer.id.slice(0, 8)}.jpg`;
+                    a.download = `project-${id.slice(0, 8)}-${galleryViewer.id.slice(0, 8)}.jpg`;
                     a.rel = "noopener noreferrer";
                     a.target = "_blank";
                     document.body.appendChild(a);
@@ -1466,9 +1469,9 @@ export default function ProjetDetailPage() {
                 <Loader2 className="h-4 w-4 animate-spin text-white" />
               ) : (
                 <>
-                  <Save className="mr-0 h-4 w-4 shrink-0 stroke-[2.5] sm:mr-0" aria-hidden />
-                  <span className="hidden sm:inline">{t("saveChanges", language)}</span>
-                  <span className="inline sm:hidden">{t("save", language)}</span>
+                  <Check className="h-4 w-4 shrink-0" aria-hidden />
+                  <span className="hidden sm:inline">Save changes</span>
+                  <span className="inline sm:hidden">Save</span>
                 </>
               )}
             </Button>
@@ -1530,8 +1533,15 @@ export default function ProjetDetailPage() {
               <Button type="button" variant="outline" onClick={() => setPaymentOpen(false)} disabled={paymentSaving}>
                 {t("cancel", language)}
               </Button>
-              <Button type="submit" disabled={paymentSaving} className={projectPrimaryBtn}>
-                {paymentSaving ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : t("save", language)}
+              <Button type="submit" disabled={paymentSaving} className={cn("gap-1.5", projectPrimaryBtn)}>
+                {paymentSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 shrink-0" aria-hidden />
+                    <span>Save</span>
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </form>
@@ -1615,8 +1625,15 @@ export default function ProjetDetailPage() {
               <Button type="button" variant="outline" onClick={() => setExpenseOpen(false)} disabled={expenseSaving}>
                 {t("cancel", language)}
               </Button>
-              <Button type="submit" disabled={expenseSaving} className={projectPrimaryBtn}>
-                {expenseSaving ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : t("save", language)}
+              <Button type="submit" disabled={expenseSaving} className={cn("gap-1.5", projectPrimaryBtn)}>
+                {expenseSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 shrink-0" aria-hidden />
+                    <span>Save</span>
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </form>

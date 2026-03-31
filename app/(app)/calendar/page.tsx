@@ -5,7 +5,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { OmniTabSearch } from "@/components/ui/omni-tab-search";
 import { t } from "@/lib/translations";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ import { formatDate, formatTime, toDateString, toTimeString } from "@/lib/utils"
 import { format } from "date-fns";
 import { enUS, fr } from "date-fns/locale";
 import type { Appointment, AppointmentType } from "@/types/database";
-import { ChevronLeft, ChevronRight, FolderKanban, Calendar as CalendarIcon, Sparkles, Loader2, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, FolderKanban, Calendar as CalendarIcon, Sparkles, Loader2, Trash2, Check } from "lucide-react";
 
 const HEURES = Array.from({ length: 14 }, (_, i) => i + 7);
 
@@ -78,6 +78,7 @@ export default function CalendarPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [editAppointmentId, setEditAppointmentId] = useState<string | null>(null);
   const [detailAppointment, setDetailAppointment] = useState<Appointment | null>(null);
+  const [dayDetailDate, setDayDetailDate] = useState<Date | null>(null);
 
   const [formTitle, setFormTitle] = useState("");
   const [formProjectId, setFormProjectId] = useState("");
@@ -273,6 +274,11 @@ export default function CalendarPage() {
         ? t("weekOf", language).replace("{date}", formatDate(weekStart))
         : format(new Date(viewYear, viewMonth, 1), "MMMM yyyy", { locale: dateLocale });
 
+  const dayDetailAppointments = useMemo(() => {
+    if (!dayDetailDate) return [];
+    return appointmentsByDay.get(toDateString(dayDetailDate)) ?? [];
+  }, [appointmentsByDay, dayDetailDate]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -351,9 +357,15 @@ export default function CalendarPage() {
                     >
                       {d && (
                         <>
-                          <span className={`text-sm font-medium ${isToday ? "text-brand-blue-600" : "text-gray-700"}`}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDayDetailDate(d);
+                            }}
+                            className={`text-sm font-medium ${isToday ? "text-brand-blue-600" : "text-gray-700"} hover:underline`}
+                          >
                             {d.getDate()}
-                          </span>
+                          </button>
                           <div className="mt-1 space-y-0.5">
                             {dayAppointments.slice(0, 2).map((a) => (
                               <button
@@ -438,6 +450,21 @@ export default function CalendarPage() {
                     {String(h).padStart(2, "0")}:00
                   </span>
                   <div className="min-h-[44px] flex-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormDate(toDateString(new Date(viewYear, viewMonth, viewDay)));
+                        setFormStartTime(`${String(h).padStart(2, "0")}:00`);
+                        setFormEndTime(`${String(Math.min(23, h + 1)).padStart(2, "0")}:00`);
+                        setFormTitle("");
+                        setFormProjectId("");
+                        setEditAppointmentId(null);
+                        setAddOpen(true);
+                      }}
+                      className="mb-1 rounded border border-dashed border-gray-200 px-2 py-1 text-xs text-gray-500 hover:border-brand-blue-300 hover:text-brand-blue-600"
+                    >
+                      + {t("addAppointment", language)}
+                    </button>
                     {(appointmentsByDay.get(toDateString(new Date(viewYear, viewMonth, viewDay))) ?? [])
                       .filter((a) => {
                         const sh = new Date(a.start_at).getHours();
@@ -608,11 +635,7 @@ export default function CalendarPage() {
                   variant="destructive"
                   className="w-full gap-2 sm:w-auto"
                   onClick={async () => {
-                    const ok = window.confirm(
-                      language === "en"
-                        ? "Delete this appointment permanently?"
-                        : "Supprimer ce rendez-vous définitivement ?"
-                    );
+                    const ok = window.confirm(t("deleteAppointmentConfirm", language));
                     if (!ok || !editAppointmentId) return;
                     const res = await deleteAppointment(editAppointmentId);
                     if (res?.error) {
@@ -631,8 +654,15 @@ export default function CalendarPage() {
                 <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
                   {t("cancel", language)}
                 </Button>
-                <Button type="submit" disabled={formSaving}>
-                  {formSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save", language)}
+                <Button type="submit" disabled={formSaving} className="gap-1.5 text-white [&_svg]:text-white">
+                  {formSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" aria-hidden />
+                      <span>Save</span>
+                    </>
+                  )}
                 </Button>
               </div>
             </DialogFooter>
@@ -702,6 +732,66 @@ export default function CalendarPage() {
               </>
             )}
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!dayDetailDate} onOpenChange={(open) => !open && setDayDetailDate(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {dayDetailDate ? formatDate(dayDetailDate) : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[62vh] space-y-2 overflow-y-auto pr-1">
+            {HEURES.map((h) => {
+              const list = dayDetailAppointments.filter((a) => {
+                const sh = new Date(a.start_at).getHours();
+                const eh = new Date(a.end_at).getHours();
+                return sh <= h && h < eh;
+              });
+              return (
+                <div key={`detail-${h}`} className="rounded-md border border-gray-100 p-2">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-500">{String(h).padStart(2, "0")}:00</span>
+                    <button
+                      type="button"
+                      className="rounded border border-dashed border-gray-200 px-2 py-1 text-xs text-gray-500"
+                      onClick={() => {
+                        if (!dayDetailDate) return;
+                        setFormDate(toDateString(dayDetailDate));
+                        setFormStartTime(`${String(h).padStart(2, "0")}:00`);
+                        setFormEndTime(`${String(Math.min(23, h + 1)).padStart(2, "0")}:00`);
+                        setFormTitle("");
+                        setFormProjectId("");
+                        setEditAppointmentId(null);
+                        setDayDetailDate(null);
+                        setAddOpen(true);
+                      }}
+                    >
+                      + {t("addAppointment", language)}
+                    </button>
+                  </div>
+                  {list.length === 0 ? (
+                    <p className="text-xs text-gray-400">{t("noAppointments", language)}</p>
+                  ) : (
+                    list.map((a) => (
+                      <button
+                        key={`detail-app-${a.id}-${h}`}
+                        type="button"
+                        onClick={() => {
+                          setDayDetailDate(null);
+                          setDetailAppointment(a);
+                        }}
+                        className={`mb-1 block w-full rounded border px-2 py-1 text-left text-xs ${TYPE_COLORS[a.type]}`}
+                      >
+                        {formatTime(a.start_at)} {a.title}
+                      </button>
+                    ))
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </DialogContent>
       </Dialog>
     </motion.div>

@@ -257,7 +257,7 @@ function ProjetsContent() {
                           onEdit={() => router.push(`/projets/${String(project.id)}`)}
                           onDelete={runDelete}
                           disabled={deletingId === project.id}
-                          editLabel={language === "en" ? "Edit project" : "Modifier le projet"}
+                          editLabel="Edit project"
                           deleteLabel={t("deleteProject", language)}
                           className={cn(deletingId === project.id && "opacity-60 pointer-events-none")}
                         >
