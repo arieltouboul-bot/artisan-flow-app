@@ -122,6 +122,7 @@ export default function ProjetDetailPage() {
   } | null>(null);
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [galleryUploadProgress, setGalleryUploadProgress] = useState(0);
+  const [galleryDownloading, setGalleryDownloading] = useState(false);
   const [toast, setToast] = useState<{ kind: "success" | "error"; message: string } | null>(null);
   const [address, setAddress] = useState("");
   const [contractAmount, setContractAmount] = useState("");
@@ -632,6 +633,33 @@ export default function ProjetDetailPage() {
     await refetchGalleryImages();
     pushToast("success", t("projectImageDeleted", language));
   };
+
+  const handleDownloadGalleryImage = useCallback(
+    async (url: string, imageId: string) => {
+      try {
+        setGalleryDownloading(true);
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Download failed (${response.status})`);
+        }
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = `photo-chantier-${id.slice(0, 8)}-${imageId.slice(0, 8)}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(blobUrl);
+      } catch (error) {
+        console.error("[gallery] download failed", error);
+        pushToast("error", t("saveErrorGeneric", language));
+      } finally {
+        setGalleryDownloading(false);
+      }
+    },
+    [id, language, pushToast]
+  );
 
   const parseNum = (v: string) => {
     const n = parseFloat(String(v).replace(",", "."));
@@ -1403,10 +1431,11 @@ export default function ProjetDetailPage() {
                   />
                   <span
                     className={cn(
-                      "inline-flex min-h-[44px] cursor-pointer items-center justify-center rounded-md px-4 py-2 text-sm",
+                      "inline-flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-md px-4 py-2 text-sm",
                       projectPrimaryBtn
                     )}
                   >
+                    <Plus className="h-4 w-4 shrink-0" aria-hidden />
                     {galleryUploading ? `${t("loading", language)} ${galleryUploadProgress}%` : t("addPhoto", language)}
                   </span>
                 </label>
@@ -1536,20 +1565,18 @@ export default function ProjetDetailPage() {
                   type="button"
                   size="lg"
                   className={cn("gap-2 px-6 text-base shadow-lg", projectPrimaryBtn)}
+                  disabled={galleryDownloading}
                   onClick={() => {
                     if (!galleryViewer) return;
-                    const a = document.createElement("a");
-                    a.href = galleryViewer.url;
-                    a.download = `project-${id.slice(0, 8)}-${galleryViewer.id.slice(0, 8)}.jpg`;
-                    a.rel = "noopener noreferrer";
-                    a.target = "_blank";
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
+                    void handleDownloadGalleryImage(galleryViewer.url, galleryViewer.id);
                   }}
                 >
-                  <Download className="h-5 w-5 shrink-0" aria-hidden />
-                  {t("download", language)}
+                  {galleryDownloading ? (
+                    <Loader2 className="h-5 w-5 shrink-0 animate-spin" aria-hidden />
+                  ) : (
+                    <Download className="h-5 w-5 shrink-0" aria-hidden />
+                  )}
+                  Download
                 </Button>
                 <Button
                   type="button"
