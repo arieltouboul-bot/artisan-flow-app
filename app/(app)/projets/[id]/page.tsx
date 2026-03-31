@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -150,9 +151,13 @@ export default function ProjetDetailPage() {
   const [expenseSuccess, setExpenseSuccess] = useState<string | null>(null);
   const [teamPayrollEur, setTeamPayrollEur] = useState(0);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [notesLoaded, setNotesLoaded] = useState(false);
+  const [photosLoaded, setPhotosLoaded] = useState(false);
 
   const supabase = createClient();
   const { setPageContext } = useAssistant();
+  const notesCacheKey = `project-notes-cache:${id}`;
+  const photosCacheKey = `project-photos-cache:${id}`;
 
   const currentProject = project ?? null;
 
@@ -216,25 +221,52 @@ export default function ProjetDetailPage() {
 
   useEffect(() => {
     if (!supabase || !id || !currentUserId) return;
+    try {
+      const cached = window.localStorage.getItem(notesCacheKey);
+      if (cached) {
+        setProjectNotes(JSON.parse(cached) as Array<{ id: string; content: string; created_at?: string }>);
+      }
+    } catch {
+      // ignore malformed cache
+    }
     let mounted = true;
     const fetchNotes = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("project_notes")
         .select("id, content, created_at")
         .eq("project_id", id)
         .eq("user_id", currentUserId)
         .order("created_at", { ascending: false });
       if (!mounted) return;
-      setProjectNotes((data ?? []) as Array<{ id: string; content: string; created_at?: string }>);
+      if (error) {
+        setNotesLoaded(true);
+        return;
+      }
+      const rows = (data ?? []) as Array<{ id: string; content: string; created_at?: string }>;
+      setProjectNotes(rows);
+      setNotesLoaded(true);
+      try {
+        window.localStorage.setItem(notesCacheKey, JSON.stringify(rows));
+      } catch {
+        // ignore cache failures
+      }
     };
     void fetchNotes();
     return () => {
       mounted = false;
     };
-  }, [supabase, id, currentUserId]);
+  }, [supabase, id, currentUserId, notesCacheKey]);
 
   const refetchGalleryImages = useCallback(async () => {
     if (!supabase || !id) return;
+    try {
+      const cached = window.localStorage.getItem(photosCacheKey);
+      if (cached) {
+        setPhotos(JSON.parse(cached) as Array<{ id: string; url: string; name?: string; storage_path?: string }>);
+      }
+    } catch {
+      // ignore malformed cache
+    }
     const { data, error } = await supabase
       .from("project_images")
       .select("id, public_url, storage_path, created_at")
@@ -248,21 +280,55 @@ export default function ProjetDetailPage() {
       });
     }
     if (error) {
-      setPhotos([]);
+      setPhotosLoaded(true);
       return;
     }
-    setPhotos(
-      ((data ?? []) as Array<{ id: string; public_url: string; storage_path?: string | null }>).map((img) => ({
-        id: img.id,
-        url: img.public_url,
-        storage_path: img.storage_path ?? undefined,
-      }))
-    );
-  }, [supabase, id]);
+    const mapped = ((data ?? []) as Array<{ id: string; public_url: string; storage_path?: string | null }>).map((img) => ({
+      id: img.id,
+      url: img.public_url,
+      storage_path: img.storage_path ?? undefined,
+    }));
+    setPhotos(mapped);
+    setPhotosLoaded(true);
+    try {
+      window.localStorage.setItem(photosCacheKey, JSON.stringify(mapped));
+    } catch {
+      // ignore cache failures
+    }
+  }, [supabase, id, photosCacheKey]);
 
   useEffect(() => {
+    if (!id) return;
+    if (!navigator.onLine) {
+      setNotesLoaded(true);
+      setPhotosLoaded(true);
+      return;
+    }
     void refetchGalleryImages();
-  }, [refetchGalleryImages]);
+  }, [id, refetchGalleryImages]);
+
+  useEffect(() => {
+    try {
+      if (id) window.localStorage.setItem(notesCacheKey, JSON.stringify(projectNotes));
+    } catch {
+      // ignore cache failures
+    }
+  }, [id, notesCacheKey, projectNotes]);
+
+  useEffect(() => {
+    try {
+      if (id) window.localStorage.setItem(photosCacheKey, JSON.stringify(photos));
+    } catch {
+      // ignore cache failures
+    }
+  }, [id, photosCacheKey, photos]);
+
+  const optimisticUpsertPhoto = useCallback((idValue: string, urlValue: string, storagePath?: string) => {
+    setPhotos((prev) => [
+      { id: idValue, url: urlValue, storage_path: storagePath },
+      ...prev.filter((p) => p.id !== idValue),
+    ]);
+  }, []);
 
   useEffect(() => {
     if (currentProject && Number.isFinite(Number(currentProject.vat_rate))) {
@@ -314,6 +380,14 @@ export default function ProjetDetailPage() {
 
   const handleAddProjectNote = async () => {
     if (!supabase || !id || !currentUserId || !newNote.trim()) return;
+    const optimisticId = `temp-note-${Date.now()}`;
+    const optimisticNote = {
+      id: optimisticId,
+      content: stringifyNote({ text: newNote.trim(), checklist: [] }),
+      created_at: new Date().toISOString(),
+    };
+    setProjectNotes((prev) => [optimisticNote, ...prev]);
+    setNewNote("");
     setNotesSaving(true);
     const { data, error } = await supabase
       .from("project_notes")
@@ -322,11 +396,14 @@ export default function ProjetDetailPage() {
       .single();
     setNotesSaving(false);
     if (error) {
+      setProjectNotes((prev) => prev.filter((n) => n.id !== optimisticId));
       pushToast("error", t("saveErrorGeneric", language));
       return;
     }
-    setProjectNotes((prev) => [data as { id: string; content: string; created_at?: string }, ...prev]);
-    setNewNote("");
+    setProjectNotes((prev) => [
+      data as { id: string; content: string; created_at?: string },
+      ...prev.filter((n) => n.id !== optimisticId),
+    ]);
     pushToast("success", t("projectNoteSaved", language));
   };
 
@@ -419,6 +496,9 @@ export default function ProjetDetailPage() {
     let failed = 0;
     for (let i = 0; i < fileArray.length; i += 1) {
       const file = fileArray[i];
+      const tempId = `temp-photo-${Date.now()}-${i}`;
+      const localPreview = URL.createObjectURL(file);
+      optimisticUpsertPhoto(tempId, localPreview);
       const path = `${id}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage
         .from("project-galleries")
@@ -428,6 +508,8 @@ export default function ProjetDetailPage() {
       }
       if (uploadError) {
         failed += 1;
+        URL.revokeObjectURL(localPreview);
+        setPhotos((prev) => prev.filter((p) => p.id !== tempId));
         console.error("[gallery] storage upload failed", {
           file: file.name,
           message: uploadError.message,
@@ -471,6 +553,8 @@ export default function ProjetDetailPage() {
 
       if (insertError) {
         failed += 1;
+        URL.revokeObjectURL(localPreview);
+        setPhotos((prev) => prev.filter((p) => p.id !== tempId));
         console.error("[gallery] project_images insert failed", {
           file: file.name,
           message: insertError.message,
@@ -478,6 +562,12 @@ export default function ProjetDetailPage() {
           hint: insertError.hint,
           code: insertError.code,
         });
+      } else {
+        const { data: insertedData } = insertWithFileName.error?.code === "42703" ? { data: null } : insertWithFileName;
+        const newId = insertedData?.id ?? `remote-photo-${Date.now()}-${i}`;
+        URL.revokeObjectURL(localPreview);
+        optimisticUpsertPhoto(newId, publicUrl, path);
+        setPhotos((prev) => prev.filter((p) => p.id !== tempId));
       }
 
       setGalleryUploadProgress(Math.round(((i + 1) / fileArray.length) * 100));
@@ -831,8 +921,15 @@ export default function ProjetDetailPage() {
                 <StickyNote className="h-5 w-5 text-brand-blue-500" />
                 {t("projectNotesTitle", language)}
               </CardTitle>
-              <Button size="icon" onClick={handleAddProjectNote} disabled={!newNote.trim() || notesSaving} className={projectPrimaryBtn}>
-                {notesSaving ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : <Plus className="h-4 w-4" />}
+              <Button onClick={handleAddProjectNote} disabled={!newNote.trim() || notesSaving} className={cn("gap-1.5", projectPrimaryBtn)}>
+                {notesSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4" />
+                    <span>Add</span>
+                  </>
+                )}
               </Button>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -851,8 +948,7 @@ export default function ProjetDetailPage() {
                 />
                 <Button
                   type="button"
-                  size="icon"
-                  className={projectPrimaryBtn}
+                  className={cn("gap-1.5 min-h-[44px]", projectPrimaryBtn)}
                   onClick={handleAddProjectNote}
                   disabled={!newNote.trim() || notesSaving}
                   aria-label={t("add", language)}
@@ -860,10 +956,14 @@ export default function ProjetDetailPage() {
                   {notesSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin text-white" />
                   ) : (
-                    <Plus className="h-4 w-4" />
+                    <>
+                      <Plus className="h-4 w-4" />
+                      <span>Add</span>
+                    </>
                   )}
                 </Button>
               </div>
+              {!notesLoaded && <p className="text-xs text-gray-500">{t("loading", language)}</p>}
               <ul className="space-y-2">
                 {projectNotes.map((note) => (
                   <li key={note.id} className="list-none">
@@ -1285,11 +1385,14 @@ export default function ProjetDetailPage() {
                         onClick={() => setGalleryViewer({ id: photo.id, url: photo.url, storage_path: photo.storage_path })}
                         aria-label={t("galleryLightboxTitle", language)}
                       />
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <Image
                         src={photo.url}
                         alt={t("galleryImageAlt", language)}
-                        className="pointer-events-none h-full w-full object-cover"
+                        fill
+                        sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 16vw"
+                        className="pointer-events-none object-cover"
+                        placeholder="blur"
+                        blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0nMTYnIGhlaWdodD0nMTYnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zyc+PHJlY3Qgd2lkdGg9JzE2JyBoZWlnaHQ9JzE2JyBmaWxsPScjZTdlN2U3Jy8+PC9zdmc+"
                       />
                       <button
                         type="button"
@@ -1307,7 +1410,8 @@ export default function ProjetDetailPage() {
                   ))}
                 </div>
               )}
-              {photos.length === 0 && !galleryUploading && (
+              {!photosLoaded && <p className="mt-3 text-xs text-gray-500">{t("loading", language)}</p>}
+              {photos.length === 0 && !galleryUploading && photosLoaded && (
                 <p className="mt-4 text-sm text-gray-500">{t("noPhotos", language)}</p>
               )}
             </CardContent>
@@ -1356,13 +1460,13 @@ export default function ProjetDetailPage() {
                   />
                   <Button
                     type="button"
-                    size="icon"
-                    className={projectPrimaryBtn}
+                    className={cn("gap-1.5 min-h-[44px]", projectPrimaryBtn)}
                     disabled={!activeChecklistDraft.trim() || notesSaving}
                     onClick={() => void handleAddChecklistItem()}
                     aria-label={t("add", language)}
                   >
                     <Plus className="h-4 w-4" />
+                    <span>Add</span>
                   </Button>
                 </div>
               </div>
@@ -1413,12 +1517,15 @@ export default function ProjetDetailPage() {
                   <X className="h-5 w-5" />
                 </Button>
               </div>
-              <div className="flex min-h-0 flex-1 items-center justify-center bg-black p-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+              <div className="relative flex min-h-0 flex-1 items-center justify-center bg-black p-2">
+                <Image
                   src={galleryViewer.url}
                   alt={t("galleryImageAlt", language)}
-                  className="max-h-full max-w-full object-contain"
+                  fill
+                  sizes="100vw"
+                  className="object-contain"
+                  placeholder="blur"
+                  blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0nMTYnIGhlaWdodD0nMTYnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zyc+PHJlY3Qgd2lkdGg9JzE2JyBoZWlnaHQ9JzE2JyBmaWxsPScjMTExMTExJy8+PC9zdmc+"
                 />
               </div>
             </>
