@@ -13,9 +13,11 @@ import { Clock3, KeyRound, Loader2, Lock } from "lucide-react";
 
 export default function WelcomeAccessPage() {
   const router = useRouter();
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
+  const [localLanguage, setLocalLanguage] = useState(language);
   const [loadingUser, setLoadingUser] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [trialStartedAt, setTrialStartedAt] = useState<string | null>(null);
   const [accessCode, setAccessCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -23,10 +25,14 @@ export default function WelcomeAccessPage() {
   const [startingTrial, setStartingTrial] = useState(false);
 
   useEffect(() => {
+    setLocalLanguage(language);
+  }, [language]);
+
+  useEffect(() => {
     const loadUser = async () => {
       const supabase = createClient();
       if (!supabase) {
-        setError(t("welcomeSupabaseMissing", language));
+        setError(t("welcomeSupabaseMissing", localLanguage));
         setLoadingUser(false);
         return;
       }
@@ -38,15 +44,23 @@ export default function WelcomeAccessPage() {
         return;
       }
       setUserId(user.id);
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("trial_started_at")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      setTrialStartedAt(profile?.trial_started_at ?? null);
       setLoadingUser(false);
     };
     void loadUser();
-  }, [language, router]);
+  }, [localLanguage, router]);
 
   const activateWithCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
     const code = accessCode.trim().toUpperCase();
+    const master = MASTER_CODE.trim().toUpperCase();
     if (!code) return;
 
     setError(null);
@@ -54,35 +68,33 @@ export default function WelcomeAccessPage() {
     setActivating(true);
     const supabase = createClient();
     if (!supabase) {
-      setError(t("welcomeSupabaseMissing", language));
+      setError(t("welcomeSupabaseMissing", localLanguage));
       setActivating(false);
       return;
     }
 
-    if (code !== MASTER_CODE) {
-      setError(t("welcomeInvalidCode", language));
+    if (code !== master) {
+      setError(t("welcomeInvalidCode", localLanguage));
       setActivating(false);
       return;
     }
 
     const nowIso = new Date().toISOString();
-    const { error: activateErr } = await supabase
+    const { error: activateErr, data: updatedRows } = await supabase
       .from("profiles")
-      .upsert(
-        {
-          user_id: userId,
-          is_active: true,
-          updated_at: nowIso,
-        },
-        { onConflict: "user_id" }
-      );
-    if (activateErr) {
-      setError(t("welcomeActivationFailed", language));
+      .update({
+        is_active: true,
+        updated_at: nowIso,
+      })
+      .eq("user_id", userId)
+      .select("user_id");
+    if (activateErr || !updatedRows || updatedRows.length === 0) {
+      setError(t("welcomeActivationFailed", localLanguage));
       setActivating(false);
       return;
     }
 
-    setSuccess(t("welcomeActivationSuccess", language));
+    setSuccess(t("welcomeActivationSuccess", localLanguage));
     setActivating(false);
     router.replace("/dashboard");
     router.refresh();
@@ -96,30 +108,38 @@ export default function WelcomeAccessPage() {
 
     const supabase = createClient();
     if (!supabase) {
-      setError(t("welcomeSupabaseMissing", language));
+      setError(t("welcomeSupabaseMissing", localLanguage));
       setStartingTrial(false);
+      return;
+    }
+
+    if (trialStartedAt) {
+      setSuccess(t("welcomeTrialAlreadyStarted", localLanguage));
+      setStartingTrial(false);
+      router.replace("/dashboard");
+      router.refresh();
       return;
     }
 
     const nowIso = new Date().toISOString();
-    const { error: trialErr } = await supabase
+    const { error: trialErr, data: trialRows } = await supabase
       .from("profiles")
-      .upsert(
-        {
-          user_id: userId,
-          trial_started_at: nowIso,
-          updated_at: nowIso,
-        },
-        { onConflict: "user_id" }
-      );
+      .update({
+        trial_started_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq("user_id", userId)
+      .is("trial_started_at", null)
+      .select("trial_started_at");
 
-    if (trialErr) {
-      setError(t("welcomeTrialStartFailed", language));
+    if (trialErr || !trialRows || trialRows.length === 0) {
+      setError(t("welcomeTrialStartFailed", localLanguage));
       setStartingTrial(false);
       return;
     }
 
-    setSuccess(t("welcomeTrialStarted", language));
+    setTrialStartedAt(nowIso);
+    setSuccess(t("welcomeTrialStarted", localLanguage));
     setStartingTrial(false);
     router.replace("/dashboard");
     router.refresh();
@@ -128,12 +148,37 @@ export default function WelcomeAccessPage() {
   return (
     <div className="min-h-screen bg-gray-100 px-4 py-8 sm:py-12">
       <div className="mx-auto w-full max-w-3xl space-y-6">
+        <div className="flex justify-end">
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+            <button
+              type="button"
+              onClick={() => {
+                setLocalLanguage("fr");
+                setLanguage("fr");
+              }}
+              className={localLanguage === "fr" ? "rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white" : "rounded-md px-3 py-1.5 text-xs font-semibold text-slate-600"}
+            >
+              FR
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setLocalLanguage("en");
+                setLanguage("en");
+              }}
+              className={localLanguage === "en" ? "rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white" : "rounded-md px-3 py-1.5 text-xs font-semibold text-slate-600"}
+            >
+              EN
+            </button>
+          </div>
+        </div>
+
         <div className="text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white">
             <Lock className="h-6 w-6" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">{t("welcomeAccessTitle", language)}</h1>
-          <p className="mt-2 text-sm text-slate-600">{t("welcomeAccessSubtitle", language)}</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">{t("welcomeAccessTitle", localLanguage)}</h1>
+          <p className="mt-2 text-sm text-slate-600">{t("welcomeAccessSubtitle", localLanguage)}</p>
         </div>
 
         {(error || success) && (
@@ -147,22 +192,22 @@ export default function WelcomeAccessPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base text-slate-900">
                 <KeyRound className="h-4 w-4 text-blue-600" />
-                {t("welcomePremiumTitle", language)}
+                {t("welcomePremiumTitle", localLanguage)}
               </CardTitle>
-              <p className="text-sm text-slate-500">{t("welcomePremiumSubtitle", language)}</p>
+              <p className="text-sm text-slate-500">{t("welcomePremiumSubtitle", localLanguage)}</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={activateWithCode} className="space-y-3">
                 <Input
                   value={accessCode}
                   onChange={(e) => setAccessCode(e.target.value)}
-                  placeholder={t("welcomeAccessCodePlaceholder", language)}
+                  placeholder={t("welcomeAccessCodePlaceholder", localLanguage)}
                   className="min-h-[48px]"
                   disabled={loadingUser || activating || startingTrial}
                   autoComplete="off"
                 />
                 <Button type="submit" className="w-full min-h-[48px] bg-blue-600 text-white hover:bg-blue-700" disabled={loadingUser || activating || startingTrial || !accessCode.trim()}>
-                  {activating ? <Loader2 className="h-4 w-4 animate-spin" /> : t("welcomeActivateButton", language)}
+                  {activating ? <Loader2 className="h-4 w-4 animate-spin" /> : t("welcomeActivateButton", localLanguage)}
                 </Button>
               </form>
             </CardContent>
@@ -172,18 +217,19 @@ export default function WelcomeAccessPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base text-slate-900">
                 <Clock3 className="h-4 w-4 text-blue-600" />
-                {t("welcomeTrialTitle", language)}
+                {t("welcomeTrialTitle", localLanguage)}
               </CardTitle>
-              <p className="text-sm text-slate-500">{t("welcomeTrialSubtitle", language)}</p>
+              <p className="text-sm text-slate-500">{t("welcomeTrialSubtitle", localLanguage)}</p>
             </CardHeader>
             <CardContent>
+              <p className="mb-3 text-xs text-slate-500">{t("welcomeTrialReassuring", localLanguage)}</p>
               <Button
                 type="button"
                 className="w-full min-h-[48px] bg-blue-600 text-white hover:bg-blue-700"
                 onClick={() => void startTrial()}
                 disabled={loadingUser || activating || startingTrial}
               >
-                {loadingUser || startingTrial ? <Loader2 className="h-4 w-4 animate-spin" /> : t("welcomeTrialButton", language)}
+                {loadingUser || startingTrial ? <Loader2 className="h-4 w-4 animate-spin" /> : t("welcomeTrialButton", localLanguage)}
               </Button>
             </CardContent>
           </Card>
