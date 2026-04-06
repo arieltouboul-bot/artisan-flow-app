@@ -8,8 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
-import { MASTER_CODE } from "@/lib/access";
 import { Clock3, KeyRound, Loader2, Lock } from "lucide-react";
+
+const VALID_CODE = "PRO-BUILD-2026";
 
 export default function WelcomeAccessPage() {
   const router = useRouter();
@@ -60,7 +61,6 @@ export default function WelcomeAccessPage() {
     e.preventDefault();
     if (!userId) return;
     const code = accessCode.trim().toUpperCase();
-    const master = MASTER_CODE.trim().toUpperCase();
     if (!code) return;
 
     setError(null);
@@ -73,31 +73,38 @@ export default function WelcomeAccessPage() {
       return;
     }
 
-    if (code !== master) {
-      setError(t("welcomeInvalidCode", localLanguage));
+    if (code !== VALID_CODE) {
+      setError("Invalid Code. Please try again.");
       setActivating(false);
       return;
     }
 
-    const nowIso = new Date().toISOString();
-    const { error: activateErr, data: updatedRows } = await supabase
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setError(t("notLoggedIn", localLanguage));
+      setActivating(false);
+      return;
+    }
+
+    const { error } = await supabase
       .from("profiles")
-      .update({
-        is_active: true,
-        updated_at: nowIso,
-      })
-      .eq("user_id", userId)
-      .select("user_id");
-    if (activateErr || !updatedRows || updatedRows.length === 0) {
-      setError(t("welcomeActivationFailed", localLanguage));
+      .update({ is_active: true })
+      .eq("id", user.id)
+      .select();
+
+    if (error) {
+      console.log("[welcome] activation update failed:", error);
+      alert("Error: " + error.message);
+      setError("Invalid Code. Please try again.");
       setActivating(false);
       return;
     }
 
-    setSuccess(t("welcomeActivationSuccess", localLanguage));
+    setSuccess("Access Granted!");
     setActivating(false);
-    router.push("/dashboard");
-    router.refresh();
+    window.location.href = "/dashboard";
   };
 
   const startTrial = async () => {
@@ -113,36 +120,33 @@ export default function WelcomeAccessPage() {
       return;
     }
 
-    if (trialStartedAt) {
-      setSuccess(t("welcomeTrialAlreadyStarted", localLanguage));
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setError(t("notLoggedIn", localLanguage));
       setStartingTrial(false);
-      router.push("/dashboard");
-      router.refresh();
       return;
     }
 
-    const nowIso = new Date().toISOString();
-    const { error: trialErr, data: trialRows } = await supabase
+    const { error } = await supabase
       .from("profiles")
-      .update({
-        trial_started_at: nowIso,
-        updated_at: nowIso,
-      })
-      .eq("user_id", userId)
-      .is("trial_started_at", null)
-      .select("trial_started_at");
+      .update({ trial_started_at: new Date().toISOString() })
+      .eq("id", user.id)
+      .select();
 
-    if (trialErr || !trialRows || trialRows.length === 0) {
+    if (error) {
+      console.log("[welcome] trial update failed:", error);
+      alert("Error: " + error.message);
       setError(t("welcomeTrialStartFailed", localLanguage));
       setStartingTrial(false);
       return;
     }
 
-    setTrialStartedAt(nowIso);
+    setTrialStartedAt(new Date().toISOString());
     setSuccess(t("welcomeTrialStarted", localLanguage));
     setStartingTrial(false);
-    router.push("/dashboard");
-    router.refresh();
+    window.location.href = "/dashboard";
   };
 
   return (
