@@ -71,6 +71,9 @@ function RevenueFinanceHeaderInner() {
   const mom = data.caMonthMomPct;
   const momUp = mom != null && mom > 0;
   const momDown = mom != null && mom < 0;
+  const marginValueEur = data.companyTotalRevenueEur - data.companyTotalExpensesEur;
+  const marginPositive = marginValueEur >= 0;
+  const marginPct = data.companyTotalRevenueEur > 0 ? (marginValueEur / data.companyTotalRevenueEur) * 100 : 0;
 
   return (
     <div className="space-y-4">
@@ -179,17 +182,22 @@ function RevenueFinanceHeaderInner() {
               type="button"
               onClick={() => setOpen("margin")}
               className={cn(
-                "text-left rounded-xl border border-violet-100 bg-white p-4 shadow-sm transition hover:border-violet-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                "text-left rounded-xl border bg-white p-4 shadow-sm transition hover:shadow-md focus:outline-none focus-visible:ring-2",
+                marginPositive
+                  ? "border-emerald-100 hover:border-emerald-300 focus-visible:ring-emerald-500"
+                  : "border-rose-100 hover:border-rose-300 focus-visible:ring-rose-500"
               )}
             >
               <p className="text-xs font-medium text-slate-600">{t("revenueCardMargin", language)}</p>
-              <p className="mt-1 text-xl font-bold tabular-nums text-slate-900">
-                {formatConvertedCurrency(data.companyMarginEur, displayCurrency)}
+              <p className={cn("mt-1 text-xl font-bold tabular-nums", marginPositive ? "text-emerald-700" : "text-red-700")}>
+                {formatConvertedCurrency(marginValueEur, displayCurrency)}
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                {tReplace("financeMarginPctLabel", language, { pct: Math.round(data.companyMarginPct * 10) / 10 })}
+                {tReplace("financeMarginPctLabel", language, { pct: Math.round(marginPct * 10) / 10 })}
               </p>
-              <p className="mt-2 text-xs text-violet-700 font-medium">{t("revenueCardTapDetail", language)}</p>
+              <p className={cn("mt-2 text-xs font-medium", marginPositive ? "text-emerald-700" : "text-red-700")}>
+                {t("revenueCardTapDetail", language)}
+              </p>
             </button>
 
             <button

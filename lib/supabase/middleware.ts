@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { hasAppAccess } from "@/lib/access";
 
 export async function updateSession(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -27,10 +28,32 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isAuthPage = path === "/login" || path === "/signup" || path.startsWith("/auth/");
+  const isWelcomePage = path === "/welcome";
   const isStatic = path.startsWith("/_next") || path.includes(".");
 
-  if (user && (isAuthPage || path === "/")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_active, trial_started_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const canAccessApp = hasAppAccess({
+      isActive: Boolean(profile?.is_active),
+      trialStartedAt: profile?.trial_started_at ?? null,
+    });
+
+    if ((isAuthPage || path === "/") && !isWelcomePage) {
+      return NextResponse.redirect(new URL(canAccessApp ? "/dashboard" : "/welcome", request.url));
+    }
+
+    if (!canAccessApp && !isWelcomePage && !isAuthPage && !isStatic) {
+      return NextResponse.redirect(new URL("/welcome", request.url));
+    }
+
+    if (canAccessApp && isWelcomePage) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
   }
 
   if (!user && path !== "/" && !isAuthPage && !isStatic) {

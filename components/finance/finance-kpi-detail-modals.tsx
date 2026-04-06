@@ -51,6 +51,8 @@ export function FinanceKpiDetailModals({
   const dateLocale = language === "fr" ? fr : enUS;
   const currentCalendarYear = new Date().getFullYear();
   const canEdit = Boolean(onRefetchFinance);
+  const marginValueEur = data.companyTotalRevenueEur - data.companyTotalExpensesEur;
+  const marginPositive = marginValueEur >= 0;
 
   const linesMonth = useMemo(
     () => data.cashFlowLines.filter((l) => inCurrentMonth(l.date)),
@@ -206,7 +208,13 @@ export function FinanceKpiDetailModals({
             <DialogTitle>{t("revenueModalMarginTitle", language)}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-600">{t("revenueModalMarginHint", language)}</p>
-          <p className="text-sm font-semibold text-slate-800 rounded-md bg-emerald-50 border border-emerald-100 px-3 py-2">
+          <p
+            className={
+              marginPositive
+                ? "text-sm font-semibold text-slate-800 rounded-md bg-emerald-50 border border-emerald-100 px-3 py-2"
+                : "text-sm font-semibold text-slate-800 rounded-md bg-red-50 border border-red-100 px-3 py-2"
+            }
+          >
             {t("revenueModalMarginEquation", language)}
           </p>
           <div className="rounded-lg bg-slate-50 p-4 space-y-2 text-sm">
@@ -222,7 +230,9 @@ export function FinanceKpiDetailModals({
             </div>
             <div className="flex justify-between border-t border-slate-200 pt-2 font-bold gap-2">
               <span>{t("revenueModalNetProfit", language)}</span>
-              <span className="tabular-nums text-emerald-700">{formatConvertedCurrency(data.companyMarginEur, displayCurrency)}</span>
+              <span className={marginPositive ? "tabular-nums text-emerald-700" : "tabular-nums text-red-700"}>
+                {formatConvertedCurrency(marginValueEur, displayCurrency)}
+              </span>
             </div>
           </div>
           <p className="text-xs text-slate-500">{t("revenueModalMarginFormula", language)}</p>
@@ -247,7 +257,7 @@ export function FinanceKpiDetailModals({
                     }}
                   />
                 ) : (
-                  <span className="tabular-nums text-emerald-700 shrink-0">
+                  <span className={row.marginEur >= 0 ? "tabular-nums text-emerald-700 shrink-0" : "tabular-nums text-red-700 shrink-0"}>
                     {formatConvertedCurrency(row.marginEur, displayCurrency)}
                   </span>
                 )}

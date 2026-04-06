@@ -19,6 +19,8 @@ export interface CompanyProfile {
   preferred_language?: PreferredLanguage | null;
   language_pref?: PreferredLanguage | null;
   vat_rate?: number | null;
+  is_active?: boolean | null;
+  trial_started_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -84,6 +86,8 @@ export function useProfile() {
       preferred_currency?: Currency | null;
       preferred_language?: PreferredLanguage | null;
       vat_rate?: number | null;
+      is_active?: boolean | null;
+      trial_started_at?: string | null;
     }) => {
       const supabase = createClient();
       if (!supabase) return { error: new Error("Supabase non configuré") };

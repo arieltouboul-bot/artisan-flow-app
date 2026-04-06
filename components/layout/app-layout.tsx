@@ -7,6 +7,7 @@ import { Sidebar } from "./sidebar";
 import { Navbar } from "./navbar";
 import { FloatingAssistant } from "@/components/assistant/floating-assistant";
 import { FloatingContextHelp } from "@/components/ui/floating-context-help";
+import { TrialBanner } from "@/components/layout/trial-banner";
 import { useProfile } from "@/hooks/use-profile";
 import { useLanguage } from "@/context/language-context";
 import { cn } from "@/lib/utils";
@@ -121,6 +122,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           transition={{ duration: 0.25, ease: "easeOut" }}
           className="mx-auto max-w-7xl min-w-0"
         >
+          <TrialBanner />
           {children}
         </motion.div>
         <FloatingContextHelp />

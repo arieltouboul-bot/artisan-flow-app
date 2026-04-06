@@ -89,6 +89,8 @@ export function DashboardTopKpis({
 
   const openKpi = (k: FinanceKpiDetailKey) => () => setKpiModal(k);
   const safeNumber = (v: number | null | undefined) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const marginValueEur = safeNumber(financeData.companyTotalRevenueEur) - safeNumber(financeData.companyTotalExpensesEur);
+  const marginPositive = marginValueEur >= 0;
 
   return (
     <>
@@ -212,12 +214,19 @@ export function DashboardTopKpis({
           <button
             type="button"
             onClick={openKpi("margin")}
-            className="w-full text-left rounded-xl border-2 border-emerald-400/80 bg-emerald-50/40 shadow-sm transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+            className={cn(
+              "w-full text-left rounded-xl border-2 shadow-sm transition-all duration-300 hover:shadow-brand-glow hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+              marginPositive
+                ? "border-emerald-400/80 bg-emerald-50/40 focus-visible:ring-emerald-500"
+                : "border-red-400/80 bg-red-50/40 focus-visible:ring-red-500"
+            )}
           >
             <Card className="border-0 bg-transparent shadow-none">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-emerald-800">{t("revenueCardMargin", language)}</CardTitle>
-                <Percent className="h-4 w-4 text-emerald-600" />
+                <CardTitle className={cn("text-sm font-medium", marginPositive ? "text-emerald-800" : "text-red-800")}>
+                  {t("revenueCardMargin", language)}
+                </CardTitle>
+                <Percent className={cn("h-4 w-4", marginPositive ? "text-emerald-600" : "text-red-600")} />
               </CardHeader>
               <CardContent>
                 {financeAnalyticsLoading ? (
@@ -227,13 +236,20 @@ export function DashboardTopKpis({
                   </div>
                 ) : (
                   <>
-                    <p className="text-2xl font-bold text-emerald-700 tabular-nums tracking-tight">
-                      {formatConvertedCurrency(safeNumber(financeData.companyMarginEur), currency)}
+                    <p className={cn("text-2xl font-bold tabular-nums tracking-tight", marginPositive ? "text-emerald-700" : "text-red-700")}>
+                      {formatConvertedCurrency(marginValueEur, currency)}
                     </p>
-                    <p className="text-xs text-emerald-800/90 mt-1">
-                      {tReplace("financeMarginPctLabel", language, { pct: Math.round(financeData.companyMarginPct * 10) / 10 })}
+                    <p className={cn("text-xs mt-1", marginPositive ? "text-emerald-800/90" : "text-red-800/90")}>
+                      {tReplace("financeMarginPctLabel", language, {
+                        pct:
+                          safeNumber(financeData.companyTotalRevenueEur) > 0
+                            ? Math.round((marginValueEur / safeNumber(financeData.companyTotalRevenueEur)) * 1000) / 10
+                            : 0,
+                      })}
                     </p>
-                    <p className="text-xs text-emerald-800 font-medium mt-2">{t("revenueCardTapDetail", language)}</p>
+                    <p className={cn("text-xs font-medium mt-2", marginPositive ? "text-emerald-800" : "text-red-800")}>
+                      {t("revenueCardTapDetail", language)}
+                    </p>
                   </>
                 )}
               </CardContent>
