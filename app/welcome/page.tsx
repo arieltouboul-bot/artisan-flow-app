@@ -96,7 +96,7 @@ export default function WelcomeAccessPage() {
 
     setSuccess(t("welcomeActivationSuccess", localLanguage));
     setActivating(false);
-    router.replace("/dashboard");
+    router.push("/dashboard");
     router.refresh();
   };
 
@@ -116,7 +116,7 @@ export default function WelcomeAccessPage() {
     if (trialStartedAt) {
       setSuccess(t("welcomeTrialAlreadyStarted", localLanguage));
       setStartingTrial(false);
-      router.replace("/dashboard");
+      router.push("/dashboard");
       router.refresh();
       return;
     }
@@ -141,7 +141,7 @@ export default function WelcomeAccessPage() {
     setTrialStartedAt(nowIso);
     setSuccess(t("welcomeTrialStarted", localLanguage));
     setStartingTrial(false);
-    router.replace("/dashboard");
+    router.push("/dashboard");
     router.refresh();
   };
 

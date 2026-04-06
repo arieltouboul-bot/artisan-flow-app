@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { hasAppAccess } from "@/lib/access";
+import { checkAccess } from "@/lib/access";
 
 export async function updateSession(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -38,10 +38,7 @@ export async function updateSession(request: NextRequest) {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const canAccessApp = hasAppAccess({
-      isActive: Boolean(profile?.is_active),
-      trialStartedAt: profile?.trial_started_at ?? null,
-    });
+    const canAccessApp = checkAccess(profile);
 
     if ((isAuthPage || path === "/") && !isWelcomePage) {
       return NextResponse.redirect(new URL(canAccessApp ? "/dashboard" : "/welcome", request.url));
