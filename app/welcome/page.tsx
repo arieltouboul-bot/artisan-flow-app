@@ -10,7 +10,7 @@ import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import { Clock3, KeyRound, Loader2, Lock } from "lucide-react";
 
-const VALID_CODE = "PRO-BUILD-2026";
+const MASTER_CODE = "PRO-BUILD-2026";
 
 export default function WelcomeAccessPage() {
   const router = useRouter();
@@ -73,7 +73,8 @@ export default function WelcomeAccessPage() {
       return;
     }
 
-    if (code !== VALID_CODE) {
+    if (code !== MASTER_CODE) {
+      alert("Code incorrect / Invalid Code");
       setError("Invalid Code. Please try again.");
       setActivating(false);
       return;
@@ -91,12 +92,11 @@ export default function WelcomeAccessPage() {
     const { error } = await supabase
       .from("profiles")
       .update({ is_active: true })
-      .eq("id", user.id)
-      .select();
+      .eq("id", user.id);
 
     if (error) {
-      console.log("[welcome] activation update failed:", error);
-      alert("Error: " + error.message);
+      console.error("SUPABASE ERROR:", error);
+      alert("Erreur Supabase : " + error.message);
       setError("Invalid Code. Please try again.");
       setActivating(false);
       return;
@@ -132,12 +132,11 @@ export default function WelcomeAccessPage() {
     const { error } = await supabase
       .from("profiles")
       .update({ trial_started_at: new Date().toISOString() })
-      .eq("id", user.id)
-      .select();
+      .eq("id", user.id);
 
     if (error) {
       console.log("[welcome] trial update failed:", error);
-      alert("Error: " + error.message);
+      alert("Erreur Trial : " + error.message);
       setError(t("welcomeTrialStartFailed", localLanguage));
       setStartingTrial(false);
       return;
