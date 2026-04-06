@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
-import { Loader2 } from "lucide-react";
+import { MASTER_CODE } from "@/lib/access";
+import { Clock3, KeyRound, Loader2, Lock } from "lucide-react";
 
 export default function WelcomeAccessPage() {
   const router = useRouter();
@@ -58,29 +59,8 @@ export default function WelcomeAccessPage() {
       return;
     }
 
-    const { data: codeRow, error: codeErr } = await supabase
-      .from("activation_codes")
-      .select("id, code, is_used, expires_at")
-      .eq("code", code)
-      .maybeSingle();
-
-    if (codeErr) {
-      setError(t("welcomeActivationLookupError", language));
-      setActivating(false);
-      return;
-    }
-    if (!codeRow) {
+    if (code !== MASTER_CODE) {
       setError(t("welcomeInvalidCode", language));
-      setActivating(false);
-      return;
-    }
-    if (codeRow.is_used) {
-      setError(t("welcomeCodeAlreadyUsed", language));
-      setActivating(false);
-      return;
-    }
-    if (codeRow.expires_at && new Date(codeRow.expires_at).getTime() < Date.now()) {
-      setError(t("welcomeCodeExpired", language));
       setActivating(false);
       return;
     }
@@ -98,22 +78,6 @@ export default function WelcomeAccessPage() {
       );
     if (activateErr) {
       setError(t("welcomeActivationFailed", language));
-      setActivating(false);
-      return;
-    }
-
-    const { error: markUsedErr } = await supabase
-      .from("activation_codes")
-      .update({
-        is_used: true,
-        used_by_user_id: userId,
-        used_at: nowIso,
-      })
-      .eq("id", codeRow.id)
-      .eq("is_used", false);
-
-    if (markUsedErr) {
-      setError(t("welcomeActivationCodeUpdateFailed", language));
       setActivating(false);
       return;
     }
@@ -162,9 +126,12 @@ export default function WelcomeAccessPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:py-12">
+    <div className="min-h-screen bg-gray-100 px-4 py-8 sm:py-12">
       <div className="mx-auto w-full max-w-3xl space-y-6">
         <div className="text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white">
+            <Lock className="h-6 w-6" />
+          </div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">{t("welcomeAccessTitle", language)}</h1>
           <p className="mt-2 text-sm text-slate-600">{t("welcomeAccessSubtitle", language)}</p>
         </div>
@@ -176,9 +143,12 @@ export default function WelcomeAccessPage() {
         )}
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Card className="border-2 border-indigo-100">
+          <Card className="border-2 border-indigo-100 bg-white">
             <CardHeader>
-              <CardTitle className="text-base text-slate-900">{t("welcomePremiumTitle", language)}</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+                <KeyRound className="h-4 w-4 text-blue-600" />
+                {t("welcomePremiumTitle", language)}
+              </CardTitle>
               <p className="text-sm text-slate-500">{t("welcomePremiumSubtitle", language)}</p>
             </CardHeader>
             <CardContent>
@@ -191,22 +161,25 @@ export default function WelcomeAccessPage() {
                   disabled={loadingUser || activating || startingTrial}
                   autoComplete="off"
                 />
-                <Button type="submit" className="w-full min-h-[48px]" disabled={loadingUser || activating || startingTrial || !accessCode.trim()}>
+                <Button type="submit" className="w-full min-h-[48px] bg-blue-600 text-white hover:bg-blue-700" disabled={loadingUser || activating || startingTrial || !accessCode.trim()}>
                   {activating ? <Loader2 className="h-4 w-4 animate-spin" /> : t("welcomeActivateButton", language)}
                 </Button>
               </form>
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-emerald-100">
+          <Card className="border-2 border-blue-100 bg-white">
             <CardHeader>
-              <CardTitle className="text-base text-slate-900">{t("welcomeTrialTitle", language)}</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+                <Clock3 className="h-4 w-4 text-blue-600" />
+                {t("welcomeTrialTitle", language)}
+              </CardTitle>
               <p className="text-sm text-slate-500">{t("welcomeTrialSubtitle", language)}</p>
             </CardHeader>
             <CardContent>
               <Button
                 type="button"
-                className="w-full min-h-[48px] bg-emerald-600 hover:bg-emerald-700"
+                className="w-full min-h-[48px] bg-blue-600 text-white hover:bg-blue-700"
                 onClick={() => void startTrial()}
                 disabled={loadingUser || activating || startingTrial}
               >

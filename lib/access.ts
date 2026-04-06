@@ -1,3 +1,4 @@
+export const MASTER_CODE = "PRO-BUILD-2026";
 export const TRIAL_DAYS = 7;
 
 export function isValidDateString(value: string | null | undefined): value is string {
