@@ -38,6 +38,8 @@ export async function updateSession(request: NextRequest) {
       .eq("user_id", user.id)
       .maybeSingle();
 
+    console.log("User Status:", profile?.is_active, profile?.trial_started_at);
+
     const canAccessApp = checkAccess(profile);
 
     if ((isAuthPage || path === "/") && !isWelcomePage) {

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
+import { checkAccess } from "@/lib/access";
 import { Clock3, KeyRound, Loader2, Lock } from "lucide-react";
 
 const MASTER_CODE = "PRO-BUILD-2026";
@@ -48,10 +49,14 @@ export default function WelcomeAccessPage() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("trial_started_at")
+        .select("is_active, trial_started_at")
         .eq("user_id", user.id)
         .maybeSingle();
       setTrialStartedAt(profile?.trial_started_at ?? null);
+      if (checkAccess(profile)) {
+        window.location.replace("/dashboard");
+        return;
+      }
       setLoadingUser(false);
     };
     void loadUser();
@@ -102,9 +107,10 @@ export default function WelcomeAccessPage() {
       return;
     }
 
+    await supabase.auth.refreshSession();
     setSuccess("Access Granted!");
     setActivating(false);
-    window.location.href = "/dashboard";
+    window.location.replace("/dashboard");
   };
 
   const startTrial = async () => {
@@ -142,11 +148,25 @@ export default function WelcomeAccessPage() {
       return;
     }
 
+    await supabase.auth.refreshSession();
     setTrialStartedAt(new Date().toISOString());
     setSuccess(t("welcomeTrialStarted", localLanguage));
     setStartingTrial(false);
-    window.location.href = "/dashboard";
+    window.location.replace("/dashboard");
   };
+
+  if (loadingUser) {
+    return (
+      <div className="min-h-screen bg-gray-100 px-4 py-8 sm:py-12">
+        <div className="mx-auto flex min-h-[60vh] w-full max-w-3xl items-center justify-center">
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-slate-700">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">{t("loading", localLanguage)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 px-4 py-8 sm:py-12">
