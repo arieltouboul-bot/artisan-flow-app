@@ -27,6 +27,9 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+  if (path.startsWith("/_next") || path.includes("/static/")) {
+    return NextResponse.next({ request });
+  }
   const isLoginOrSignup = path === "/login" || path === "/signup";
   const isAuthCallback = path.startsWith("/auth/");
   const isPublicLanding = path === "/";
@@ -54,6 +57,10 @@ export async function updateSession(request: NextRequest) {
     if (!canAccessApp && !isWelcomePage && !isAuthPage && !isStatic) {
       console.log("[Redirecting]", path, "-> /welcome");
       return NextResponse.redirect(new URL("/welcome", request.url));
+    }
+
+    if (isWelcomePage && !canAccessApp) {
+      return response;
     }
 
     if (canAccessApp && isWelcomePage) {

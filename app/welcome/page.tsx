@@ -23,6 +23,7 @@ export default function WelcomeAccessPage() {
   const [accessCode, setAccessCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const [activating, setActivating] = useState(false);
   const [startingTrial, setStartingTrial] = useState(false);
 
@@ -56,6 +57,7 @@ export default function WelcomeAccessPage() {
       setTrialStartedAt(profile?.trial_started_at ?? null);
       if (checkAccess(profile)) {
         console.log("[Redirecting] /welcome -> /dashboard (already authorized)");
+        setIsFinalizing(true);
         window.location.replace("/dashboard");
         return;
       }
@@ -112,10 +114,12 @@ export default function WelcomeAccessPage() {
     void data;
 
     await supabase.auth.refreshSession();
+    setIsFinalizing(true);
     setSuccess("Access Granted!");
     setActivating(false);
-    console.log("[Redirecting] Activation success -> /dashboard");
-    window.location.href = "/dashboard";
+    console.log("[Redirecting] Activation success -> /login");
+    await supabase.auth.signOut();
+    window.location.href = "/login";
   };
 
   const startTrial = async () => {
@@ -156,11 +160,13 @@ export default function WelcomeAccessPage() {
 
     console.log("[Code Validated] Trial started");
     await supabase.auth.refreshSession();
+    setIsFinalizing(true);
     setTrialStartedAt(new Date().toISOString());
     setSuccess(t("welcomeTrialStarted", localLanguage));
     setStartingTrial(false);
-    console.log("[Redirecting] Trial success -> /dashboard");
-    window.location.href = "/dashboard";
+    console.log("[Redirecting] Trial success -> /login");
+    await supabase.auth.signOut();
+    window.location.href = "/login";
   };
 
   if (loadingUser) {
@@ -215,6 +221,12 @@ export default function WelcomeAccessPage() {
         {(error || success) && (
           <div className={error ? "rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" : "rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700"}>
             {error ?? success}
+          </div>
+        )}
+
+        {isFinalizing && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
+            {t("welcomeFinalizingAccess", localLanguage)}
           </div>
         )}
 

@@ -42,6 +42,10 @@ export const translations: Record<string, { fr: string; en: string }> = {
     fr: "Essai déjà en cours. Redirection...",
     en: "Trial already active. Redirecting...",
   },
+  welcomeFinalizingAccess: {
+    fr: "Accès vérifié. Finalisation de la configuration...",
+    en: "Access verified. Finalizing setup...",
+  },
   trialBannerText: { fr: "Mode essai : {days} jour(s) restants.", en: "Trial Mode: {days} days left." },
   trialBannerActivateLink: { fr: "Entrez un code pour débloquer l'accès permanent.", en: "Enter code to unlock permanent access." },
 
