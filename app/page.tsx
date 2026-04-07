@@ -97,22 +97,22 @@ export default function Home() {
             {t("heroSubtitle", language)}
           </motion.p>
           <motion.div variants={item} className="mt-12 flex flex-wrap items-center justify-center gap-4">
-            <Link href="/signup">
+            <Link href="/login">
               <Button
                 size="lg"
                 className="min-h-[56px] px-10 text-base font-semibold bg-white text-blue-900 hover:bg-blue-50 shadow-xl"
               >
-                {t("signUp", language)}
+                {t("getStarted", language)}
               </Button>
             </Link>
-            <Link href="/login">
+            <Link href="/signup">
               <Button
                 size="lg"
                 variant="outline"
                 className="min-h-[56px] gap-2 border-2 border-white/50 bg-white/10 px-8 text-base font-semibold text-white hover:bg-white/20"
               >
                 <Sparkles className="h-5 w-5" />
-                ✨ {t("talkToAI", language)}
+                {t("signUp", language)}
               </Button>
             </Link>
           </motion.div>

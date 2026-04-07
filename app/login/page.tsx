@@ -14,7 +14,7 @@ import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 
 function LoginPageContent() {
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -94,6 +94,24 @@ function LoginPageContent() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
+        <div className="mb-4 flex justify-end">
+          <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+            <button
+              type="button"
+              onClick={() => setLanguage("fr")}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold ${language === "fr" ? "bg-brand-blue-500 text-white" : "text-slate-600"}`}
+            >
+              FR
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage("en")}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold ${language === "en" ? "bg-brand-blue-500 text-white" : "text-slate-600"}`}
+            >
+              EN
+            </button>
+          </div>
+        </div>
         <div className="flex justify-center mb-8">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-blue-500 text-white shadow-brand-glow">
             <Hammer className="h-8 w-8" />

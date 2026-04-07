@@ -27,7 +27,10 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isAuthPage = path === "/login" || path === "/signup" || path.startsWith("/auth/");
+  const isLoginOrSignup = path === "/login" || path === "/signup";
+  const isAuthCallback = path.startsWith("/auth/");
+  const isPublicLanding = path === "/";
+  const isAuthPage = isLoginOrSignup || isAuthCallback;
   const isWelcomePage = path === "/welcome";
   const isStatic = path.startsWith("/_next") || path.includes(".");
 
@@ -41,21 +44,25 @@ export async function updateSession(request: NextRequest) {
     console.log("User Status:", profile?.is_active, profile?.trial_started_at);
 
     const canAccessApp = checkAccess(profile);
+    console.log("[Access Check] canAccessApp:", canAccessApp, "path:", path);
 
-    if ((isAuthPage || path === "/") && !isWelcomePage) {
+    if ((isAuthPage || isPublicLanding) && !isWelcomePage) {
+      console.log("[Redirecting]", path, "->", canAccessApp ? "/dashboard" : "/welcome");
       return NextResponse.redirect(new URL(canAccessApp ? "/dashboard" : "/welcome", request.url));
     }
 
     if (!canAccessApp && !isWelcomePage && !isAuthPage && !isStatic) {
+      console.log("[Redirecting]", path, "-> /welcome");
       return NextResponse.redirect(new URL("/welcome", request.url));
     }
 
     if (canAccessApp && isWelcomePage) {
+      console.log("[Redirecting] /welcome -> /dashboard");
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }
 
-  if (!user && path !== "/" && !isAuthPage && !isStatic) {
+  if (!user && !isPublicLanding && !isLoginOrSignup && !isAuthCallback && !isStatic) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

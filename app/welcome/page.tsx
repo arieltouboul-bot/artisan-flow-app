@@ -52,8 +52,10 @@ export default function WelcomeAccessPage() {
         .select("is_active, trial_started_at")
         .eq("user_id", user.id)
         .maybeSingle();
+      console.log("[Check Access] profile:", profile);
       setTrialStartedAt(profile?.trial_started_at ?? null);
       if (checkAccess(profile)) {
+        console.log("[Redirecting] /welcome -> /dashboard (already authorized)");
         window.location.replace("/dashboard");
         return;
       }
@@ -84,6 +86,7 @@ export default function WelcomeAccessPage() {
       setActivating(false);
       return;
     }
+    console.log("[Code Validated] Master code accepted");
 
     const {
       data: { user },
@@ -94,7 +97,7 @@ export default function WelcomeAccessPage() {
       return;
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .update({ is_active: true })
       .eq("id", user.id);
@@ -106,11 +109,13 @@ export default function WelcomeAccessPage() {
       setActivating(false);
       return;
     }
+    void data;
 
     await supabase.auth.refreshSession();
     setSuccess("Access Granted!");
     setActivating(false);
-    window.location.replace("/dashboard");
+    console.log("[Redirecting] Activation success -> /dashboard");
+    window.location.href = "/dashboard";
   };
 
   const startTrial = async () => {
@@ -135,7 +140,7 @@ export default function WelcomeAccessPage() {
       return;
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .update({ trial_started_at: new Date().toISOString() })
       .eq("id", user.id);
@@ -147,12 +152,15 @@ export default function WelcomeAccessPage() {
       setStartingTrial(false);
       return;
     }
+    void data;
 
+    console.log("[Code Validated] Trial started");
     await supabase.auth.refreshSession();
     setTrialStartedAt(new Date().toISOString());
     setSuccess(t("welcomeTrialStarted", localLanguage));
     setStartingTrial(false);
-    window.location.replace("/dashboard");
+    console.log("[Redirecting] Trial success -> /dashboard");
+    window.location.href = "/dashboard";
   };
 
   if (loadingUser) {
