@@ -117,9 +117,8 @@ export default function WelcomeAccessPage() {
     setIsFinalizing(true);
     setSuccess("Access Granted!");
     setActivating(false);
-    console.log("[Redirecting] Activation success -> /login");
-    await supabase.auth.signOut();
-    window.location.href = "/login";
+    console.log("[Redirecting] Activation success -> /dashboard");
+    window.location.href = "/dashboard";
   };
 
   const startTrial = async () => {
@@ -164,9 +163,8 @@ export default function WelcomeAccessPage() {
     setTrialStartedAt(new Date().toISOString());
     setSuccess(t("welcomeTrialStarted", localLanguage));
     setStartingTrial(false);
-    console.log("[Redirecting] Trial success -> /login");
-    await supabase.auth.signOut();
-    window.location.href = "/login";
+    console.log("[Redirecting] Trial success -> /dashboard");
+    window.location.href = "/dashboard";
   };
 
   if (loadingUser) {
