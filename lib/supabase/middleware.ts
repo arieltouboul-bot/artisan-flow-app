@@ -37,18 +37,33 @@ export async function updateSession(request: NextRequest) {
   const isPublicRoute = isPublicLanding || isLoginOrSignup || isAuthCallback || isAccessPage;
   const isStatic = path.startsWith("/_next") || path.includes(".");
 
-  // Public routes are always reachable.
-  if (isPublicRoute || isStatic) {
+  // Static routes are always reachable.
+  if (isStatic) {
     return response;
   }
 
   // If not connected and trying to access protected area -> login.
   if (!user) {
+    if (isPublicRoute) return response;
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Connected user can always reach /access (access gate UI).
-  if (isAccessPage) return response;
+  // Connected users trying to access /access or /login are redirected if already eligible.
+  if (isAccessPage || isLoginOrSignup) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_active, trial_started_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (checkAccess(profile)) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    return response;
+  }
+
+  if (isPublicLanding || isAuthCallback) {
+    return response;
+  }
 
   // Connected user trying to access app routes must have active access.
   const { data: profile } = await supabase

@@ -6,11 +6,36 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/context/language-context";
-import { t } from "@/lib/translations";
 import { setAccessIntent } from "@/lib/access-intent";
 import { KeyRound, Lock, Clock3 } from "lucide-react";
 
 const MASTER_CODE = "PRO-BUILD-2026";
+const content = {
+  fr: {
+    title: "Choisissez votre accès",
+    subtitle: "Entrez votre code Premium ou démarrez un essai de 7 jours.",
+    premiumTitle: "Accès Premium",
+    premiumSubtitle: "Débloquez l'application avec votre code client.",
+    codePlaceholder: "Code d'accès",
+    premiumCta: "Continuer en Premium",
+    trialTitle: "Essai 7 jours",
+    trialSubtitle: "Testez ArtisanFlow sans engagement.",
+    trialCta: "Démarrer l'essai",
+    invalidCode: "Code invalide.",
+  },
+  en: {
+    title: "Choose your access",
+    subtitle: "Enter your Premium code or start a 7-day trial.",
+    premiumTitle: "Premium Access",
+    premiumSubtitle: "Unlock the app with your customer code.",
+    codePlaceholder: "Access code",
+    premiumCta: "Continue with Premium",
+    trialTitle: "7-day Trial",
+    trialSubtitle: "Try ArtisanFlow with no commitment.",
+    trialCta: "Start trial",
+    invalidCode: "Invalid code.",
+  },
+} as const;
 
 export default function AccessPage() {
   const router = useRouter();
@@ -19,9 +44,11 @@ export default function AccessPage() {
   const [accessCode, setAccessCode] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  const c = content[localLanguage];
+
   const handlePremium = () => {
     if (accessCode.trim().toUpperCase() !== MASTER_CODE) {
-      setError(t("accessInvalidCode", localLanguage));
+      setError(c.invalidCode);
       return;
     }
     setAccessIntent("premium");
@@ -65,8 +92,8 @@ export default function AccessPage() {
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white">
             <Lock className="h-6 w-6" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">{t("accessPageTitle", localLanguage)}</h1>
-          <p className="mt-2 text-sm text-slate-600">{t("accessPageSubtitle", localLanguage)}</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">{c.title}</h1>
+          <p className="mt-2 text-sm text-slate-600">{c.subtitle}</p>
         </div>
 
         {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
@@ -76,20 +103,20 @@ export default function AccessPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base text-slate-900">
                 <KeyRound className="h-4 w-4 text-blue-600" />
-                {t("accessPremiumTitle", localLanguage)}
+                {c.premiumTitle}
               </CardTitle>
-              <p className="text-sm text-slate-500">{t("accessPremiumSubtitle", localLanguage)}</p>
+              <p className="text-sm text-slate-500">{c.premiumSubtitle}</p>
             </CardHeader>
             <CardContent className="space-y-3">
               <Input
                 value={accessCode}
                 onChange={(e) => setAccessCode(e.target.value)}
-                placeholder={t("accessCodePlaceholder", localLanguage)}
+                placeholder={c.codePlaceholder}
                 className="min-h-[48px]"
                 autoComplete="off"
               />
               <Button type="button" className="w-full min-h-[48px] bg-blue-600 text-white hover:bg-blue-700" onClick={handlePremium}>
-                {t("accessContinuePremium", localLanguage)}
+                {c.premiumCta}
               </Button>
             </CardContent>
           </Card>
@@ -98,13 +125,13 @@ export default function AccessPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base text-slate-900">
                 <Clock3 className="h-4 w-4 text-blue-600" />
-                {t("accessTrialTitle", localLanguage)}
+                {c.trialTitle}
               </CardTitle>
-              <p className="text-sm text-slate-500">{t("accessTrialSubtitle", localLanguage)}</p>
+              <p className="text-sm text-slate-500">{c.trialSubtitle}</p>
             </CardHeader>
             <CardContent>
               <Button type="button" className="w-full min-h-[48px] bg-blue-600 text-white hover:bg-blue-700" onClick={handleTrial}>
-                {t("accessContinueTrial", localLanguage)}
+                {c.trialCta}
               </Button>
             </CardContent>
           </Card>

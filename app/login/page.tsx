@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Hammer, Loader2 } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
+import { checkAccess } from "@/lib/access";
+import { clearAccessIntent, getAccessIntent } from "@/lib/access-intent";
 
 function LoginPageContent() {
   const { language, setLanguage } = useLanguage();
@@ -42,13 +44,47 @@ function LoginPageContent() {
       email,
       password,
     });
-    setLoading(false);
     if (signError) {
+      setLoading(false);
       setError(signError.message);
       return;
     }
-    router.push("/dashboard");
-    router.refresh();
+    await supabase.auth.refreshSession();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setLoading(false);
+      window.location.href = "/login";
+      return;
+    }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_active, trial_started_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const intent = getAccessIntent();
+    if (intent === "premium") {
+      await supabase
+        .from("profiles")
+        .update({ is_active: true, updated_at: new Date().toISOString() })
+        .eq("user_id", user.id);
+      clearAccessIntent();
+      window.location.href = "/dashboard";
+      return;
+    }
+    if (intent === "trial") {
+      await supabase
+        .from("profiles")
+        .update({ trial_started_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("user_id", user.id)
+        .is("trial_started_at", null);
+      clearAccessIntent();
+      window.location.href = "/dashboard";
+      return;
+    }
+    setLoading(false);
+    window.location.href = checkAccess(profile) ? "/dashboard" : "/access";
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {

@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Hammer, Loader2 } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
+import { clearAccessIntent, getAccessIntent } from "@/lib/access-intent";
+import { checkAccess } from "@/lib/access";
 
 function SignupPageContent() {
   const { language, setLanguage } = useLanguage();
@@ -25,6 +27,31 @@ function SignupPageContent() {
   const [canResendConfirmation, setCanResendConfirmation] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [friendlyDuplicate, setFriendlyDuplicate] = useState(false);
+
+  const applyAccessIntent = async () => {
+    const intent = getAccessIntent();
+    if (!intent) return;
+    const supabase = createClient();
+    if (!supabase) return;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    if (intent === "premium") {
+      await supabase
+        .from("profiles")
+        .update({ is_active: true, updated_at: new Date().toISOString() })
+        .eq("user_id", user.id);
+    } else {
+      await supabase
+        .from("profiles")
+        .update({ trial_started_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("user_id", user.id)
+        .is("trial_started_at", null);
+    }
+    clearAccessIntent();
+  };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,14 +75,17 @@ function SignupPageContent() {
     });
     setLoading(false);
     if (signError) {
-      setError(signError.message);
-      setToast({ type: "error", message: signError.message });
       const lower = signError.message.toLowerCase();
       const isAlreadyRegistered =
         lower.includes("user already registered") ||
         lower.includes("already") ||
         lower.includes("exists") ||
         lower.includes("registered");
+      const duplicateMsg =
+        language === "fr" ? "Cet email est déjà utilisé." : "This email is already in use.";
+      const displayError = isAlreadyRegistered ? duplicateMsg : signError.message;
+      setError(displayError);
+      setToast({ type: "error", message: displayError });
       setCanResendConfirmation(isAlreadyRegistered);
       setFriendlyDuplicate(isAlreadyRegistered);
       return;
@@ -80,6 +110,22 @@ function SignupPageContent() {
     }
     if (data?.user && !data.session) {
       setInfo(t("signupCheckSpam", language));
+    }
+    if (data?.session) {
+      await supabase.auth.refreshSession();
+      await applyAccessIntent();
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+      if (currentUser) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_active, trial_started_at")
+          .eq("user_id", currentUser.id)
+          .maybeSingle();
+        window.location.href = checkAccess(profile) ? "/dashboard" : "/access";
+        return;
+      }
     }
     setToast({ type: "success", message: t("signupSuccessToast", language) });
     setSuccessOpen(true);
@@ -124,6 +170,24 @@ function SignupPageContent() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
+        <div className="mb-4 flex justify-end">
+          <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+            <button
+              type="button"
+              onClick={() => setLanguage("fr")}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold ${language === "fr" ? "bg-brand-blue-500 text-white" : "text-slate-600"}`}
+            >
+              FR
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage("en")}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold ${language === "en" ? "bg-brand-blue-500 text-white" : "text-slate-600"}`}
+            >
+              EN
+            </button>
+          </div>
+        </div>
         <div className="flex justify-center mb-8">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-blue-500 text-white shadow-brand-glow">
             <Hammer className="h-8 w-8" />
