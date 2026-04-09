@@ -32,9 +32,9 @@ export async function updateSession(request: NextRequest) {
   }
   const isPublicLanding = path === "/";
   const isLoginOrSignup = path === "/login" || path === "/signup";
+  const isAccessPage = path === "/access";
   const isAuthCallback = path.startsWith("/auth/");
-  const isPublicRoute = isPublicLanding || isLoginOrSignup || isAuthCallback;
-  const isWelcomePage = path === "/welcome";
+  const isPublicRoute = isPublicLanding || isLoginOrSignup || isAuthCallback || isAccessPage;
   const isStatic = path.startsWith("/_next") || path.includes(".");
 
   // Public routes are always reachable.
@@ -47,10 +47,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Connected user can always reach /welcome (access gate UI).
-  if (isWelcomePage) {
-    return response;
-  }
+  // Connected user can always reach /access (access gate UI).
+  if (isAccessPage) return response;
 
   // Connected user trying to access app routes must have active access.
   const { data: profile } = await supabase
@@ -61,7 +59,7 @@ export async function updateSession(request: NextRequest) {
 
   const canAccessApp = checkAccess(profile);
   if (!canAccessApp) {
-    return NextResponse.redirect(new URL("/welcome", request.url));
+    return NextResponse.redirect(new URL("/access", request.url));
   }
 
   return response;

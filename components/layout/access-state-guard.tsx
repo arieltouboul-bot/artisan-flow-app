@@ -10,7 +10,7 @@ export function AccessStateGuard() {
 
   useEffect(() => {
     const run = async () => {
-      if (pathname !== "/welcome") return;
+      if (pathname !== "/access" && pathname !== "/welcome") return;
       const supabase = createClient();
       if (!supabase) return;
 

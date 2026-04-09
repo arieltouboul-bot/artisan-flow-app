@@ -127,7 +127,7 @@ export default function Home() {
             {t("heroSubtitle", language)}
           </motion.p>
           <motion.div variants={item} className="mt-12 flex flex-wrap items-center justify-center gap-4">
-            <Link href="/login">
+            <Link href="/access">
               <Button
                 size="lg"
                 className="min-h-[56px] px-10 text-base font-semibold bg-white text-blue-900 hover:bg-blue-50 shadow-xl"

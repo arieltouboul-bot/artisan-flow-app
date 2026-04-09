@@ -117,8 +117,8 @@ export default function WelcomeAccessPage() {
     setIsFinalizing(true);
     setSuccess("Access Granted!");
     setActivating(false);
-    console.log("[Redirecting] Activation success -> /dashboard");
-    window.location.replace("/dashboard");
+    console.log("[Redirecting] Activation success -> /login");
+    window.location.href = "/login";
   };
 
   const startTrial = async () => {
@@ -163,8 +163,8 @@ export default function WelcomeAccessPage() {
     setTrialStartedAt(new Date().toISOString());
     setSuccess(t("welcomeTrialStarted", localLanguage));
     setStartingTrial(false);
-    console.log("[Redirecting] Trial success -> /dashboard");
-    window.location.replace("/dashboard");
+    console.log("[Redirecting] Trial success -> /login");
+    window.location.href = "/login";
   };
 
   if (loadingUser) {
