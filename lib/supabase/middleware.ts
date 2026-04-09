@@ -30,47 +30,38 @@ export async function updateSession(request: NextRequest) {
   if (path.startsWith("/_next") || path.includes("/static/")) {
     return NextResponse.next({ request });
   }
+  const isPublicLanding = path === "/";
   const isLoginOrSignup = path === "/login" || path === "/signup";
   const isAuthCallback = path.startsWith("/auth/");
-  const isPublicLanding = path === "/";
-  const isAuthPage = isLoginOrSignup || isAuthCallback;
+  const isPublicRoute = isPublicLanding || isLoginOrSignup || isAuthCallback;
   const isWelcomePage = path === "/welcome";
   const isStatic = path.startsWith("/_next") || path.includes(".");
 
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_active, trial_started_at")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    console.log("User Status:", profile?.is_active, profile?.trial_started_at);
-
-    const canAccessApp = checkAccess(profile);
-    console.log("[Access Check] canAccessApp:", canAccessApp, "path:", path);
-
-    if ((isAuthPage || isPublicLanding) && !isWelcomePage) {
-      console.log("[Redirecting]", path, "->", canAccessApp ? "/dashboard" : "/welcome");
-      return NextResponse.redirect(new URL(canAccessApp ? "/dashboard" : "/welcome", request.url));
-    }
-
-    if (!canAccessApp && !isWelcomePage && !isAuthPage && !isStatic) {
-      console.log("[Redirecting]", path, "-> /welcome");
-      return NextResponse.redirect(new URL("/welcome", request.url));
-    }
-
-    if (isWelcomePage && !canAccessApp) {
-      return response;
-    }
-
-    if (canAccessApp && isWelcomePage) {
-      console.log("[Redirecting] /welcome -> /dashboard");
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
+  // Public routes are always reachable.
+  if (isPublicRoute || isStatic) {
+    return response;
   }
 
-  if (!user && !isPublicLanding && !isLoginOrSignup && !isAuthCallback && !isStatic) {
+  // If not connected and trying to access protected area -> login.
+  if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // Connected user can always reach /welcome (access gate UI).
+  if (isWelcomePage) {
+    return response;
+  }
+
+  // Connected user trying to access app routes must have active access.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_active, trial_started_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const canAccessApp = checkAccess(profile);
+  if (!canAccessApp) {
+    return NextResponse.redirect(new URL("/welcome", request.url));
   }
 
   return response;

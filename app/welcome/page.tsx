@@ -118,7 +118,7 @@ export default function WelcomeAccessPage() {
     setSuccess("Access Granted!");
     setActivating(false);
     console.log("[Redirecting] Activation success -> /dashboard");
-    window.location.href = "/dashboard";
+    window.location.replace("/dashboard");
   };
 
   const startTrial = async () => {
@@ -164,7 +164,7 @@ export default function WelcomeAccessPage() {
     setSuccess(t("welcomeTrialStarted", localLanguage));
     setStartingTrial(false);
     console.log("[Redirecting] Trial success -> /dashboard");
-    window.location.href = "/dashboard";
+    window.location.replace("/dashboard");
   };
 
   if (loadingUser) {

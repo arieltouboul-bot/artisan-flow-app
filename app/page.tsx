@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Hammer, Sparkles } from "lucide-react";
+import { Hammer, Loader2, Sparkles } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
+import { useUser } from "@/hooks/use-user";
+import { useProfile } from "@/hooks/use-profile";
+import { checkAccess } from "@/lib/access";
 
 const container = {
   hidden: { opacity: 0 },
@@ -22,7 +27,32 @@ const item = {
 
 export default function Home() {
   const { language, setLanguage } = useLanguage();
-  const isEn = language === "en";
+  const router = useRouter();
+  const { user, loading: userLoading } = useUser();
+  const { profile, loading: profileLoading } = useProfile();
+
+  useEffect(() => {
+    if (userLoading) return;
+    if (!user) return;
+    if (profileLoading) return;
+    if (checkAccess(profile)) {
+      router.replace("/dashboard");
+      router.refresh();
+    }
+  }, [user, userLoading, profile, profileLoading, router]);
+
+  if (user && (userLoading || profileLoading)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800">
+        <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-4">
+          <div className="flex items-center gap-2 rounded-lg border border-white/30 bg-white/10 px-4 py-3 text-white">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">{t("loading", language)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800">
