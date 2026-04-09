@@ -12,7 +12,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Hammer, Loader2 } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
-import { checkAccess } from "@/lib/access";
 import { clearAccessIntent, getAccessIntent } from "@/lib/access-intent";
 
 function LoginPageContent() {
@@ -58,11 +57,6 @@ function LoginPageContent() {
       window.location.href = "/login";
       return;
     }
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_active, trial_started_at")
-      .eq("user_id", user.id)
-      .maybeSingle();
     const intent = getAccessIntent();
     if (intent === "premium") {
       await supabase
@@ -84,7 +78,7 @@ function LoginPageContent() {
       return;
     }
     setLoading(false);
-    window.location.href = checkAccess(profile) ? "/dashboard" : "/access";
+    window.location.href = "/dashboard";
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {

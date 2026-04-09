@@ -12,7 +12,6 @@ import { Hammer, Loader2 } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import { clearAccessIntent, getAccessIntent } from "@/lib/access-intent";
-import { checkAccess } from "@/lib/access";
 
 function SignupPageContent() {
   const { language, setLanguage } = useLanguage();
@@ -114,18 +113,8 @@ function SignupPageContent() {
     if (data?.session) {
       await supabase.auth.refreshSession();
       await applyAccessIntent();
-      const {
-        data: { user: currentUser },
-      } = await supabase.auth.getUser();
-      if (currentUser) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_active, trial_started_at")
-          .eq("user_id", currentUser.id)
-          .maybeSingle();
-        window.location.href = checkAccess(profile) ? "/dashboard" : "/access";
-        return;
-      }
+      window.location.href = "/dashboard";
+      return;
     }
     setToast({ type: "success", message: t("signupSuccessToast", language) });
     setSuccessOpen(true);
