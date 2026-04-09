@@ -13,6 +13,7 @@ import { Hammer, Loader2 } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import { clearAccessIntent, getAccessIntent } from "@/lib/access-intent";
+import { trialDaysRemaining } from "@/lib/access";
 
 function LoginPageContent() {
   const { language, setLanguage } = useLanguage();
@@ -28,6 +29,7 @@ function LoginPageContent() {
   const [forgotMessage, setForgotMessage] = useState<string | null>(null);
   const [forgotError, setForgotError] = useState<string | null>(null);
   const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
+  const isTrialValid = (trialStartedAt: string | null | undefined) => trialDaysRemaining(trialStartedAt) > 0;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,8 +79,23 @@ function LoginPageContent() {
       window.location.href = "/dashboard";
       return;
     }
+
+    const { data: profile, error: profileErr } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+    if (profileErr || !profile) {
+      setLoading(false);
+      window.location.href = "/access";
+      return;
+    }
     setLoading(false);
-    window.location.href = "/dashboard";
+    if (profile.is_active || isTrialValid(profile.trial_started_at)) {
+      window.location.href = "/dashboard";
+    } else {
+      window.location.href = "/access";
+    }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {

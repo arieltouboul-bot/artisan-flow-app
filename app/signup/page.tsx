@@ -12,6 +12,7 @@ import { Hammer, Loader2 } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import { clearAccessIntent, getAccessIntent } from "@/lib/access-intent";
+import { trialDaysRemaining } from "@/lib/access";
 
 function SignupPageContent() {
   const { language, setLanguage } = useLanguage();
@@ -26,6 +27,7 @@ function SignupPageContent() {
   const [canResendConfirmation, setCanResendConfirmation] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [friendlyDuplicate, setFriendlyDuplicate] = useState(false);
+  const isTrialValid = (trialStartedAt: string | null | undefined) => trialDaysRemaining(trialStartedAt) > 0;
 
   const applyAccessIntent = async () => {
     const intent = getAccessIntent();
@@ -81,7 +83,9 @@ function SignupPageContent() {
         lower.includes("exists") ||
         lower.includes("registered");
       const duplicateMsg =
-        language === "fr" ? "Cet email est déjà utilisé." : "This email is already in use.";
+        language === "fr"
+          ? "Cet email est déjà utilisé. Veuillez vous connecter."
+          : "This email is already in use. Please sign in.";
       const displayError = isAlreadyRegistered ? duplicateMsg : signError.message;
       setError(displayError);
       setToast({ type: "error", message: displayError });
@@ -113,7 +117,27 @@ function SignupPageContent() {
     if (data?.session) {
       await supabase.auth.refreshSession();
       await applyAccessIntent();
-      window.location.href = "/dashboard";
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+      if (!currentUser) {
+        window.location.href = "/access";
+        return;
+      }
+      const { data: profile, error: profileErr } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", currentUser.id)
+        .single();
+      if (profileErr || !profile) {
+        window.location.href = "/access";
+        return;
+      }
+      if (profile.is_active || isTrialValid(profile.trial_started_at)) {
+        window.location.href = "/dashboard";
+      } else {
+        window.location.href = "/access";
+      }
       return;
     }
     setToast({ type: "success", message: t("signupSuccessToast", language) });

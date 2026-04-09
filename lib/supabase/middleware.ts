@@ -73,6 +73,12 @@ export async function updateSession(request: NextRequest) {
     .maybeSingle();
 
   const canAccessApp = checkAccess(profile);
+  console.log("Middleware Access Check:", {
+    userId: user.id,
+    isActive: profile?.is_active ?? false,
+    trialStartedAt: profile?.trial_started_at ?? null,
+    canAccessApp,
+  });
   if (!canAccessApp) {
     return NextResponse.redirect(new URL("/access", request.url));
   }
