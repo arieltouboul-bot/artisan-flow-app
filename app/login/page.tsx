@@ -29,7 +29,7 @@ function LoginPageContent() {
   const [forgotMessage, setForgotMessage] = useState<string | null>(null);
   const [forgotError, setForgotError] = useState<string | null>(null);
   const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
-  const isTrialValid = (trialStartedAt: string | null | undefined) => trialDaysRemaining(trialStartedAt) > 0;
+  const checkTrial = (trialStartedAt: string | null | undefined) => trialDaysRemaining(trialStartedAt) > 0;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,11 +50,10 @@ function LoginPageContent() {
       setError(signError.message);
       return;
     }
-    await supabase.auth.refreshSession();
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+      data: { session },
+    } = await supabase.auth.refreshSession();
+    if (!session?.user) {
       setLoading(false);
       window.location.href = "/login";
       return;
@@ -64,34 +63,24 @@ function LoginPageContent() {
       await supabase
         .from("profiles")
         .update({ is_active: true, updated_at: new Date().toISOString() })
-        .eq("user_id", user.id);
+        .eq("user_id", session.user.id);
       clearAccessIntent();
-      window.location.href = "/dashboard";
-      return;
-    }
-    if (intent === "trial") {
+    } else if (intent === "trial") {
       await supabase
         .from("profiles")
         .update({ trial_started_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-        .eq("user_id", user.id)
+        .eq("user_id", session.user.id)
         .is("trial_started_at", null);
       clearAccessIntent();
-      window.location.href = "/dashboard";
-      return;
     }
 
-    const { data: profile, error: profileErr } = await supabase
+    const { data: profile } = await supabase
       .from("profiles")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("id", session.user.id)
       .single();
-    if (profileErr || !profile) {
-      setLoading(false);
-      window.location.href = "/access";
-      return;
-    }
     setLoading(false);
-    if (profile.is_active || isTrialValid(profile.trial_started_at)) {
+    if (profile?.is_active || checkTrial(profile?.trial_started_at)) {
       window.location.href = "/dashboard";
     } else {
       window.location.href = "/access";

@@ -50,11 +50,14 @@ export async function updateSession(request: NextRequest) {
 
   // Connected users trying to access /access or /login are redirected if already eligible.
   if (isAccessPage || isLoginOrSignup) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr } = await supabase
       .from("profiles")
       .select("is_active, trial_started_at")
       .eq("user_id", user.id)
       .maybeSingle();
+    if (profileErr || !profile) {
+      return response;
+    }
     if (checkAccess(profile)) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
@@ -66,11 +69,14 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Connected user trying to access app routes must have active access.
-  const { data: profile } = await supabase
+  const { data: profile, error: profileErr } = await supabase
     .from("profiles")
     .select("is_active, trial_started_at")
     .eq("user_id", user.id)
     .maybeSingle();
+  if (profileErr || !profile) {
+    return response;
+  }
 
   const canAccessApp = checkAccess(profile);
   console.log("Middleware Access Check:", {

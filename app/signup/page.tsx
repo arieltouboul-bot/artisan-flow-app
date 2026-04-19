@@ -27,7 +27,7 @@ function SignupPageContent() {
   const [canResendConfirmation, setCanResendConfirmation] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [friendlyDuplicate, setFriendlyDuplicate] = useState(false);
-  const isTrialValid = (trialStartedAt: string | null | undefined) => trialDaysRemaining(trialStartedAt) > 0;
+  const checkTrial = (trialStartedAt: string | null | undefined) => trialDaysRemaining(trialStartedAt) > 0;
 
   const applyAccessIntent = async () => {
     const intent = getAccessIntent();
@@ -85,10 +85,11 @@ function SignupPageContent() {
       const duplicateMsg =
         language === "fr"
           ? "Cet email est déjà utilisé. Veuillez vous connecter."
-          : "This email is already in use. Please sign in.";
+          : "This email is already registered. Please login.";
       const displayError = isAlreadyRegistered ? duplicateMsg : signError.message;
       setError(displayError);
       setToast({ type: "error", message: displayError });
+      if (isAlreadyRegistered) alert(displayError);
       setCanResendConfirmation(isAlreadyRegistered);
       setFriendlyDuplicate(isAlreadyRegistered);
       return;
@@ -115,25 +116,20 @@ function SignupPageContent() {
       setInfo(t("signupCheckSpam", language));
     }
     if (data?.session) {
-      await supabase.auth.refreshSession();
-      await applyAccessIntent();
       const {
-        data: { user: currentUser },
-      } = await supabase.auth.getUser();
-      if (!currentUser) {
+        data: { session },
+      } = await supabase.auth.refreshSession();
+      if (!session?.user) {
         window.location.href = "/access";
         return;
       }
-      const { data: profile, error: profileErr } = await supabase
+      await applyAccessIntent();
+      const { data: profile } = await supabase
         .from("profiles")
         .select("*")
-        .eq("user_id", currentUser.id)
+        .eq("id", session.user.id)
         .single();
-      if (profileErr || !profile) {
-        window.location.href = "/access";
-        return;
-      }
-      if (profile.is_active || isTrialValid(profile.trial_started_at)) {
+      if (profile?.is_active || checkTrial(profile?.trial_started_at)) {
         window.location.href = "/dashboard";
       } else {
         window.location.href = "/access";
