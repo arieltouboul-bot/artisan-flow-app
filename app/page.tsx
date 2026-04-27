@@ -10,7 +10,6 @@ import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import { useUser } from "@/hooks/use-user";
 import { useProfile } from "@/hooks/use-profile";
-import { checkAccess } from "@/lib/access";
 
 const container = {
   hidden: { opacity: 0 },
@@ -29,17 +28,16 @@ export default function Home() {
   const { language, setLanguage } = useLanguage();
   const router = useRouter();
   const { user, loading: userLoading } = useUser();
-  const { profile, loading: profileLoading } = useProfile();
+  const { loading: profileLoading } = useProfile();
 
   useEffect(() => {
     if (userLoading) return;
     if (!user) return;
     if (profileLoading) return;
-    if (checkAccess(profile)) {
-      router.replace("/dashboard");
-      router.refresh();
-    }
-  }, [user, userLoading, profile, profileLoading, router]);
+    // TEMP: access gate off — logged-in users go straight to dashboard
+    router.replace("/dashboard");
+    router.refresh();
+  }, [user, userLoading, profileLoading, router]);
 
   if (user && (userLoading || profileLoading)) {
     return (
@@ -127,7 +125,7 @@ export default function Home() {
             {t("heroSubtitle", language)}
           </motion.p>
           <motion.div variants={item} className="mt-12 flex flex-wrap items-center justify-center gap-4">
-            <Link href="/access">
+            <Link href="/login">
               <Button
                 size="lg"
                 className="min-h-[56px] px-10 text-base font-semibold bg-white text-blue-900 hover:bg-blue-50 shadow-xl"

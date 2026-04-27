@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/context/language-context";
+import { createClient } from "@/lib/supabase/client";
 import { setAccessIntent } from "@/lib/access-intent";
 import { KeyRound, Lock, Clock3 } from "lucide-react";
 
@@ -46,18 +47,53 @@ export default function AccessPage() {
 
   const c = content[localLanguage];
 
-  const handlePremium = () => {
+  const handlePremium = async () => {
     if (accessCode.trim().toUpperCase() !== MASTER_CODE) {
       setError(c.invalidCode);
       return;
     }
+    const supabase = createClient();
+    if (supabase) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ is_active: true, updated_at: new Date().toISOString() })
+          .eq("user_id", user.id);
+        if (!error) {
+          await supabase.auth.refreshSession();
+          window.location.replace("/dashboard");
+          return;
+        }
+      }
+    }
     setAccessIntent("premium");
-    router.push("/signup");
+    router.push("/login");
   };
 
-  const handleTrial = () => {
+  const handleTrial = async () => {
+    const supabase = createClient();
+    if (supabase) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ trial_started_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+          .eq("user_id", user.id)
+          .is("trial_started_at", null);
+        if (!error) {
+          await supabase.auth.refreshSession();
+          window.location.replace("/dashboard");
+          return;
+        }
+      }
+    }
     setAccessIntent("trial");
-    router.push("/signup");
+    router.push("/login");
   };
 
   return (

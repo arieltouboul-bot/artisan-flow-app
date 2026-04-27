@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,9 @@ import { Hammer, Loader2 } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import { clearAccessIntent, getAccessIntent } from "@/lib/access-intent";
-import { trialDaysRemaining } from "@/lib/access";
 
 function LoginPageContent() {
   const { language, setLanguage } = useLanguage();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +27,20 @@ function LoginPageContent() {
   const [forgotMessage, setForgotMessage] = useState<string | null>(null);
   const [forgotError, setForgotError] = useState<string | null>(null);
   const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
-  const checkTrial = (trialStartedAt: string | null | undefined) => trialDaysRemaining(trialStartedAt) > 0;
+  const ensureProfileExists = async (userId: string) => {
+    const supabase = createClient();
+    if (!supabase) return;
+    await supabase
+      .from("profiles")
+      .upsert(
+        {
+          user_id: userId,
+          preferred_language: language,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,12 +71,14 @@ function LoginPageContent() {
     }
     const intent = getAccessIntent();
     if (intent === "premium") {
+      await ensureProfileExists(session.user.id);
       await supabase
         .from("profiles")
         .update({ is_active: true, updated_at: new Date().toISOString() })
         .eq("user_id", session.user.id);
       clearAccessIntent();
     } else if (intent === "trial") {
+      await ensureProfileExists(session.user.id);
       await supabase
         .from("profiles")
         .update({ trial_started_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -74,17 +87,9 @@ function LoginPageContent() {
       clearAccessIntent();
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", session.user.id)
-      .single();
     setLoading(false);
-    if (profile?.is_active || checkTrial(profile?.trial_started_at)) {
-      window.location.href = "/dashboard";
-    } else {
-      window.location.href = "/access";
-    }
+    // TEMP: access gate off — always land on dashboard after successful login
+    window.location.replace("/dashboard");
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {

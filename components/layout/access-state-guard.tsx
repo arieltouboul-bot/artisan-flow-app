@@ -1,4 +1,5 @@
 "use client";
+// NOTE: Temporarily not mounted from `components/providers.tsx` while the access gate is off.
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";

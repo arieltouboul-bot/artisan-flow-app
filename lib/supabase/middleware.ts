@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { checkAccess } from "@/lib/access";
+// import { checkAccess } from "@/lib/access"; // TEMP DISABLED: access gate off
 
 export async function updateSession(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -48,45 +48,9 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Connected users trying to access /access or /login are redirected if already eligible.
-  if (isAccessPage || isLoginOrSignup) {
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("is_active, trial_started_at")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (profileErr || !profile) {
-      return response;
-    }
-    if (checkAccess(profile)) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
+  // TEMP DISABLED: access gate off — any authenticated user can reach app routes.
+  if (isPublicLanding || isAuthCallback || isAccessPage || isLoginOrSignup) {
     return response;
-  }
-
-  if (isPublicLanding || isAuthCallback) {
-    return response;
-  }
-
-  // Connected user trying to access app routes must have active access.
-  const { data: profile, error: profileErr } = await supabase
-    .from("profiles")
-    .select("is_active, trial_started_at")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (profileErr || !profile) {
-    return response;
-  }
-
-  const canAccessApp = checkAccess(profile);
-  console.log("Middleware Access Check:", {
-    userId: user.id,
-    isActive: profile?.is_active ?? false,
-    trialStartedAt: profile?.trial_started_at ?? null,
-    canAccessApp,
-  });
-  if (!canAccessApp) {
-    return NextResponse.redirect(new URL("/access", request.url));
   }
 
   return response;

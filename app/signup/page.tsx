@@ -12,7 +12,6 @@ import { Hammer, Loader2 } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import { clearAccessIntent, getAccessIntent } from "@/lib/access-intent";
-import { trialDaysRemaining } from "@/lib/access";
 
 function SignupPageContent() {
   const { language, setLanguage } = useLanguage();
@@ -27,8 +26,6 @@ function SignupPageContent() {
   const [canResendConfirmation, setCanResendConfirmation] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [friendlyDuplicate, setFriendlyDuplicate] = useState(false);
-  const checkTrial = (trialStartedAt: string | null | undefined) => trialDaysRemaining(trialStartedAt) > 0;
-
   const applyAccessIntent = async () => {
     const intent = getAccessIntent();
     if (!intent) return;
@@ -120,20 +117,12 @@ function SignupPageContent() {
         data: { session },
       } = await supabase.auth.refreshSession();
       if (!session?.user) {
-        window.location.href = "/access";
+        window.location.href = "/login";
         return;
       }
       await applyAccessIntent();
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", session.user.id)
-        .single();
-      if (profile?.is_active || checkTrial(profile?.trial_started_at)) {
-        window.location.href = "/dashboard";
-      } else {
-        window.location.href = "/access";
-      }
+      // TEMP: access gate off — always land on dashboard after signup with session
+      window.location.href = "/dashboard";
       return;
     }
     setToast({ type: "success", message: t("signupSuccessToast", language) });
