@@ -9,6 +9,14 @@ try {
 
 const nextConfig = {
   reactStrictMode: true,
+  /** Konva (react-konva) référence le module Node `canvas` ; on l’ignore côté bundler Next. */
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      canvas: false,
+    };
+    return config;
+  },
   images: {
     remotePatterns: [
       ...(supabaseHostname

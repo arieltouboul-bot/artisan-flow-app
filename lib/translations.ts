@@ -1007,6 +1007,42 @@ export const translations: Record<string, { fr: string; en: string }> = {
   reminderCreated: { fr: "Rappel créé", en: "Reminder created" },
   appointmentLabel: { fr: "Rendez-vous", en: "Appointment" },
   creation: { fr: "Création", en: "Creation" },
+  floorPlans: { fr: "Plans 2D", en: "2D plans" },
+  floorPlanPageTitle: { fr: "Plans 2D & dossier technique", en: "2D plans & technical dossier" },
+  floorPlanPageSubtitle: {
+    fr: "Dessinez des murs (angles 90°), calibrez l’échelle, enregistrez le JSON dans Supabase et exportez un PDF.",
+    en: "Draw walls (90° angles), calibrate scale, save JSON to Supabase, and export a PDF.",
+  },
+  floorPlanScaleLabel: { fr: "Échelle : 1 px = … cm", en: "Scale: 1 px = … cm" },
+  floorPlanScaleHelp: {
+    fr: "Ex. 1 → 500 px de mur ≈ 5,00 m. Ajustez selon votre calque ou relevé.",
+    en: "e.g. 1 → a 500 px wall ≈ 5.00 m. Adjust to match your survey or drawing.",
+  },
+  floorPlanToolWall: { fr: "Mur", en: "Wall" },
+  floorPlanToolDoor: { fr: "Porte", en: "Door" },
+  floorPlanToolWindow: { fr: "Fenêtre", en: "Window" },
+  floorPlanToolFurniture: { fr: "Meuble", en: "Furniture" },
+  floorPlanMaterial: { fr: "Matériau (nouveaux tracés)", en: "Material (new strokes)" },
+  floorPlanProject: { fr: "Projet lié", en: "Linked project" },
+  floorPlanNoProject: { fr: "Aucun", en: "None" },
+  floorPlanPlanName: { fr: "Nom du plan", en: "Plan name" },
+  floorPlanSave: { fr: "Enregistrer maintenant", en: "Save now" },
+  floorPlanExportPdf: { fr: "Exporter PDF dossier technique", en: "Export technical PDF" },
+  floorPlanSurfaceEst: { fr: "Surface estimée", en: "Estimated area" },
+  floorPlanNomenclature: { fr: "Nomenclature", en: "Bill of materials" },
+  floorPlanLoading: { fr: "Chargement du plan…", en: "Loading plan…" },
+  floorPlanSupabaseMissing: { fr: "Supabase non configuré.", en: "Supabase is not configured." },
+  floorPlanNoticeApprox: {
+    fr: "Estimation grille : résultat indicatif si le plan est ouvert ou complexe.",
+    en: "Grid estimate: indicative result if the layout is open or complex.",
+  },
+  floorPlanJsonSaved: { fr: "Plan sauvegardé (JSON) dans le cloud.", en: "Plan saved (JSON) to the cloud." },
+  materialSelectorLoading: { fr: "Chargement des matériaux…", en: "Loading materials…" },
+  materialSelectorEmpty: {
+    fr: "Aucun matériau. Vérifiez la table materials_library ou les droits RLS.",
+    en: "No materials. Check the materials_library table or RLS policies.",
+  },
+  materialSelectorPlaceholder: { fr: "Choisir un matériau…", en: "Choose a material…" },
 };
 
 export function t(key: string, lang: Language): string {

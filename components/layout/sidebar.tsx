@@ -22,6 +22,7 @@ import {
   Settings,
   Users,
   UsersRound,
+  Ruler,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/translations";
@@ -37,6 +38,7 @@ import { useLanguage } from "@/context/language-context";
 const mainNavItems = [
   { href: "/dashboard", key: "dashboard", icon: LayoutDashboard },
   { href: "/projets", key: "projects", icon: FolderKanban },
+  { href: "/plans", key: "floorPlans", icon: Ruler },
   /** Table Supabase `clients` — page `app/(app)/clients/page.tsx` */
   { href: "/clients", key: "clients", icon: Users },
   { href: "/team", key: "team", icon: UsersRound },
@@ -144,6 +146,8 @@ export function Sidebar({ collapsed, onToggle, onCloseMobile, mobileMode }: Side
                     ? pathname.startsWith("/settings") || pathname.startsWith("/parametres")
                     : item.key === "clients"
                       ? pathname === "/clients" || pathname.startsWith("/clients/")
+                      : item.key === "floorPlans"
+                        ? pathname === "/plans" || pathname.startsWith("/plans/")
                     : pathname.startsWith(item.href)));
             const Icon = item.icon;
             const label = t(item.key, language);

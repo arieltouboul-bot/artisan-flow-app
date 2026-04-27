@@ -22,10 +22,12 @@
     "framer-motion": "^11.11.17",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.4",
+    "konva": "^9.3.16",
     "lucide-react": "^0.460.0",
     "next": "14.2.18",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-konva": "^18.2.10",
     "recharts": "^2.13.3",
     "tailwind-merge": "^2.6.1",
     "tesseract.js": "^7.0.0"
