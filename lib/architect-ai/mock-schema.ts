@@ -1,4 +1,10 @@
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "./bim-types";
+import {
+  buildDetailedExecutionGuide,
+  correctedThickness,
+  detectArchitectTemplate,
+  matchMaterialByName,
+} from "./architectBrain";
 
 function pickMaterial(materials: ArchitecturalLibraryRow[], i: number): ArchitecturalLibraryRow {
   if (materials.length === 0) {
@@ -28,6 +34,79 @@ export function buildMockArchitecturalSchema(
   projectCategory: "safe_room" | "house" | "technical_room"
 ): ArchitecturalSchema {
   const lower = prompt.toLowerCase();
+  const thicknessCmMatch = lower.match(/(\d+(?:[.,]\d+)?)\s*cm/);
+  const areaMatch = lower.match(/(\d+(?:[.,]\d+)?)\s*m(?:2|²)/i);
+  const requestedArea = areaMatch ? parseFloat(areaMatch[1]!.replace(",", ".")) : null;
+  const matchedTemplate = detectArchitectTemplate(prompt);
+  if (matchedTemplate) {
+    const baseArea = matchedTemplate.zone.area_m2 ?? 1;
+    const scale = requestedArea && requestedArea > 2 ? Math.sqrt(requestedArea / baseArea) : 1;
+    const wallThickness = correctedThickness(
+      matchedTemplate.intent,
+      thicknessCmMatch ? parseFloat(thicknessCmMatch[1]!.replace(",", ".")) : undefined
+    );
+    const walls = matchedTemplate.walls.map((w) => {
+      const mat = matchMaterialByName(materials, w.material_name) ?? pickMaterial(materials, 0);
+      return {
+        id: w.id,
+        x1: Number((w.x1 * scale).toFixed(2)),
+        z1: Number((w.z1 * scale).toFixed(2)),
+        x2: Number((w.x2 * scale).toFixed(2)),
+        z2: Number((w.z2 * scale).toFixed(2)),
+        height_m: 2.8,
+        thickness_m: w.load_bearing ? wallThickness : Math.max(0.07, wallThickness * 0.35),
+        load_bearing: w.load_bearing,
+        material_ref_id: mat.id,
+      };
+    });
+    const openings = matchedTemplate.openings.map((o) => ({
+      id: o.id,
+      wall_id: o.wall_id,
+      width_m: o.width_m,
+      height_m: o.height_m,
+      type: o.type,
+      offset_along_wall_m: Number((o.offset_along_wall_m * scale).toFixed(2)),
+      material_ref_id: (o.material_name ? matchMaterialByName(materials, o.material_name) : null)?.id ?? undefined,
+    }));
+    const zones = [
+      {
+        ...matchedTemplate.zone,
+        polygon: matchedTemplate.zone.polygon.map(
+          ([x, y]) => [Number((x * scale).toFixed(2)), Number((y * scale).toFixed(2))] as [number, number]
+        ),
+        area_m2: Number((matchedTemplate.zone.area_m2 * scale * scale).toFixed(2)),
+      },
+    ];
+    const label = language === "fr" ? `Modele ${matchedTemplate.label}` : `Template ${matchedTemplate.label}`;
+    return {
+      version: 1,
+      meta: {
+        label,
+        meters_per_plan_unit: 0.01,
+        generated_at: new Date().toISOString(),
+        source_prompt: prompt.slice(0, 2000),
+        project_category: matchedTemplate.category,
+        execution_guide: buildDetailedExecutionGuide(matchedTemplate.intent, language),
+      },
+      structure: { walls },
+      zones,
+      logic: {
+        openings,
+        circulations: [
+          {
+            id: "c-main",
+            label: language === "fr" ? "Circulation principale" : "Main circulation",
+            path: [
+              [0.4, 0.4],
+              [Number(((zones[0]?.polygon[1]?.[0] ?? 2) - 0.4).toFixed(2)), Number(((zones[0]?.polygon[2]?.[1] ?? 2) - 0.4).toFixed(2))],
+            ],
+            width_m: 1.1,
+          },
+        ],
+      },
+    };
+  }
+
   let wM = 6;
   let dM = 4;
   const mMatch = prompt.match(/(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)/i);

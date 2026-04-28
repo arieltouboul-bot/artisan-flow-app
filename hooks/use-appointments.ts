@@ -32,7 +32,12 @@ export function useAppointments(start?: Date | null, end?: Date | null) {
     try {
       const raw = window.localStorage.getItem("artisanflow_appointments_cache");
       if (raw) {
-        const parsed = JSON.parse(raw) as Appointment[];
+        let parsed: Appointment[] = [];
+        try {
+          parsed = JSON.parse(raw) as Appointment[];
+        } catch {
+          parsed = [];
+        }
         if (parsed.length) {
           setAppointments(parsed);
           setLoading(false);

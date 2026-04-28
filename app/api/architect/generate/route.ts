@@ -71,8 +71,11 @@ export async function POST(req: Request) {
     const materials =
       projectCategory === "safe_room" && securityMaterials.length > 0 ? securityMaterials : allMaterials;
 
+    const keywordDriven = /\b(safe|studio|garage|extension|securite|security|stockage)\b/i.test(prompt);
     let schema: ArchitecturalSchema;
-    if (process.env.OPENAI_API_KEY) {
+    if (keywordDriven) {
+      schema = buildMockArchitecturalSchema(prompt, language, materials, projectCategory);
+    } else if (process.env.OPENAI_API_KEY) {
       try {
         schema = await generateArchitecturalSchemaWithOpenAI(prompt, language, materials, projectCategory);
       } catch {

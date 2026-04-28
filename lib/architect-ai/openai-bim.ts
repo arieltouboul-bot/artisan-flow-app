@@ -17,7 +17,7 @@ You must ALWAYS return valid JSON only, using the same schema as described (vers
 function catalogBlock(materials: ArchitecturalLibraryRow[], lang: "fr" | "en"): string {
   const lines = materials.slice(0, 60).map((m) => {
     const price = m.unit_price_ht != null ? `${m.unit_price_ht} EUR/${m.unit}` : "n/a";
-    return `- id=${m.id} | ref=${m.ref_code} | ${m.name} | ${m.material_family} | ${price} | norm=${m.norm_reference ?? ""}`;
+    return `- id=${m.id} | name=${m.name} | family=${m.material_family} | ${price} | norm=${m.norm_reference ?? ""}`;
   });
   return lang === "fr" ? `Catalogue (extraits) :\n${lines.join("\n")}` : `Catalog excerpt:\n${lines.join("\n")}`;
 }
@@ -73,9 +73,13 @@ export async function generateArchitecturalSchemaWithOpenAI(
   };
   const raw = data.choices?.[0]?.message?.content;
   if (!raw) throw new Error("Réponse OpenAI vide");
-  const parsed = JSON.parse(extractJsonObject(raw)) as ArchitecturalSchema;
-  if (parsed.version !== 1 || !parsed.structure?.walls) throw new Error("JSON BIM invalide");
-  return parsed;
+  try {
+    const parsed = JSON.parse(extractJsonObject(raw)) as ArchitecturalSchema;
+    if (parsed.version !== 1 || !parsed.structure?.walls) throw new Error("JSON BIM invalide");
+    return parsed;
+  } catch (error) {
+    throw new Error(error instanceof Error ? `JSON IA invalide: ${error.message}` : "JSON IA invalide");
+  }
 }
 
 function extractJsonObject(raw: string): string {

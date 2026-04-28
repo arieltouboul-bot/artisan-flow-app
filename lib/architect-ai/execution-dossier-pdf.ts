@@ -1,5 +1,4 @@
 import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "./bim-types";
 
 export type ExecutionDossierPdfInput = {
@@ -16,43 +15,7 @@ export type ExecutionDossierPdfInput = {
 
 const L = (fr: string, en: string, lang: "fr" | "en") => (lang === "fr" ? fr : en);
 
-type DevisRow = { ref: string; label: string; qty: string; unit: string; pu: number; total: number; norm: string };
 type ProjectCategory = "safe_room" | "house" | "technical_room";
-
-function buildDevisRows(schema: ArchitecturalSchema, materialsById: Map<string, ArchitecturalLibraryRow>): DevisRow[] {
-  const rows: DevisRow[] = [];
-  for (const w of schema.structure.walls) {
-    const m = materialsById.get(w.material_ref_id);
-    const len = Math.hypot(w.x2 - w.x1, w.z2 - w.z1);
-    const vol = len * w.thickness_m * w.height_m;
-    const pu = m?.unit_price_ht ?? 0;
-    const unit = m?.unit ?? "u";
-    let qty = 1;
-    let total = pu;
-    if (unit === "m3") {
-      qty = vol;
-      total = pu * vol;
-    } else if (unit === "m2") {
-      qty = len * w.height_m;
-      total = pu * qty;
-    } else if (unit === "ml") {
-      qty = len;
-      total = pu * len;
-    } else {
-      total = pu * len;
-    }
-    rows.push({
-      ref: m?.ref_code ?? w.id,
-      label: m?.name ?? w.id,
-      qty: qty.toFixed(2),
-      unit,
-      pu,
-      total,
-      norm: m?.norm_reference ?? "N/A",
-    });
-  }
-  return rows;
-}
 
 function constructionGuide(category: ProjectCategory, lang: "fr" | "en"): string[] {
   if (category === "safe_room") {
@@ -157,14 +120,11 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
   const categoryText = categoryLabel(category, lang);
   doc.setFont("helvetica", "normal");
 
-  const devis = buildDevisRows(input.schema, input.materialsById);
-  const totalHt = devis.reduce((s, r) => s + r.total, 0);
-
-  // Page 1 — rendu + plan
+  // Page 1 — plan technique (avec rendu 3D HD)
   let y = margin;
   doc.setFontSize(18);
   doc.setTextColor(30, 90, 160);
-  doc.text(L("Dossier technique IA — Architecture", "AI Technical Dossier — Architecture", lang), margin, y);
+  doc.text(L("Dossier Architecte — Plan technique", "Architect Dossier — Technical blueprint", lang), margin, y);
   y += 10;
   doc.setFontSize(11);
   doc.setTextColor(50);
@@ -177,20 +137,20 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
   doc.text(new Date().toLocaleDateString(lang === "fr" ? "fr-FR" : "en-GB"), margin, y);
   y += 9;
 
-  if (input.render3dDataUrl) {
-    try {
-      doc.addImage(input.render3dDataUrl, "PNG", margin, y, pageW - 2 * margin, 80);
-    } catch {
-      doc.text(L("(Image 3D indisponible)", "(3D image unavailable)", lang), margin, y);
-    }
-  }
-  y += 86;
-
   if (input.render2dDataUrl) {
     try {
-      doc.addImage(input.render2dDataUrl, "PNG", margin, y, pageW - 2 * margin, 80);
+      doc.addImage(input.render2dDataUrl, "PNG", margin, y, pageW - 2 * margin, 120);
     } catch {
       doc.text(L("(Plan 2D indisponible)", "(2D plan unavailable)", lang), margin, y);
+    }
+  }
+  y += 124;
+
+  if (input.render3dDataUrl) {
+    try {
+      doc.addImage(input.render3dDataUrl, "PNG", margin, y, 72, 50);
+    } catch {
+      doc.text(L("(Image 3D indisponible)", "(3D image unavailable)", lang), margin, y);
     }
   }
   drawArchitectCartouche(doc, {
@@ -201,50 +161,18 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
     language: lang,
   });
 
-  // Page 2 — nomenclature
-  doc.addPage();
-  y = margin;
-
-  doc.setFontSize(12);
-  doc.setTextColor(30, 90, 160);
-  doc.text(L("Nomenclature matériaux (quantités calculées)", "Material bill (calculated quantities)", lang), margin, y);
-  y += 4;
-
-  autoTable(doc, {
-    startY: y,
-    head: [
-      [
-        L("Réf.", "Ref.", lang),
-        L("Désignation", "Description", lang),
-        L("Qté", "Qty", lang),
-        "U",
-        L("PU HT", "Unit HT", lang),
-        L("Total HT", "Total HT", lang),
-        L("Norme", "Standard", lang),
-      ],
-    ],
-    body: devis.map((r) => [r.ref, r.label, r.qty, r.unit, r.pu.toFixed(2), r.total.toFixed(2), r.norm]),
-    foot: [["", "", "", "", "", L("TOTAL HT", "TOTAL excl. tax", lang), totalHt.toFixed(2)]],
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [30, 64, 175] },
-    footStyles: { fillColor: [241, 245, 249], textColor: 20, fontStyle: "bold" },
-  });
-  drawArchitectCartouche(doc, {
-    projectName: input.projectName,
-    companyName: input.companyName,
-    category: categoryText,
-    pageNo: 2,
-    language: lang,
-  });
-
-  // Page 3 — mode d'emploi
+  // Page 2 — mode d'emploi
   doc.addPage();
   y = margin;
   doc.setFontSize(12);
   doc.setTextColor(30, 90, 160);
-  doc.text(L("Mode d'emploi de construction (référentiel DTU)", "Construction guide (DTU-based)", lang), margin, y);
+  doc.text(L("Mode d'emploi de construction", "Construction guide", lang), margin, y);
   y += 10;
-  constructionPhases(category, lang).forEach((phase) => {
+  const phases =
+    input.schema.meta.execution_guide && input.schema.meta.execution_guide.length >= 3
+      ? input.schema.meta.execution_guide.map((txt, idx) => ({ title: `${idx + 1}. ${L("Etape", "Step", lang)}`, text: txt }))
+      : constructionPhases(category, lang);
+  phases.forEach((phase) => {
     doc.setFontSize(11);
     doc.setTextColor(22, 78, 99);
     doc.text(phase.title, margin, y);
@@ -258,33 +186,7 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
     projectName: input.projectName,
     companyName: input.companyName,
     category: categoryText,
-    pageNo: 3,
-    language: lang,
-  });
-
-  // Page 4 — certifications
-  doc.addPage();
-  y = margin;
-  doc.setFontSize(11);
-  doc.setTextColor(30, 90, 160);
-  doc.text(L("Certifications & conformité sécurité", "Certifications & safety compliance", lang), margin, y);
-  y += 5;
-  const certRows = Array.from(input.materialsById.values())
-    .filter((mat) => !!mat.norm_reference)
-    .map((mat) => [mat.ref_code, mat.name, mat.norm_reference ?? "N/A"]);
-
-  autoTable(doc, {
-    startY: y,
-    head: [[L("Réf.", "Ref.", lang), L("Matériau", "Material", lang), L("Norme", "Standard", lang)]],
-    body: certRows.length ? certRows : [[L("—", "—", lang), "—", "—"]],
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [30, 64, 175] },
-  });
-  drawArchitectCartouche(doc, {
-    projectName: input.projectName,
-    companyName: input.companyName,
-    category: categoryText,
-    pageNo: 4,
+    pageNo: 2,
     language: lang,
   });
 

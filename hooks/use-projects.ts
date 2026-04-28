@@ -56,7 +56,12 @@ export function useProjects(clientId?: string | null) {
     try {
       const raw = window.localStorage.getItem("artisanflow_projects_cache");
       if (raw) {
-        const parsed = JSON.parse(raw) as Project[];
+        let parsed: Project[] = [];
+        try {
+          parsed = JSON.parse(raw) as Project[];
+        } catch {
+          parsed = [];
+        }
         if (parsed.length) {
           setProjects(parsed);
           setLoading(false);
