@@ -24,7 +24,8 @@ function pickMaterial(materials: ArchitecturalLibraryRow[], i: number): Architec
 export function buildMockArchitecturalSchema(
   prompt: string,
   language: "fr" | "en",
-  materials: ArchitecturalLibraryRow[]
+  materials: ArchitecturalLibraryRow[],
+  projectCategory: "safe_room" | "house" | "technical_room"
 ): ArchitecturalSchema {
   const lower = prompt.toLowerCase();
   let wM = 6;
@@ -44,8 +45,8 @@ export function buildMockArchitecturalSchema(
   const m0 = pickMaterial(materials, 0);
   const m1 = pickMaterial(materials, 1);
   const m2 = pickMaterial(materials, 2);
-  const h = lower.includes("mezzanine") ? 3.4 : 2.7;
-  const th = 0.2;
+  const h = projectCategory === "safe_room" ? 3 : lower.includes("mezzanine") ? 3.4 : 2.7;
+  const th = projectCategory === "safe_room" ? 0.3 : projectCategory === "technical_room" ? 0.24 : 0.2;
 
   const walls = [
     {
@@ -109,8 +110,8 @@ export function buildMockArchitecturalSchema(
 
   const label =
     language === "fr"
-      ? `Proposition IA — ${wM.toFixed(1)}×${dM.toFixed(1)} m`
-      : `AI proposal — ${wM.toFixed(1)}×${dM.toFixed(1)} m`;
+      ? `Proposition IA — ${wM.toFixed(1)}×${dM.toFixed(1)} m (${projectCategory})`
+      : `AI proposal — ${wM.toFixed(1)}×${dM.toFixed(1)} m (${projectCategory})`;
 
   return {
     version: 1,
@@ -119,6 +120,7 @@ export function buildMockArchitecturalSchema(
       meters_per_plan_unit: 0.01,
       generated_at: new Date().toISOString(),
       source_prompt: prompt.slice(0, 2000),
+      project_category: projectCategory,
     },
     structure: { walls },
     zones: [

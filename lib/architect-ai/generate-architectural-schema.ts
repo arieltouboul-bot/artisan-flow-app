@@ -7,17 +7,20 @@ export type GenerateArchitecturalSchemaResult = {
   used_materials: ArchitecturalLibraryRow[];
 };
 
+export type ArchitecturalProjectCategory = "safe_room" | "house" | "technical_room";
+
 /**
  * Text-to-BIM : envoie le prompt à `/api/architect/generate` (OpenAI + catalogue Supabase, ou mock).
  */
 export async function generateArchitecturalSchema(
   prompt: string,
-  language: "fr" | "en"
+  language: "fr" | "en",
+  projectCategory: ArchitecturalProjectCategory
 ): Promise<GenerateArchitecturalSchemaResult> {
   const res = await fetch("/api/architect/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, language }),
+    body: JSON.stringify({ prompt, language, projectCategory }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

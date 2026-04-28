@@ -1,7 +1,8 @@
 "use client";
 
 import { useLayoutEffect, useMemo, useRef } from "react";
-import type { DirectionalLight } from "three";
+import { CanvasTexture, RepeatWrapping } from "three";
+import type { DirectionalLight, Texture } from "three";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
 
 function pbrFor(family: ArchitecturalLibraryRow["material_family"]) {
@@ -26,7 +27,61 @@ type BuildingSceneProps = {
   materialsById: Map<string, ArchitecturalLibraryRow>;
 };
 
+function makeTexture(kind: "wood" | "concrete" | "metal"): Texture {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext("2d");
+  if (!ctx) return new CanvasTexture(c);
+
+  if (kind === "wood") {
+    ctx.fillStyle = "#7c522f";
+    ctx.fillRect(0, 0, c.width, c.height);
+    for (let i = 0; i < 30; i += 1) {
+      ctx.strokeStyle = i % 2 === 0 ? "rgba(96, 57, 22, 0.35)" : "rgba(150, 97, 45, 0.32)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, i * 9);
+      ctx.bezierCurveTo(48, i * 9 + 5, 180, i * 9 - 4, 256, i * 9 + 2);
+      ctx.stroke();
+    }
+  } else if (kind === "concrete") {
+    ctx.fillStyle = "#7a7a80";
+    ctx.fillRect(0, 0, c.width, c.height);
+    for (let i = 0; i < 1200; i += 1) {
+      const x = Math.random() * c.width;
+      const y = Math.random() * c.height;
+      const s = Math.random() * 1.7;
+      ctx.fillStyle = `rgba(${120 + Math.random() * 45}, ${120 + Math.random() * 45}, ${120 + Math.random() * 45}, 0.35)`;
+      ctx.fillRect(x, y, s, s);
+    }
+  } else {
+    const g = ctx.createLinearGradient(0, 0, 256, 256);
+    g.addColorStop(0, "#cbd5e1");
+    g.addColorStop(1, "#94a3b8");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, c.width, c.height);
+    for (let i = 0; i < 14; i += 1) {
+      ctx.strokeStyle = "rgba(255,255,255,0.22)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, i * 20);
+      ctx.lineTo(256, i * 20 + 12);
+      ctx.stroke();
+    }
+  }
+  const texture = new CanvasTexture(c);
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = RepeatWrapping;
+  texture.repeat.set(2, 1);
+  return texture;
+}
+
 export function BuildingScene({ schema, materialsById }: BuildingSceneProps) {
+  const textureSet = useMemo(
+    () => ({ wood: makeTexture("wood"), concrete: makeTexture("concrete"), metal: makeTexture("metal") }),
+    []
+  );
   const walls = useMemo(() => {
     if (!schema) return [];
     return schema.structure.walls.map((w) => {
@@ -38,9 +93,15 @@ export function BuildingScene({ schema, materialsById }: BuildingSceneProps) {
       const angle = Math.atan2(dx, dz);
       const mat = materialsById.get(w.material_ref_id);
       const pbr = pbrFor(mat?.material_family ?? "other");
-      return { id: w.id, cx, cz, len, h: w.height_m, th: w.thickness_m, angle, ...pbr };
+      const texture =
+        mat?.material_family === "wood"
+          ? textureSet.wood
+          : mat?.material_family === "metal"
+            ? textureSet.metal
+            : textureSet.concrete;
+      return { id: w.id, cx, cz, len, h: w.height_m, th: w.thickness_m, angle, texture, ...pbr };
     });
-  }, [schema, materialsById]);
+  }, [materialsById, schema, textureSet]);
 
   const center = useMemo(() => {
     if (!walls.length) return { x: 0, z: 0 };
@@ -58,7 +119,13 @@ export function BuildingScene({ schema, materialsById }: BuildingSceneProps) {
       {walls.map((w) => (
         <mesh key={w.id} castShadow receiveShadow position={[w.cx, w.h / 2, w.cz]} rotation={[0, w.angle, 0]}>
           <boxGeometry args={[w.th, w.h, w.len]} />
-          <meshStandardMaterial color={w.color} roughness={w.roughness} metalness={w.metalness} envMapIntensity={0.6} />
+          <meshStandardMaterial
+            color={w.color}
+            map={w.texture}
+            roughness={w.roughness}
+            metalness={w.metalness}
+            envMapIntensity={0.6}
+          />
         </mesh>
       ))}
     </group>

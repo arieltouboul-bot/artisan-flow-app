@@ -23,13 +23,26 @@ function catalogBlock(materials: ArchitecturalLibraryRow[], lang: "fr" | "en"): 
 export async function generateArchitecturalSchemaWithOpenAI(
   prompt: string,
   language: "fr" | "en",
-  materials: ArchitecturalLibraryRow[]
+  materials: ArchitecturalLibraryRow[],
+  projectCategory: "safe_room" | "house" | "technical_room"
 ): Promise<ArchitecturalSchema> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY manquant");
 
   const system = language === "fr" ? SYSTEM_FR : SYSTEM_EN;
-  const user = `${catalogBlock(materials, language)}\n\nDemande utilisateur :\n${prompt}`;
+  const categoryContext =
+    projectCategory === "safe_room"
+      ? language === "fr"
+        ? "Type d'ouvrage: Safe Room. Priorise les matériaux de sécurité (béton armé, porte blindée) et des murs porteurs renforcés."
+        : "Project type: Safe Room. Prioritize security materials (reinforced concrete, armored doors) and reinforced load-bearing walls."
+      : projectCategory === "technical_room"
+        ? language === "fr"
+          ? "Type d'ouvrage: Local Technique. Priorise robustesse, maintenance et ventilation."
+          : "Project type: Technical Room. Prioritize robustness, maintainability, and ventilation."
+        : language === "fr"
+          ? "Type d'ouvrage: Maison Individuelle. Optimise confort d'habitation et circulation."
+          : "Project type: Detached House. Optimize living comfort and circulation.";
+  const user = `${catalogBlock(materials, language)}\n\n${categoryContext}\n\nDemande utilisateur :\n${prompt}`;
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",

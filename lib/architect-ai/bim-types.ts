@@ -51,6 +51,7 @@ export type ArchitecturalSchema = {
     meters_per_plan_unit: number;
     generated_at?: string;
     source_prompt?: string;
+    project_category?: "safe_room" | "house" | "technical_room";
   };
   structure: {
     walls: WallElement[];

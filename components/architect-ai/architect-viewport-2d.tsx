@@ -12,9 +12,14 @@ type ArchitectViewport2DProps = {
 /** Plan de coupe / cotations 2D (XZ → SVG) à partir du schéma BIM. */
 export function ArchitectViewport2D({ schema }: ArchitectViewport2DProps) {
   const { language } = useLanguage();
-  const { viewBox, lines, dims } = useMemo(() => {
+  const { viewBox, lines, dims, openings } = useMemo(() => {
     if (!schema?.structure.walls.length) {
-      return { viewBox: "0 0 400 300", lines: [] as { x1: number; y1: number; x2: number; y2: number; id: string }[], dims: [] as { x: number; y: number; t: string }[] };
+      return {
+        viewBox: "0 0 400 300",
+        lines: [] as { x1: number; y1: number; x2: number; y2: number; id: string }[],
+        dims: [] as { x: number; y: number; t: string }[],
+        openings: [] as { x: number; y: number; type: "porte" | "fenetre" | "baie"; id: string; r: number }[],
+      };
     }
     let minX = Infinity,
       minZ = Infinity,
@@ -51,9 +56,22 @@ export function ArchitectViewport2D({ schema }: ArchitectViewport2DProps) {
         t: `${len.toFixed(2)} m`,
       };
     });
+    const openings = schema.logic.openings
+      .map((o) => {
+        const wall = schema.structure.walls.find((w) => w.id === o.wall_id);
+        if (!wall) return null;
+        const dx = wall.x2 - wall.x1;
+        const dz = wall.z2 - wall.z1;
+        const len = Math.max(Math.hypot(dx, dz), 0.0001);
+        const ratio = Math.min(Math.max(o.offset_along_wall_m / len, 0), 1);
+        const x = wall.x1 + dx * ratio;
+        const z = wall.z1 + dz * ratio;
+        return { id: o.id, x: toX(x), y: toY(z), type: o.type, r: 6 };
+      })
+      .filter((o): o is { x: number; y: number; type: "porte" | "fenetre" | "baie"; id: string; r: number } => !!o);
     const w = (maxX - minX) * scale + 80;
     const h = (maxZ - minZ) * scale + 60;
-    return { viewBox: `0 0 ${w} ${h}`, lines, dims };
+    return { viewBox: `0 0 ${w} ${h}`, lines, dims, openings };
   }, [schema]);
 
   if (!schema) {
@@ -71,19 +89,36 @@ export function ArchitectViewport2D({ schema }: ArchitectViewport2DProps) {
           <pattern id="bp-grid" width="20" height="20" patternUnits="userSpaceOnUse">
             <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1e3a5f" strokeWidth="0.5" opacity="0.6" />
           </pattern>
+          <pattern id="wall-hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+            <line x1="0" y1="0" x2="0" y2="10" stroke="#7dd3fc" strokeWidth="1" opacity="0.4" />
+          </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#bp-grid)" />
         {lines.map((ln) => (
-          <line
-            key={ln.id}
-            x1={ln.x1}
-            y1={ln.y1}
-            x2={ln.x2}
-            y2={ln.y2}
-            stroke="#38bdf8"
-            strokeWidth={3}
-            strokeLinecap="square"
-          />
+          <g key={ln.id}>
+            <line x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="#38bdf8" strokeWidth={6} strokeLinecap="square" />
+            <line
+              x1={ln.x1}
+              y1={ln.y1}
+              x2={ln.x2}
+              y2={ln.y2}
+              stroke="url(#wall-hatch)"
+              strokeWidth={6}
+              strokeLinecap="square"
+            />
+          </g>
+        ))}
+        {openings.map((o) => (
+          <g key={o.id}>
+            {o.type === "porte" ? (
+              <>
+                <circle cx={o.x} cy={o.y} r={o.r} fill="none" stroke="#bef264" strokeWidth="1.5" />
+                <path d={`M ${o.x} ${o.y} L ${o.x + o.r} ${o.y - o.r}`} stroke="#bef264" strokeWidth="1.5" />
+              </>
+            ) : (
+              <rect x={o.x - o.r} y={o.y - 2} width={o.r * 2} height={4} fill="#93c5fd" />
+            )}
+          </g>
         ))}
         {dims.map((d, i) => (
           <text key={i} x={d.x} y={d.y} fill="#94a3b8" fontSize="11" textAnchor="middle" fontFamily="system-ui">
