@@ -27,21 +27,43 @@ export function useMaterialsLibrary(enabled: boolean = true) {
     }
     setLoading(true);
     setError(null);
+    const primarySelect = "id,user_id,name,category,technical_specs";
+    const fallbackSelect = "id,user_id,name,category,dtu_reference,installation_notice";
     const { data, error: err } = await supabase
       .from("materials_library")
-      .select("id,user_id,name,category,unit,avg_price_ht,dtu_reference,installation_notice")
+      .select(primarySelect)
       .order("name", { ascending: true });
-    if (err) setError(err.message);
+    if (err) {
+      const fallback = await supabase.from("materials_library").select(fallbackSelect).order("name", { ascending: true });
+      if (fallback.error) {
+        setError(fallback.error.message);
+        setLoading(false);
+        return;
+      }
+      const safeRows = ((fallback.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+        id: (row.id as string) ?? crypto.randomUUID(),
+        user_id: (row.user_id as string | null) ?? null,
+        name: (row.name as string) ?? "Materiau sans nom",
+        category: (row.category as string | null) ?? "general",
+        unit: "u",
+        avg_price_ht: null,
+        dtu_reference: (row.dtu_reference as string | null) ?? null,
+        installation_notice: (row.installation_notice as string | null) ?? null,
+      }));
+      setMaterials(safeRows as MaterialRow[]);
+      setLoading(false);
+      return;
+    }
     else {
-      const safeRows = ((data ?? []) as Partial<MaterialRow>[]).map((row) => ({
-        id: row.id ?? crypto.randomUUID(),
-        user_id: row.user_id ?? null,
-        name: row.name ?? "Materiau sans nom",
-        category: row.category ?? "general",
-        unit: row.unit ?? "u",
-        avg_price_ht: typeof row.avg_price_ht === "number" ? row.avg_price_ht : 0,
-        dtu_reference: row.dtu_reference ?? null,
-        installation_notice: row.installation_notice ?? null,
+      const safeRows = ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+        id: (row.id as string) ?? crypto.randomUUID(),
+        user_id: (row.user_id as string | null) ?? null,
+        name: (row.name as string) ?? "Materiau sans nom",
+        category: (row.category as string | null) ?? "general",
+        unit: "u",
+        avg_price_ht: null,
+        dtu_reference: null,
+        installation_notice: (row.technical_specs as string | null) ?? null,
       }));
       setMaterials(safeRows as MaterialRow[]);
     }

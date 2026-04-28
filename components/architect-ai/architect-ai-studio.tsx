@@ -399,7 +399,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
               cartouche={{
                 projectName: planTitle || schema?.meta.label || "",
                 clientName: profile?.company_name ?? "Client",
-                scaleText: "1:100",
+                scaleText: "1/50",
                 dateText: new Date().toLocaleDateString(language === "fr" ? "fr-FR" : "en-GB"),
               }}
             />

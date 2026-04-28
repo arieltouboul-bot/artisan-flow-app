@@ -1071,8 +1071,8 @@ export const translations: Record<string, { fr: string; en: string }> = {
     en: "Schema generated. Technical plan and 3D view are synchronized.",
   },
   architectChatError: {
-    fr: "La generation a echoue. Ajuste le prompt et relance.",
-    en: "Generation failed. Refine the prompt and try again.",
+    fr: "La generation a echoue. Verifie le prompt (Safe Room/Studio/Garage) puis reessaie.",
+    en: "Generation failed. Check your prompt (Safe Room/Studio/Garage) and retry.",
   },
   architectCategoryLabel: { fr: "Catégorie d'ouvrage", en: "Project category" },
   architectCategorySafeRoom: { fr: "Safe Room", en: "Safe Room" },

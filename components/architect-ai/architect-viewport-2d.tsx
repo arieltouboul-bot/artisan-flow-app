@@ -18,7 +18,7 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche }: Archit
     if (!schema?.structure.walls.length) {
       return {
         viewBox: "0 0 400 300",
-        lines: [] as { x1: number; y1: number; x2: number; y2: number; id: string; hatchStyle: "wood" | "concrete" | "insulation" | "default" }[],
+        lines: [] as { x1: number; y1: number; x2: number; y2: number; id: string; hatchStyle: "metal" | "concrete" | "insulation" | "default" }[],
         dims: [] as { x: number; y: number; t: string }[],
         openings: [] as { x: number; y: number; type: "porte" | "fenetre" | "baie"; id: string; r: number }[],
         zones: [] as Array<{ id: string; points: string; secure: boolean }>,
@@ -46,8 +46,8 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche }: Archit
       const material = materialsById.get(w.material_ref_id);
       const materialName = (material?.name ?? "").toLowerCase();
       const hatchStyle =
-        material?.material_family === "wood"
-          ? "wood"
+        material?.material_family === "metal"
+          ? "metal"
           : material?.material_family === "concrete"
             ? "concrete"
             : materialName.includes("isol")
@@ -117,8 +117,11 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche }: Archit
             <circle cx="2" cy="2" r="0.8" fill="#93c5fd" opacity="0.7" />
             <circle cx="6" cy="6" r="0.8" fill="#93c5fd" opacity="0.7" />
           </pattern>
-          <pattern id="wall-hatch-wood" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
-            <line x1="0" y1="0" x2="0" y2="12" stroke="#f59e0b" strokeWidth="1.1" opacity="0.7" />
+          <pattern id="wall-hatch-metal" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="12" stroke="#cbd5e1" strokeWidth="1.1" opacity="0.85" />
+          </pattern>
+          <pattern id="wall-hatch-insulation" width="16" height="10" patternUnits="userSpaceOnUse">
+            <path d="M0,5 Q4,0 8,5 T16,5" fill="none" stroke="#67e8f9" strokeWidth="1" opacity="0.85" />
           </pattern>
           <pattern id="zone-hatch-secure" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <rect width="10" height="10" fill="#1f2937" opacity="0.28" />
@@ -131,31 +134,24 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche }: Archit
         ))}
         {lines.map((ln) => (
           <g key={ln.id}>
-            {ln.hatchStyle === "insulation" ? (
-              <>
-                <line x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="#38bdf8" strokeWidth={7} strokeLinecap="square" />
-                <line x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="#0ea5e9" strokeWidth={3} strokeLinecap="square" />
-              </>
-            ) : (
-              <>
-                <line x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="#38bdf8" strokeWidth={6} strokeLinecap="square" />
-                <line
-                  x1={ln.x1}
-                  y1={ln.y1}
-                  x2={ln.x2}
-                  y2={ln.y2}
-                  stroke={
-                    ln.hatchStyle === "wood"
-                      ? "url(#wall-hatch-wood)"
-                      : ln.hatchStyle === "concrete"
-                        ? "url(#wall-hatch-concrete)"
-                        : "url(#wall-hatch)"
-                  }
-                  strokeWidth={6}
-                  strokeLinecap="square"
-                />
-              </>
-            )}
+            <line x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="#38bdf8" strokeWidth={6} strokeLinecap="square" />
+            <line
+              x1={ln.x1}
+              y1={ln.y1}
+              x2={ln.x2}
+              y2={ln.y2}
+              stroke={
+                ln.hatchStyle === "metal"
+                  ? "url(#wall-hatch-metal)"
+                  : ln.hatchStyle === "concrete"
+                    ? "url(#wall-hatch-concrete)"
+                    : ln.hatchStyle === "insulation"
+                      ? "url(#wall-hatch-insulation)"
+                      : "url(#wall-hatch)"
+              }
+              strokeWidth={6}
+              strokeLinecap="square"
+            />
           </g>
         ))}
         {openings.map((o) => (
