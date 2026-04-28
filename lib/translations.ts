@@ -1007,7 +1007,7 @@ export const translations: Record<string, { fr: string; en: string }> = {
   reminderCreated: { fr: "Rappel créé", en: "Reminder created" },
   appointmentLabel: { fr: "Rendez-vous", en: "Appointment" },
   creation: { fr: "Création", en: "Creation" },
-  floorPlans: { fr: "Plans 2D", en: "2D plans" },
+  floorPlans: { fr: "Architecte IA 2D/3D", en: "AI Architect 2D/3D" },
   floorPlanPageTitle: { fr: "Plans 2D & dossier technique", en: "2D plans & technical dossier" },
   floorPlanPageSubtitle: {
     fr: "Dessinez des murs (angles 90°), calibrez l’échelle, enregistrez le JSON dans Supabase et exportez un PDF.",
@@ -1043,6 +1043,29 @@ export const translations: Record<string, { fr: string; en: string }> = {
     en: "No materials. Check the materials_library table or RLS policies.",
   },
   materialSelectorPlaceholder: { fr: "Choisir un matériau…", en: "Choose a material…" },
+  architectPageTitle: { fr: "Architecte IA — conception 2D/3D", en: "AI Architect — 2D/3D design" },
+  architectPageSubtitle: {
+    fr: "Décrivez le projet : l’IA génère un schéma BIM (murs, zones, circulations) enrichi par la bibliothèque architecturale.",
+    en: "Describe the project: the AI builds a BIM schema (walls, zones, circulation) enriched from the architectural library.",
+  },
+  architectPromptLabel: { fr: "Brief architectural", en: "Architectural brief" },
+  architectPromptPlaceholder: {
+    fr: "Ex. : Studio 4,5×3,2 m, baie sud, cloison Placo, parquet chêne…",
+    en: "e.g. Studio 4.5×3.2 m, south bay window, plasterboard partition, oak floor…",
+  },
+  architectGenerate: { fr: "Générer le schéma", en: "Generate schema" },
+  architectPanel2d: { fr: "Plan 2D côté", en: "Dimensioned 2D plan" },
+  architectPanel3d: { fr: "Vue 3D PBR", en: "PBR 3D view" },
+  architectPlan2dCaption: { fr: "Plan 2D côté", en: "Dimensioned 2D" },
+  architectViewportEmpty: { fr: "Aucun schéma — saisissez un prompt.", en: "No schema yet — enter a prompt." },
+  architectSaveJson: { fr: "Enregistrer le JSON", en: "Save JSON" },
+  architectExportExecution: { fr: "Dossier d’exécution (PDF)", en: "Execution dossier (PDF)" },
+  architectLoadingPlan: { fr: "Chargement…", en: "Loading…" },
+  architectBlueprintLoading: {
+    fr: "Synthèse BIM & appariement matériaux…",
+    en: "BIM synthesis & material matching…",
+  },
+  architectPlanNamePh: { fr: "Nom du projet / lot", en: "Project / lot name" },
 };
 
 export function t(key: string, lang: Language): string {

@@ -9,6 +9,7 @@ try {
 
 const nextConfig = {
   reactStrictMode: true,
+  transpilePackages: ["three", "@react-three/fiber", "@react-three/drei"],
   /** Konva (react-konva) référence le module Node `canvas` ; on l’ignore côté bundler Next. */
   webpack: (config) => {
     config.resolve.alias = {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { createEmptyPlanDocument, type FloorPlanDocument } from "@/lib/floor-plan/types";
+import type { ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
 import { getCmPerPixel } from "@/lib/floor-plan/scale";
 import { useMaterialsLibrary } from "@/hooks/use-materials-library";
 
@@ -21,12 +22,17 @@ export function parsePlanJson(raw: unknown): FloorPlanDocument {
   }
   const meta = o.meta as Record<string, unknown>;
   const cmPerPixel = typeof meta.cmPerPixel === "number" ? meta.cmPerPixel : 1;
+  const bim =
+    meta.bim && typeof meta.bim === "object" && (meta.bim as ArchitecturalSchema).version === 1
+      ? (meta.bim as ArchitecturalSchema)
+      : undefined;
   return {
     version: 1,
     elements: o.elements as FloorPlanDocument["elements"],
     meta: {
       cmPerPixel,
       planName: typeof meta.planName === "string" ? meta.planName : undefined,
+      ...(bim ? { bim } : {}),
     },
   };
 }

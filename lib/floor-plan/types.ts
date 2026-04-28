@@ -3,6 +3,8 @@
  * Échelle globale : `meta.cmPerPixel` — longueur en cm = distance_pixel * cmPerPixel (ex. 1 → 500 px = 5,00 m).
  */
 
+import type { ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
+
 export type PlanElementType = "mur" | "porte" | "fenetre" | "meuble";
 
 export interface PlanElementProperties {
@@ -31,6 +33,8 @@ export interface FloorPlanMeta {
   cmPerPixel: number;
   /** Nom affiché optionnel dans l’éditeur */
   planName?: string;
+  /** Schéma BIM issu de l’Architecte IA (Text-to-BIM), optionnel */
+  bim?: ArchitecturalSchema;
 }
 
 export interface FloorPlanDocument {

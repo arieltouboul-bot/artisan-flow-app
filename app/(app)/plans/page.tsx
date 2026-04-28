@@ -7,8 +7,8 @@ import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import { Loader2 } from "lucide-react";
 
-const FloorPlanEditor = dynamic(
-  () => import("@/components/floor-plan/FloorPlanEditor").then((m) => ({ default: m.FloorPlanEditor })),
+const ArchitectAiStudio = dynamic(
+  () => import("@/components/architect-ai/architect-ai-studio").then((m) => ({ default: m.ArchitectAiStudio })),
   { ssr: false, loading: () => <FloorPlanEditorLoading /> }
 );
 
@@ -17,7 +17,7 @@ function FloorPlanEditorLoading() {
   return (
     <div className="flex min-h-[50vh] items-center justify-center gap-2 text-slate-600">
       <Loader2 className="h-6 w-6 animate-spin" />
-      {t("floorPlanLoading", language)}
+      {t("architectLoadingPlan", language)}
     </div>
   );
 }
@@ -25,7 +25,7 @@ function FloorPlanEditorLoading() {
 function PlansContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
-  return <FloorPlanEditor planId={id} />;
+  return <ArchitectAiStudio planId={id} />;
 }
 
 export default function PlansPage() {
