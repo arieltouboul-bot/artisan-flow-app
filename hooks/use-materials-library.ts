@@ -32,7 +32,19 @@ export function useMaterialsLibrary(enabled: boolean = true) {
       .select("id,user_id,name,category,unit,avg_price_ht,dtu_reference,installation_notice")
       .order("name", { ascending: true });
     if (err) setError(err.message);
-    else setMaterials((data ?? []) as MaterialRow[]);
+    else {
+      const safeRows = ((data ?? []) as Partial<MaterialRow>[]).map((row) => ({
+        id: row.id ?? crypto.randomUUID(),
+        user_id: row.user_id ?? null,
+        name: row.name ?? "Materiau sans nom",
+        category: row.category ?? "general",
+        unit: row.unit ?? "u",
+        avg_price_ht: typeof row.avg_price_ht === "number" ? row.avg_price_ht : 0,
+        dtu_reference: row.dtu_reference ?? null,
+        installation_notice: row.installation_notice ?? null,
+      }));
+      setMaterials(safeRows as MaterialRow[]);
+    }
     setLoading(false);
   }, []);
 

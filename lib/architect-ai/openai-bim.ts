@@ -1,6 +1,7 @@
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "./bim-types";
 
-const SYSTEM_FR = `Tu es un architecte BIM. Réponds UNIQUEMENT par un JSON valide respectant ce schéma TypeScript (version 1) :
+const SYSTEM_FR = `Tu es un architecte expert BIM. Si l'utilisateur donne des dimensions vagues, applique des standards professionnels (mur 20 cm, porte 90 cm, hauteur 2.7 m).
+Tu produis TOUJOURS un JSON valide et rien d'autre, respectant ce schéma TypeScript (version 1) :
 {
   version: 1,
   meta: { label: string, meters_per_plan_unit: number, generated_at?: string, source_prompt?: string },
@@ -10,7 +11,8 @@ const SYSTEM_FR = `Tu es un architecte BIM. Réponds UNIQUEMENT par un JSON vali
 }
 Les coordonnées sont en mètres (plan horizontal XZ). Tu DOIS réutiliser les UUID fournis dans le catalogue pour material_ref_id (exactement ces chaînes).`;
 
-const SYSTEM_EN = `You are a BIM architect. Reply with ONLY valid JSON for the same schema as described (version 1, meters on XZ plane). You MUST use the exact UUID strings from the catalog for material_ref_id.`;
+const SYSTEM_EN = `You are an expert BIM architect. If dimensions are vague, use professional defaults (20cm walls, 90cm doors, 2.7m height).
+You must ALWAYS return valid JSON only, using the same schema as described (version 1, meters on XZ plane). You MUST use exact UUID strings from the catalog for material_ref_id.`;
 
 function catalogBlock(materials: ArchitecturalLibraryRow[], lang: "fr" | "en"): string {
   const lines = materials.slice(0, 60).map((m) => {
@@ -71,7 +73,18 @@ export async function generateArchitecturalSchemaWithOpenAI(
   };
   const raw = data.choices?.[0]?.message?.content;
   if (!raw) throw new Error("Réponse OpenAI vide");
-  const parsed = JSON.parse(raw) as ArchitecturalSchema;
+  const parsed = JSON.parse(extractJsonObject(raw)) as ArchitecturalSchema;
   if (parsed.version !== 1 || !parsed.structure?.walls) throw new Error("JSON BIM invalide");
   return parsed;
+}
+
+function extractJsonObject(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) return trimmed;
+  const first = trimmed.indexOf("{");
+  const last = trimmed.lastIndexOf("}");
+  if (first < 0 || last < 0 || last <= first) {
+    throw new Error("Aucun objet JSON detecte dans la reponse IA");
+  }
+  return trimmed.slice(first, last + 1);
 }

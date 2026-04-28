@@ -37,6 +37,20 @@ export function parsePlanJson(raw: unknown): FloorPlanDocument {
   };
 }
 
+function ensurePlanDefaults(doc: FloorPlanDocument): FloorPlanDocument {
+  const safeElements = Array.isArray(doc.elements) ? doc.elements : [];
+  const safeName = typeof doc.meta.planName === "string" && doc.meta.planName.trim() ? doc.meta.planName : "Plan sans titre";
+  return {
+    version: 1,
+    elements: safeElements,
+    meta: {
+      cmPerPixel: Number.isFinite(doc.meta.cmPerPixel) ? doc.meta.cmPerPixel : 1,
+      planName: safeName,
+      ...(doc.meta.bim ? { bim: doc.meta.bim } : {}),
+    },
+  };
+}
+
 export type UseFloorPlanOptions = {
   /** Après le premier INSERT (`floor_plans`), ex. `router.replace(\`/plans?id=\${id}\`)` */
   onPlanCreated?: (id: string) => void;
@@ -119,14 +133,15 @@ export function useFloorPlan(planId: string | null, options?: UseFloorPlanOption
       setSaving(true);
       setError(null);
       try {
+        const safeNext = ensurePlanDefaults(next);
         const existingId = rowIdRef.current ?? row?.id;
         if (existingId) {
           const { error: err } = await supabase
             .from("floor_plans")
             .update({
-              plan_json: next,
+              plan_json: safeNext,
               updated_at: new Date().toISOString(),
-              ...(meta?.name != null ? { name: meta.name } : {}),
+              ...(meta?.name != null ? { name: meta.name || safeNext.meta.planName || "Plan sans titre" } : {}),
               ...(meta?.project_id !== undefined ? { project_id: meta.project_id } : {}),
             })
             .eq("id", existingId);
@@ -143,9 +158,9 @@ export function useFloorPlan(planId: string | null, options?: UseFloorPlanOption
             .from("floor_plans")
             .insert({
               user_id: user.id,
-              name: meta?.name ?? "Plan sans titre",
+              name: meta?.name ?? safeNext.meta.planName ?? "Plan sans titre",
               project_id: meta?.project_id ?? null,
-              plan_json: next,
+              plan_json: safeNext,
             })
             .select("id,name,project_id,plan_json")
             .single();

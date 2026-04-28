@@ -110,14 +110,14 @@ function constructionPhases(category: ProjectCategory, lang: "fr" | "en"): Array
   const steps = constructionGuide(category, lang);
   return lang === "fr"
     ? [
-        { title: "Preparation", text: `${steps[0]} ${steps[1]}` },
-        { title: "Structure", text: `${steps[2]} ${steps[3]}` },
-        { title: "Finition", text: steps[4] },
+        { title: "1. Preparation", text: `${steps[0]} ${steps[1]}` },
+        { title: "2. Gros Oeuvre", text: `${steps[2]} ${steps[3]}` },
+        { title: "3. Finitions de securite", text: steps[4] },
       ]
     : [
-        { title: "Preparation", text: `${steps[0]} ${steps[1]}` },
-        { title: "Structure", text: `${steps[2]} ${steps[3]}` },
-        { title: "Finishing", text: steps[4] },
+        { title: "1. Preparation", text: `${steps[0]} ${steps[1]}` },
+        { title: "2. Structural Works", text: `${steps[2]} ${steps[3]}` },
+        { title: "3. Security Finishes", text: steps[4] },
       ];
 }
 
@@ -127,12 +127,35 @@ function categoryLabel(category: ProjectCategory, lang: "fr" | "en"): string {
   return lang === "fr" ? "Maison Individuelle" : "Detached House";
 }
 
+function drawArchitectCartouche(
+  doc: jsPDF,
+  opts: { projectName: string; companyName: string | null; category: string; pageNo: number; language: "fr" | "en" }
+) {
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 10;
+  const cartoucheH = 14;
+  const y = pageH - margin - cartoucheH;
+  doc.setDrawColor(30, 64, 175);
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(margin, y, pageW - margin * 2, cartoucheH, 1.5, 1.5, "FD");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(30, 41, 59);
+  doc.text(`${L("Dossier d'execution", "Execution dossier", opts.language)} - ${opts.projectName}`, margin + 2, y + 5);
+  doc.text(`${L("Entreprise", "Company", opts.language)}: ${opts.companyName ?? "—"}`, margin + 2, y + 10);
+  doc.text(`${L("Type", "Type", opts.language)}: ${opts.category}`, pageW * 0.55, y + 5);
+  doc.text(`${L("Page", "Page", opts.language)} ${opts.pageNo}`, pageW * 0.55, y + 10);
+}
+
 export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInput): Promise<Blob> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const lang = input.language;
   const margin = 14;
   const category = (input.schema.meta.project_category ?? "house") as ProjectCategory;
+  const categoryText = categoryLabel(category, lang);
+  doc.setFont("helvetica", "normal");
 
   const devis = buildDevisRows(input.schema, input.materialsById);
   const totalHt = devis.reduce((s, r) => s + r.total, 0);
@@ -170,6 +193,13 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
       doc.text(L("(Plan 2D indisponible)", "(2D plan unavailable)", lang), margin, y);
     }
   }
+  drawArchitectCartouche(doc, {
+    projectName: input.projectName,
+    companyName: input.companyName,
+    category: categoryText,
+    pageNo: 1,
+    language: lang,
+  });
 
   // Page 2 — nomenclature
   doc.addPage();
@@ -199,6 +229,13 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
     headStyles: { fillColor: [30, 64, 175] },
     footStyles: { fillColor: [241, 245, 249], textColor: 20, fontStyle: "bold" },
   });
+  drawArchitectCartouche(doc, {
+    projectName: input.projectName,
+    companyName: input.companyName,
+    category: categoryText,
+    pageNo: 2,
+    language: lang,
+  });
 
   // Page 3 — mode d'emploi
   doc.addPage();
@@ -216,6 +253,13 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
     doc.setTextColor(35);
     doc.text(phase.text, margin, y, { maxWidth: pageW - 2 * margin });
     y += 16;
+  });
+  drawArchitectCartouche(doc, {
+    projectName: input.projectName,
+    companyName: input.companyName,
+    category: categoryText,
+    pageNo: 3,
+    language: lang,
   });
 
   // Page 4 — certifications
@@ -235,6 +279,13 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
     body: certRows.length ? certRows : [[L("—", "—", lang), "—", "—"]],
     styles: { fontSize: 9 },
     headStyles: { fillColor: [30, 64, 175] },
+  });
+  drawArchitectCartouche(doc, {
+    projectName: input.projectName,
+    companyName: input.companyName,
+    category: categoryText,
+    pageNo: 4,
+    language: lang,
   });
 
   return doc.output("blob");
