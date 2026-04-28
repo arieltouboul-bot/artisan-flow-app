@@ -1057,6 +1057,10 @@ export const translations: Record<string, { fr: string; en: string }> = {
     fr: "Ex. Genere une Safe Room de 20m2 avec double mur en beton banche et porte blindee.",
     en: "e.g. Generate a 20m2 Safe Room with double cast concrete wall and armored door.",
   },
+  architectPromptSuggestions: {
+    fr: "Prompt trop vague. Essaie: 1) Safe Room 20m2, 2) Studio 15m2, 3) Garage 30m2.",
+    en: "Prompt too vague. Try: 1) Safe Room 20m2, 2) Studio 15m2, 3) Garage 30m2.",
+  },
   architectGenerate: { fr: "Générer le schéma", en: "Generate schema" },
   architectChatEmpty: {
     fr: "Decris ton besoin architectural pour lancer la generation IA.",
@@ -1079,6 +1083,7 @@ export const translations: Record<string, { fr: string; en: string }> = {
   architectPlan2dCaption: { fr: "Plan 2D côté", en: "Dimensioned 2D" },
   architectViewportEmpty: { fr: "Aucun schéma — saisissez un prompt.", en: "No schema yet — enter a prompt." },
   architectSaveJson: { fr: "Enregistrer le JSON", en: "Save JSON" },
+  architectRegenerate: { fr: "Generer a nouveau", en: "Generate again" },
   architectExportExecution: { fr: "Dossier d’exécution (PDF)", en: "Execution dossier (PDF)" },
   architectExportExecutionComplete: { fr: "Generer Dossier Complet PDF", en: "Generate Complete PDF Dossier" },
   architectHabitableSurface: { fr: "Surface habitable", en: "Habitable area" },

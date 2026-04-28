@@ -158,3 +158,16 @@ export function buildDetailedExecutionGuide(intent: ArchitectIntent, language: "
   }
   return language === "fr" ? fr : en;
 }
+
+export function computeStructuralScore(
+  walls: Array<{ length_m: number; thickness_m: number; load_bearing: boolean }>,
+  targetAreaM2: number
+): number {
+  const resistance = walls.reduce((sum, w) => {
+    const bearingFactor = w.load_bearing ? 1.35 : 0.75;
+    return sum + w.length_m * w.thickness_m * bearingFactor;
+  }, 0);
+  const demand = Math.max(1, targetAreaM2 * 0.65);
+  const ratio = resistance / demand;
+  return Number(Math.max(0.1, Math.min(1.5, ratio)).toFixed(2));
+}

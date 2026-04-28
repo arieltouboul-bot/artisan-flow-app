@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "./bim-types";
 
 export type ExecutionDossierPdfInput = {
@@ -16,6 +17,22 @@ export type ExecutionDossierPdfInput = {
 const L = (fr: string, en: string, lang: "fr" | "en") => (lang === "fr" ? fr : en);
 
 type ProjectCategory = "safe_room" | "house" | "technical_room";
+
+type DevisRow = { ref: string; label: string; qty: string; unit: string; norm: string };
+
+function buildDevisRows(schema: ArchitecturalSchema, materialsById: Map<string, ArchitecturalLibraryRow>): DevisRow[] {
+  return schema.structure.walls.map((w) => {
+    const m = materialsById.get(w.material_ref_id);
+    const len = Math.hypot(w.x2 - w.x1, w.z2 - w.z1);
+    return {
+      ref: m?.ref_code ?? w.id,
+      label: m?.name ?? w.id,
+      qty: len.toFixed(2),
+      unit: m?.unit ?? "ml",
+      norm: m?.norm_reference ?? "N/A",
+    };
+  });
+}
 
 function constructionGuide(category: ProjectCategory, lang: "fr" | "en"): string[] {
   if (category === "safe_room") {
@@ -118,6 +135,7 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
   const margin = 14;
   const category = (input.schema.meta.project_category ?? "house") as ProjectCategory;
   const categoryText = categoryLabel(category, lang);
+  const devisRows = buildDevisRows(input.schema, input.materialsById);
   doc.setFont("helvetica", "normal");
 
   // Page 1 — plan technique (avec rendu 3D HD)
@@ -161,7 +179,37 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
     language: lang,
   });
 
-  // Page 2 — mode d'emploi
+  // Page 2 — vue 3D + nomenclature
+  doc.addPage();
+  y = margin;
+  doc.setFontSize(12);
+  doc.setTextColor(30, 90, 160);
+  doc.text(L("Vue 3D et nomenclature", "3D view and bill of materials", lang), margin, y);
+  y += 10;
+  if (input.render3dDataUrl) {
+    try {
+      doc.addImage(input.render3dDataUrl, "PNG", margin, y, 86, 62);
+    } catch {
+      doc.text(L("(Image 3D indisponible)", "(3D image unavailable)", lang), margin, y + 4);
+    }
+  }
+  autoTable(doc, {
+    startY: y,
+    margin: { left: margin + 92 },
+    head: [[L("Ref.", "Ref.", lang), L("Materiau", "Material", lang), L("Qte", "Qty", lang), "U", L("Norme", "Standard", lang)]],
+    body: devisRows.map((r) => [r.ref, r.label, r.qty, r.unit, r.norm]),
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [30, 64, 175] },
+  });
+  drawArchitectCartouche(doc, {
+    projectName: input.projectName,
+    companyName: input.companyName,
+    category: categoryText,
+    pageNo: 2,
+    language: lang,
+  });
+
+  // Page 3 — mode d'emploi
   doc.addPage();
   y = margin;
   doc.setFontSize(12);
@@ -186,7 +234,7 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
     projectName: input.projectName,
     companyName: input.companyName,
     category: categoryText,
-    pageNo: 2,
+    pageNo: 3,
     language: lang,
   });
 

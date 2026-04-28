@@ -145,7 +145,16 @@ export function useFloorPlan(planId: string | null, options?: UseFloorPlanOption
               ...(meta?.project_id !== undefined ? { project_id: meta.project_id } : {}),
             })
             .eq("id", existingId);
-          if (err) setError(err.message);
+          if (err) {
+            console.error("[floor_plans.update] failed", {
+              id: existingId,
+              name: meta?.name ?? safeNext.meta.planName ?? "Plan sans titre",
+              project_id: meta?.project_id ?? null,
+              hasUserScopedRow: true,
+              error: err.message,
+            });
+            setError(err.message);
+          }
         } else {
           const {
             data: { user },
@@ -164,7 +173,15 @@ export function useFloorPlan(planId: string | null, options?: UseFloorPlanOption
             })
             .select("id,name,project_id,plan_json")
             .single();
-          if (err) setError(err.message);
+          if (err) {
+            console.error("[floor_plans.insert] failed", {
+              user_id: user.id,
+              name: meta?.name ?? safeNext.meta.planName ?? "Plan sans titre",
+              project_id: meta?.project_id ?? null,
+              error: err.message,
+            });
+            setError(err.message);
+          }
           else if (data) {
             const newId = data.id as string;
             rowIdRef.current = newId;

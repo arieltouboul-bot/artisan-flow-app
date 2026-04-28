@@ -1,6 +1,7 @@
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "./bim-types";
 import {
   buildDetailedExecutionGuide,
+  computeStructuralScore,
   correctedThickness,
   detectArchitectTemplate,
   matchMaterialByName,
@@ -78,6 +79,14 @@ export function buildMockArchitecturalSchema(
       },
     ];
     const label = language === "fr" ? `Modele ${matchedTemplate.label}` : `Template ${matchedTemplate.label}`;
+    const structural_score = computeStructuralScore(
+      walls.map((w) => ({
+        length_m: Math.hypot(w.x2 - w.x1, w.z2 - w.z1),
+        thickness_m: w.thickness_m,
+        load_bearing: w.load_bearing,
+      })),
+      zones[0]?.area_m2 ?? 1
+    );
     return {
       version: 1,
       meta: {
@@ -87,6 +96,7 @@ export function buildMockArchitecturalSchema(
         source_prompt: prompt.slice(0, 2000),
         project_category: matchedTemplate.category,
         execution_guide: buildDetailedExecutionGuide(matchedTemplate.intent, language),
+        structural_score,
       },
       structure: { walls },
       zones,

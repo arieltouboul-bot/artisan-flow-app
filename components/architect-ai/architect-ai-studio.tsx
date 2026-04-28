@@ -100,7 +100,21 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
 
   const handleGenerate = async () => {
     const p = prompt.trim();
-    if (!p || generating) return;
+    if (generating) return;
+    if (!p) {
+      setChatMessages((prev) => [
+        ...prev,
+        { id: `${Date.now()}-suggest`, role: "assistant", text: t("architectPromptSuggestions", language) },
+      ]);
+      return;
+    }
+    if (p.length < 8 && !/\d|safe|studio|garage|extension|room|maison|plan/i.test(p)) {
+      setChatMessages((prev) => [
+        ...prev,
+        { id: `${Date.now()}-vague`, role: "assistant", text: t("architectPromptSuggestions", language) },
+      ]);
+      return;
+    }
     const normalized = p.toLowerCase();
     const inferredCategory: ArchitecturalProjectCategory = normalized.includes("safe room")
       ? "safe_room"
@@ -128,7 +142,11 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
       ]);
       setPrompt("");
     } catch (e) {
-      console.error(e);
+      console.error("[architect.studio] generation failed", {
+        promptPreview: p.slice(0, 180),
+        projectCategory: inferredCategory,
+        error: e instanceof Error ? e.message : String(e),
+      });
       setChatMessages((prev) => [
         ...prev,
         {
@@ -226,6 +244,11 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
     } finally {
       setExporting(false);
     }
+  };
+
+  const handleRegenerate = () => {
+    setPrompt("");
+    setChatMessages([]);
   };
 
   if (loading) {
@@ -370,7 +393,16 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
             className="flex min-h-[360px] flex-col"
           >
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-sky-500/90">{t("architectPanel2d", language)}</p>
-            <ArchitectViewport2D schema={schema} />
+            <ArchitectViewport2D
+              schema={schema}
+              materialsById={materialsById}
+              cartouche={{
+                projectName: planTitle || schema?.meta.label || "",
+                clientName: profile?.company_name ?? "Client",
+                scaleText: "1:100",
+                dateText: new Date().toLocaleDateString(language === "fr" ? "fr-FR" : "en-GB"),
+              }}
+            />
           </motion.div>
           {show3D ? (
             <motion.div
@@ -397,6 +429,14 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {t("architectSaveJson", language)}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="min-h-[44px] gap-2 border-cyan-700/60 bg-slate-900 text-cyan-200 hover:bg-slate-800"
+            onClick={handleRegenerate}
+          >
+            {t("architectRegenerate", language)}
           </Button>
           <Button
             type="button"

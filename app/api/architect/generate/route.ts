@@ -13,6 +13,19 @@ function collectUsedMaterialIds(schema: ArchitecturalSchema): Set<string> {
   return ids;
 }
 
+function validateSchemaForDb(schema: ArchitecturalSchema) {
+  const issues: string[] = [];
+  if (!schema.meta.label?.trim()) issues.push("meta.label missing");
+  if (!schema.structure.walls.length) issues.push("no walls generated");
+  for (const wall of schema.structure.walls) {
+    if (!wall.material_ref_id) issues.push(`wall ${wall.id} missing material_ref_id`);
+    if (!Number.isFinite(wall.height_m) || !Number.isFinite(wall.thickness_m)) {
+      issues.push(`wall ${wall.id} has invalid geometry`);
+    }
+  }
+  return issues;
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as {
@@ -85,6 +98,14 @@ export async function POST(req: Request) {
       schema = buildMockArchitecturalSchema(prompt, language, materials, projectCategory);
     }
     schema = { ...schema, meta: { ...schema.meta, project_category: projectCategory } };
+    const issues = validateSchemaForDb(schema);
+    if (issues.length > 0) {
+      console.error("[architect.generate] schema validation issues", {
+        projectCategory,
+        promptPreview: prompt.slice(0, 180),
+        issues,
+      });
+    }
 
     const usedIds = collectUsedMaterialIds(schema);
     const used_materials = materials.filter((m) => usedIds.has(m.id));

@@ -27,7 +27,7 @@ type BuildingSceneProps = {
   materialsById: Map<string, ArchitecturalLibraryRow>;
 };
 
-function makeTexture(kind: "wood" | "concrete" | "metal"): Texture {
+function makeTexture(kind: "wood" | "concrete" | "metal" | "plaster"): Texture {
   const c = document.createElement("canvas");
   c.width = 256;
   c.height = 256;
@@ -55,7 +55,7 @@ function makeTexture(kind: "wood" | "concrete" | "metal"): Texture {
       ctx.fillStyle = `rgba(${120 + Math.random() * 45}, ${120 + Math.random() * 45}, ${120 + Math.random() * 45}, 0.35)`;
       ctx.fillRect(x, y, s, s);
     }
-  } else {
+  } else if (kind === "metal") {
     const g = ctx.createLinearGradient(0, 0, 256, 256);
     g.addColorStop(0, "#cbd5e1");
     g.addColorStop(1, "#94a3b8");
@@ -69,6 +69,16 @@ function makeTexture(kind: "wood" | "concrete" | "metal"): Texture {
       ctx.lineTo(256, i * 20 + 12);
       ctx.stroke();
     }
+  } else {
+    ctx.fillStyle = "#f8fafc";
+    ctx.fillRect(0, 0, c.width, c.height);
+    for (let i = 0; i < 900; i += 1) {
+      const x = Math.random() * c.width;
+      const y = Math.random() * c.height;
+      const s = Math.random() * 1.2;
+      ctx.fillStyle = "rgba(226,232,240,0.5)";
+      ctx.fillRect(x, y, s, s);
+    }
   }
   const texture = new CanvasTexture(c);
   texture.wrapS = RepeatWrapping;
@@ -79,7 +89,12 @@ function makeTexture(kind: "wood" | "concrete" | "metal"): Texture {
 
 export function BuildingScene({ schema, materialsById }: BuildingSceneProps) {
   const textureSet = useMemo(
-    () => ({ wood: makeTexture("wood"), concrete: makeTexture("concrete"), metal: makeTexture("metal") }),
+    () => ({
+      wood: makeTexture("wood"),
+      concrete: makeTexture("concrete"),
+      metal: makeTexture("metal"),
+      plaster: makeTexture("plaster"),
+    }),
     []
   );
   const walls = useMemo(() => {
@@ -98,8 +113,10 @@ export function BuildingScene({ schema, materialsById }: BuildingSceneProps) {
           ? textureSet.wood
           : mat?.material_family === "metal"
             ? textureSet.metal
-            : textureSet.concrete;
-      return { id: w.id, cx, cz, len, h: w.height_m, th: w.thickness_m, angle, texture, ...pbr };
+            : mat?.material_family === "concrete"
+              ? textureSet.concrete
+              : textureSet.plaster;
+      return { id: w.id, cx, cz, len, h: 2.5, th: w.thickness_m, angle, texture, ...pbr };
     });
   }, [materialsById, schema, textureSet]);
 
@@ -112,9 +129,10 @@ export function BuildingScene({ schema, materialsById }: BuildingSceneProps) {
 
   return (
     <group position={[-center.x, 0, -center.z]}>
+      <gridHelper args={[30, 30, "#334155", "#1e293b"]} position={[0, 0.01, 0]} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, -0.01, 0]}>
         <planeGeometry args={[48, 48]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.95} metalness={0.05} />
+        <meshStandardMaterial color="#101827" roughness={0.94} metalness={0.03} />
       </mesh>
       {walls.map((w) => (
         <mesh key={w.id} castShadow receiveShadow position={[w.cx, w.h / 2, w.cz]} rotation={[0, w.angle, 0]}>

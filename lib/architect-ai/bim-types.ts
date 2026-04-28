@@ -53,6 +53,7 @@ export type ArchitecturalSchema = {
     source_prompt?: string;
     project_category?: "safe_room" | "house" | "technical_room";
     execution_guide?: string[];
+    structural_score?: number;
   };
   structure: {
     walls: WallElement[];
