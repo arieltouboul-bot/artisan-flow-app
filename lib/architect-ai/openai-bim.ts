@@ -16,8 +16,7 @@ You must ALWAYS return valid JSON only, using the same schema as described (vers
 
 function catalogBlock(materials: ArchitecturalLibraryRow[], lang: "fr" | "en"): string {
   const lines = materials.slice(0, 60).map((m) => {
-    const price = m.unit_price_ht != null ? `${m.unit_price_ht} EUR/${m.unit}` : "n/a";
-    return `- id=${m.id} | name=${m.name} | family=${m.material_family} | ${price} | norm=${m.norm_reference ?? ""}`;
+    return `- id=${m.id} | name=${m.name} | family=${m.material_family} | unit=${m.unit} | norm=${m.norm_reference ?? ""}`;
   });
   return lang === "fr" ? `Catalogue (extraits) :\n${lines.join("\n")}` : `Catalog excerpt:\n${lines.join("\n")}`;
 }

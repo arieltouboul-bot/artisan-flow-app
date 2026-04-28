@@ -179,43 +179,26 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
     language: lang,
   });
 
-  // Page 2 — vue 3D + nomenclature
+  // Page 2 — notice technique (materiaux + mode d'emploi)
   doc.addPage();
   y = margin;
   doc.setFontSize(12);
   doc.setTextColor(30, 90, 160);
-  doc.text(L("Vue 3D et nomenclature", "3D view and bill of materials", lang), margin, y);
+  doc.text(L("Notice technique chantier", "Technical site notice", lang), margin, y);
   y += 10;
-  if (input.render3dDataUrl) {
-    try {
-      doc.addImage(input.render3dDataUrl, "PNG", margin, y, 86, 62);
-    } catch {
-      doc.text(L("(Image 3D indisponible)", "(3D image unavailable)", lang), margin, y + 4);
-    }
-  }
   autoTable(doc, {
     startY: y,
-    margin: { left: margin + 92 },
+    margin: { left: margin },
     head: [[L("Ref.", "Ref.", lang), L("Materiau", "Material", lang), L("Qte", "Qty", lang), "U", L("Norme", "Standard", lang)]],
     body: devisRows.map((r) => [r.ref, r.label, r.qty, r.unit, r.norm]),
     styles: { fontSize: 8 },
     headStyles: { fillColor: [30, 64, 175] },
   });
-  drawArchitectCartouche(doc, {
-    projectName: input.projectName,
-    companyName: input.companyName,
-    category: categoryText,
-    pageNo: 2,
-    language: lang,
-  });
-
-  // Page 3 — mode d'emploi
-  doc.addPage();
-  y = margin;
-  doc.setFontSize(12);
+  y = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 60) + 8;
+  doc.setFontSize(11);
   doc.setTextColor(30, 90, 160);
   doc.text(L("Mode d'emploi de construction", "Construction guide", lang), margin, y);
-  y += 10;
+  y += 8;
   const phases =
     input.schema.meta.execution_guide && input.schema.meta.execution_guide.length >= 3
       ? input.schema.meta.execution_guide.map((txt, idx) => ({ title: `${idx + 1}. ${L("Etape", "Step", lang)}`, text: txt }))
@@ -234,7 +217,7 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
     projectName: input.projectName,
     companyName: input.companyName,
     category: categoryText,
-    pageNo: 3,
+    pageNo: 2,
     language: lang,
   });
 

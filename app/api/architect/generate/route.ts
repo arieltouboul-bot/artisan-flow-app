@@ -53,8 +53,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
-    const materialsColumns =
-      "id,ref_code,name,category,material_family,unit,unit_price_ht,norm_reference,supplier_hint,description";
+    const materialsColumns = "id,ref_code,name,category,material_family,unit,norm_reference,supplier_hint,description";
     const { data: rows, error: materialsErr } = await supabase.from("materials").select(materialsColumns).limit(600);
     let sourceRows = rows;
     let libErr = materialsErr;

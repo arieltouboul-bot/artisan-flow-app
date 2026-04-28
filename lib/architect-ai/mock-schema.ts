@@ -16,7 +16,6 @@ function pickMaterial(materials: ArchitecturalLibraryRow[], i: number): Architec
       category: "structure",
       material_family: "concrete",
       unit: "m3",
-      unit_price_ht: 180,
       norm_reference: "Eurocode 2",
       supplier_hint: null,
       description: null,

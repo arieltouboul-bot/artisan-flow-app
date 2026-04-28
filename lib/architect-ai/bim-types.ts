@@ -72,7 +72,6 @@ export type ArchitecturalLibraryRow = {
   category: string | null;
   material_family: "wood" | "concrete" | "metal" | "glass" | "ceramic" | "other";
   unit: string;
-  unit_price_ht: number | null;
   norm_reference: string | null;
   supplier_hint: string | null;
   description: string | null;
