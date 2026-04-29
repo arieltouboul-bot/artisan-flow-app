@@ -47,15 +47,6 @@ export function buildNomenclature(
   }
 
   for (const b of Array.from(buckets.values())) {
-    const price = b.material_id ? materialsById.get(b.material_id)?.avg_price_ht : null;
-    let estimated: number | undefined;
-    if (price != null && Number.isFinite(price)) {
-      if (b.type === "mur") {
-        estimated = price * b.length_m;
-      } else {
-        estimated = price * b.qty;
-      }
-    }
     const detail =
       b.type === "mur"
         ? language === "fr"
@@ -71,7 +62,6 @@ export function buildNomenclature(
       unit: b.unit,
       quantity: b.type === "mur" ? b.length_m : b.qty,
       detail,
-      estimated_ht: estimated,
     });
   }
 

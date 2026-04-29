@@ -12,8 +12,6 @@ export interface PlanElementProperties {
   epaisseur_cm: number;
   /** Libellé matériau libre (fallback si pas de liaison catalogue) */
   materiau: string;
-  /** Prix moyen unitaire indicatif (HT), même unité que materials_library */
-  prix_moyen?: number;
   /** Liaison optionnelle vers public.materials_library */
   material_id?: string | null;
 }
@@ -60,7 +58,6 @@ export type MaterialRow = {
   name: string;
   category: string | null;
   unit: string;
-  avg_price_ht: number | null;
   dtu_reference: string | null;
   installation_notice: string | null;
 };
@@ -71,5 +68,4 @@ export type NomenclatureLine = {
   unit: string;
   quantity: number;
   detail: string;
-  estimated_ht?: number;
 };

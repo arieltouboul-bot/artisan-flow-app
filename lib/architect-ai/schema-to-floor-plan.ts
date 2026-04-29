@@ -20,7 +20,6 @@ export function architecturalSchemaToFloorPlan(schema: ArchitecturalSchema): Flo
         epaisseur_cm: w.thickness_m * 100,
         materiau: w.load_bearing ? "Mur porteur" : "Cloison",
         material_id: w.material_ref_id,
-        prix_moyen: undefined,
       },
     });
   }

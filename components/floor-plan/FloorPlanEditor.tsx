@@ -329,7 +329,6 @@ export function FloorPlanEditor({ planId }: FloorPlanEditorProps) {
                     <div className="text-slate-600">
                       {n.quantity.toFixed(2)} {n.unit} — {n.detail}
                     </div>
-                    {n.estimated_ht != null && <div className="text-slate-500">~{n.estimated_ht.toFixed(2)} € HT</div>}
                   </div>
                 ))
               )}

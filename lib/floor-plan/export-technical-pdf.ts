@@ -135,20 +135,18 @@ export async function generateTechnicalFloorPlanPdf(input: TechnicalPdfInput): P
     L("Qté", "Qty", lang),
     L("Unité", "Unit", lang),
     L("Détail", "Detail", lang),
-    L("Estim. HT", "Est. excl. tax", lang),
   ];
   const nomBody = input.nomenclature.map((n) => [
     n.label,
     n.quantity.toFixed(n.quantity < 10 ? 2 : 0),
     n.unit,
     n.detail,
-    n.estimated_ht != null ? `${n.estimated_ht.toFixed(2)} €` : "—",
   ]);
 
   autoTable(doc, {
     startY: y,
     head: [nomHead],
-    body: nomBody.length ? nomBody : [[L("—", "—", lang), "—", "—", L("Aucun élément", "No elements", lang), "—"]],
+    body: nomBody.length ? nomBody : [[L("—", "—", lang), "—", "—", L("Aucun élément", "No elements", lang)]],
     styles: { fontSize: 8 },
     headStyles: { fillColor: [37, 99, 235] },
   });

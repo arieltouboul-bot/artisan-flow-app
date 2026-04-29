@@ -68,7 +68,6 @@ export function useFloorPlanInteraction(
     const baseProps = {
       epaisseur_cm: tool === "mur" ? 15 : tool === "porte" ? 12 : tool === "fenetre" ? 8 : 5,
       materiau: options.defaultMaterialLabel,
-      prix_moyen: undefined as number | undefined,
       material_id: options.defaultMaterialId,
     };
 
