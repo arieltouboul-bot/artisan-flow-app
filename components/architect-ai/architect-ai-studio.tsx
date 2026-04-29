@@ -88,6 +88,14 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
     [language]
   );
 
+  const familyColor = (family: ArchitecturalLibraryRow["material_family"]) => {
+    if (family === "concrete") return "bg-slate-600/50 text-slate-100 border-slate-400/40";
+    if (family === "metal") return "bg-cyan-700/35 text-cyan-100 border-cyan-500/40";
+    if (family === "wood") return "bg-amber-700/35 text-amber-100 border-amber-500/40";
+    if (family === "glass") return "bg-sky-700/35 text-sky-100 border-sky-500/40";
+    return "bg-indigo-700/35 text-indigo-100 border-indigo-500/40";
+  };
+
   const snapAxisAlignedSchema = useCallback((input: ArchitecturalSchema): ArchitecturalSchema => {
     const snap = (value: number) => Math.round(value / 0.05) * 0.05;
     const snappedWalls = input.structure.walls.map((w) => {
@@ -140,7 +148,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
     setChatMessages((prev) => [...prev, { id: `${Date.now()}-u`, role: "user", text: p }]);
     setGenerating(true);
     try {
-      const { schema: next, used_materials } = await generateArchitecturalSchema(p, language, inferredCategory);
+      const { schema: next, used_materials, warning } = await generateArchitecturalSchema(p, language, inferredCategory);
       const snapped = snapAxisAlignedSchema(next);
       setSchema(snapped);
       setUsedMaterials(used_materials);
@@ -152,7 +160,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
         {
           id: `${Date.now()}-a`,
           role: "assistant",
-          text: t("architectChatGenerated", language),
+          text: warning ? `${t("architectChatGenerated", language)} ${warning}` : t("architectChatGenerated", language),
         },
       ]);
       setPrompt("");
@@ -389,6 +397,19 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
           </div>
         </div>
 
+        <div className="flex flex-wrap gap-2 rounded-lg border border-slate-800/70 bg-slate-900/40 p-2">
+          {[
+            { k: t("architectBadgeStructural", language), c: "bg-slate-600/60" },
+            { k: t("architectBadgeInsulation", language), c: "bg-cyan-700/50" },
+            { k: t("architectBadgeFinishing", language), c: "bg-indigo-700/50" },
+            { k: t("architectBadgeRoofing", language), c: "bg-amber-700/50" },
+          ].map((badge) => (
+            <span key={badge.k} className={`rounded border border-slate-500/30 px-2 py-1 text-xs ${badge.c}`}>
+              {badge.k}
+            </span>
+          ))}
+        </div>
+
         <div className="flex justify-end">
           <Button
             type="button"
@@ -400,7 +421,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
           </Button>
         </div>
 
-        <div className={`grid min-h-[min(78vh,860px)] grid-cols-1 gap-4 ${show3D ? "lg:grid-cols-2" : "lg:grid-cols-1"}`}>
+        <div className={`grid min-h-[min(78vh,860px)] grid-cols-1 gap-4 ${show3D ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
           <motion.div
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
@@ -411,6 +432,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
             <ArchitectViewport2D
               schema={cleanedSchema}
               materialsById={materialsById}
+              isGenerating={generating}
               cartouche={{
                 projectName: "Projet : AI Generated",
                 clientName: new Date().toLocaleDateString(language === "fr" ? "fr-FR" : "en-GB"),
@@ -432,6 +454,21 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
               </div>
             </motion.div>
           ) : null}
+          <div className="rounded-lg border border-slate-700/80 bg-slate-950/70 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-300">{t("architectInventoryTitle", language)}</p>
+            <div className="max-h-[420px] space-y-2 overflow-y-auto">
+              {usedMaterials.length === 0 ? (
+                <p className="text-xs text-slate-500">{t("architectInventoryEmpty", language)}</p>
+              ) : (
+                usedMaterials.map((m) => (
+                  <div key={m.id} className={`rounded border px-2 py-1 text-xs ${familyColor(m.material_family)}`}>
+                    <p className="font-medium">{m.name}</p>
+                    <p className="opacity-80">{m.category ?? t("architectCategoryGeneral", language)}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 border-t border-slate-800/80 pt-4">

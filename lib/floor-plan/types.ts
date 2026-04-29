@@ -60,6 +60,7 @@ export type MaterialRow = {
   unit: string;
   dtu_reference: string | null;
   installation_notice: string | null;
+  technical_specs?: Record<string, unknown> | null;
 };
 
 export type NomenclatureLine = {

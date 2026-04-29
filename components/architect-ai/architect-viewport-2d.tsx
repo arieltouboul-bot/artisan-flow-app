@@ -9,10 +9,11 @@ type ArchitectViewport2DProps = {
   schema: ArchitecturalSchema | null;
   materialsById: Map<string, ArchitecturalLibraryRow>;
   cartouche: { projectName: string; clientName: string; scaleText: string; dateText: string };
+  isGenerating?: boolean;
 };
 
 /** Plan de coupe / cotations 2D (XZ → SVG) à partir du schéma BIM. */
-export function ArchitectViewport2D({ schema, materialsById, cartouche }: ArchitectViewport2DProps) {
+export function ArchitectViewport2D({ schema, materialsById, cartouche, isGenerating = false }: ArchitectViewport2DProps) {
   const { language } = useLanguage();
   const { viewBox, lines, dims, openings, zones } = useMemo(() => {
     if (!schema?.structure.walls.length) {
@@ -196,6 +197,9 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche }: Archit
           {cartouche.dateText} - {cartouche.scaleText}
         </p>
       </div>
+      {isGenerating ? (
+        <div className="pointer-events-none absolute inset-0 animate-pulse bg-[linear-gradient(45deg,rgba(103,232,249,0.12)_25%,transparent_25%,transparent_50%,rgba(103,232,249,0.12)_50%,rgba(103,232,249,0.12)_75%,transparent_75%,transparent)] bg-[length:24px_24px]" />
+      ) : null}
     </div>
   );
 }

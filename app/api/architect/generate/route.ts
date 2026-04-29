@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
 import { buildMockArchitecturalSchema } from "@/lib/architect-ai/mock-schema";
 import { generateArchitecturalSchemaWithOpenAI } from "@/lib/architect-ai/openai-bim";
+import { checkOllamaHealth, generateArchitecturalSchemaWithOllama } from "@/lib/architect-ai/ollamaService";
 
 function collectUsedMaterialIds(schema: ArchitecturalSchema): Set<string> {
   const ids = new Set<string>();
@@ -24,6 +25,20 @@ function validateSchemaForDb(schema: ArchitecturalSchema) {
     }
   }
   return issues;
+}
+
+function parseTechnicalSpecs(raw: unknown): Record<string, unknown> | null {
+  if (!raw) return null;
+  if (typeof raw === "object") return raw as Record<string, unknown>;
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 export async function POST(req: Request) {
@@ -53,22 +68,58 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
-    const materialsColumns = "id,ref_code,name,category,material_family,unit,norm_reference,supplier_hint,description";
-    const { data: rows, error: materialsErr } = await supabase.from("materials").select(materialsColumns).limit(600);
-    let sourceRows = rows;
-    let libErr = materialsErr;
-
-    if (libErr) {
-      const fallback = await supabase.from("architectural_library").select(materialsColumns).limit(600);
-      sourceRows = fallback.data;
-      libErr = fallback.error;
+    let sourceRows: ArchitecturalLibraryRow[] = [];
+    let libErr: { message: string } | null = null;
+    const ml = await supabase
+      .from("materials_library")
+      .select("id,user_id,name,category,technical_specs")
+      .order("name", { ascending: true })
+      .limit(600);
+    if (!ml.error && ml.data) {
+      sourceRows = (ml.data as Array<Record<string, unknown>>).map((row) => {
+        const specs = parseTechnicalSpecs(row.technical_specs);
+        const specsText = specs ? JSON.stringify(specs).slice(0, 500) : null;
+        const category = (row.category as string | null) ?? "general";
+        const lowered = `${category} ${specsText ?? ""}`.toLowerCase();
+        const family: ArchitecturalLibraryRow["material_family"] = lowered.includes("beton")
+          ? "concrete"
+          : lowered.includes("acier") || lowered.includes("metal")
+            ? "metal"
+            : lowered.includes("bois")
+              ? "wood"
+              : lowered.includes("tuile") || lowered.includes("ardoise")
+                ? "ceramic"
+                : "other";
+        return {
+          id: (row.id as string) ?? crypto.randomUUID(),
+          ref_code: `ML-${String(row.id ?? "").slice(0, 8)}`,
+          name: (row.name as string) ?? "Materiau",
+          category,
+          material_family: family,
+          unit: "u",
+          norm_reference: null,
+          supplier_hint: null,
+          description: specsText,
+          technical_specs: specs,
+        };
+      });
+    } else {
+      const materialsColumns = "id,ref_code,name,category,material_family,unit,norm_reference,supplier_hint,description";
+      const { data: rows, error: materialsErr } = await supabase.from("materials").select(materialsColumns).limit(600);
+      if (!materialsErr && rows) {
+        sourceRows = rows as ArchitecturalLibraryRow[];
+      } else {
+        const fallback = await supabase.from("architectural_library").select(materialsColumns).limit(600);
+        sourceRows = (fallback.data ?? []) as ArchitecturalLibraryRow[];
+        libErr = fallback.error ? { message: fallback.error.message } : materialsErr ? { message: materialsErr.message } : null;
+      }
     }
 
-    if (libErr) {
+    if (libErr && sourceRows.length === 0) {
       return NextResponse.json({ error: libErr.message }, { status: 500 });
     }
 
-    const allMaterials = (sourceRows ?? []) as ArchitecturalLibraryRow[];
+    const allMaterials = sourceRows;
     const securityMaterials = allMaterials.filter((m) => {
       const haystack = `${m.category ?? ""} ${m.name} ${m.description ?? ""}`.toLowerCase();
       return (
@@ -83,9 +134,20 @@ export async function POST(req: Request) {
     const materials =
       projectCategory === "safe_room" && securityMaterials.length > 0 ? securityMaterials : allMaterials;
 
-    const keywordDriven = /\b(safe|studio|garage|extension|securite|security|stockage)\b/i.test(prompt);
+    const keywordDriven = /\b(safe|studio|garage|extension|securite|security|stockage|bunker)\b/i.test(prompt);
     let schema: ArchitecturalSchema;
-    if (keywordDriven) {
+    const ollamaReady = await checkOllamaHealth();
+    let warning: string | null = null;
+    if (ollamaReady) {
+      try {
+        schema = await generateArchitecturalSchemaWithOllama(prompt, language, materials, projectCategory);
+      } catch (ollamaError) {
+        console.error("[architect.generate] ollama generation failed", ollamaError);
+        warning = "Veuillez verifier qu'Ollama est lance";
+        schema = buildMockArchitecturalSchema(prompt, language, materials, projectCategory);
+      }
+    } else if (keywordDriven) {
+      warning = "Veuillez verifier qu'Ollama est lance";
       schema = buildMockArchitecturalSchema(prompt, language, materials, projectCategory);
     } else if (process.env.OPENAI_API_KEY) {
       try {
@@ -109,7 +171,7 @@ export async function POST(req: Request) {
     const usedIds = collectUsedMaterialIds(schema);
     const used_materials = materials.filter((m) => usedIds.has(m.id));
 
-    return NextResponse.json({ schema, used_materials });
+    return NextResponse.json({ schema, used_materials, warning });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Erreur serveur";
     return NextResponse.json({ error: msg }, { status: 500 });

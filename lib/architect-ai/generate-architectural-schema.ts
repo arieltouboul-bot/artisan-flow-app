@@ -6,6 +6,7 @@ import { buildKnowledgeContext } from "./knowledge-dictionary";
 export type GenerateArchitecturalSchemaResult = {
   schema: ArchitecturalSchema;
   used_materials: ArchitecturalLibraryRow[];
+  warning?: string | null;
 };
 
 export type ArchitecturalProjectCategory = "safe_room" | "house" | "technical_room";

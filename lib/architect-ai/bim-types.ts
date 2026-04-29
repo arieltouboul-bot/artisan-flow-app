@@ -75,6 +75,7 @@ export type ArchitecturalLibraryRow = {
   norm_reference: string | null;
   supplier_hint: string | null;
   description: string | null;
+  technical_specs?: Record<string, unknown> | null;
 };
 
 export function createEmptyArchitecturalSchema(label: string): ArchitecturalSchema {

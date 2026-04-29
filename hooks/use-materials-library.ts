@@ -27,6 +27,20 @@ export function useMaterialsLibrary(enabled: boolean = true) {
     }
     setLoading(true);
     setError(null);
+    const parseTechnicalSpecs = (raw: unknown): Record<string, unknown> | null => {
+      if (!raw) return null;
+      if (typeof raw === "object") return raw as Record<string, unknown>;
+      if (typeof raw === "string") {
+        try {
+          const parsed = JSON.parse(raw) as unknown;
+          return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    };
+
     const primarySelect = "id,user_id,name,category,technical_specs";
     const fallbackSelect = "id,user_id,name,category,dtu_reference,installation_notice";
     const { data, error: err } = await supabase
@@ -48,6 +62,7 @@ export function useMaterialsLibrary(enabled: boolean = true) {
         unit: "u",
         dtu_reference: (row.dtu_reference as string | null) ?? null,
         installation_notice: (row.installation_notice as string | null) ?? null,
+        technical_specs: parseTechnicalSpecs(row.technical_specs),
       }));
       setMaterials(safeRows as MaterialRow[]);
       setLoading(false);
@@ -62,6 +77,7 @@ export function useMaterialsLibrary(enabled: boolean = true) {
         unit: "u",
         dtu_reference: null,
         installation_notice: (row.technical_specs as string | null) ?? null,
+        technical_specs: parseTechnicalSpecs(row.technical_specs),
       }));
       setMaterials(safeRows as MaterialRow[]);
     }
