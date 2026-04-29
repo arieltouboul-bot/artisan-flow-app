@@ -46,7 +46,6 @@ export function useMaterialsLibrary(enabled: boolean = true) {
         name: (row.name as string) ?? "Materiau sans nom",
         category: (row.category as string | null) ?? "general",
         unit: "u",
-        avg_price_ht: null,
         dtu_reference: (row.dtu_reference as string | null) ?? null,
         installation_notice: (row.installation_notice as string | null) ?? null,
       }));
@@ -61,7 +60,6 @@ export function useMaterialsLibrary(enabled: boolean = true) {
         name: (row.name as string) ?? "Materiau sans nom",
         category: (row.category as string | null) ?? "general",
         unit: "u",
-        avg_price_ht: null,
         dtu_reference: null,
         installation_notice: (row.technical_specs as string | null) ?? null,
       }));

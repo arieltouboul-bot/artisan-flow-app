@@ -12,6 +12,7 @@ export type FloorPlanRow = {
   name: string;
   project_id: string | null;
   plan_json: FloorPlanDocument;
+  construction_manual?: string | null;
 };
 
 export function parsePlanJson(raw: unknown): FloorPlanDocument {
@@ -49,6 +50,25 @@ function ensurePlanDefaults(doc: FloorPlanDocument): FloorPlanDocument {
       ...(doc.meta.bim ? { bim: doc.meta.bim } : {}),
     },
   };
+}
+
+const FLOOR_PLAN_MUTABLE_COLUMNS = new Set([
+  "user_id",
+  "name",
+  "project_id",
+  "plan_json",
+  "updated_at",
+  "construction_manual",
+]);
+
+function filterExistingColumns(payload: Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(payload).filter(([key]) => FLOOR_PLAN_MUTABLE_COLUMNS.has(key)));
+}
+
+function stripOptionalColumn(payload: Record<string, unknown>, column: string) {
+  const next = { ...payload };
+  delete next[column];
+  return next;
 }
 
 export type UseFloorPlanOptions = {
@@ -91,7 +111,7 @@ export function useFloorPlan(planId: string | null, options?: UseFloorPlanOption
     }
     const { data, error: err } = await supabase
       .from("floor_plans")
-      .select("id,name,project_id,plan_json")
+      .select("id,name,project_id,plan_json,construction_manual")
       .eq("id", planId)
       .maybeSingle();
     if (err) {
@@ -108,6 +128,7 @@ export function useFloorPlan(planId: string | null, options?: UseFloorPlanOption
         name: (data.name as string) ?? "Plan",
         project_id: (data.project_id as string | null) ?? null,
         plan_json: parsed,
+        construction_manual: (data.construction_manual as string | null) ?? null,
       });
       setDocument(parsed);
     } else {
@@ -134,17 +155,25 @@ export function useFloorPlan(planId: string | null, options?: UseFloorPlanOption
       setError(null);
       try {
         const safeNext = ensurePlanDefaults(next);
+        const constructionManual = safeNext.meta.bim?.meta.execution_guide?.join("\n") ?? null;
         const existingId = rowIdRef.current ?? row?.id;
         if (existingId) {
-          const { error: err } = await supabase
+          const updatePayload = filterExistingColumns({
+            plan_json: safeNext,
+            updated_at: new Date().toISOString(),
+            ...(meta?.name != null ? { name: meta.name || safeNext.meta.planName || "Plan sans titre" } : {}),
+            ...(meta?.project_id !== undefined ? { project_id: meta.project_id } : {}),
+            construction_manual: constructionManual,
+          });
+          let { error: err } = await supabase
             .from("floor_plans")
-            .update({
-              plan_json: safeNext,
-              updated_at: new Date().toISOString(),
-              ...(meta?.name != null ? { name: meta.name || safeNext.meta.planName || "Plan sans titre" } : {}),
-              ...(meta?.project_id !== undefined ? { project_id: meta.project_id } : {}),
-            })
+            .update(updatePayload)
             .eq("id", existingId);
+          if (err && /construction_manual|column/i.test(err.message)) {
+            const fallbackPayload = stripOptionalColumn(updatePayload, "construction_manual");
+            const retry = await supabase.from("floor_plans").update(fallbackPayload).eq("id", existingId);
+            err = retry.error;
+          }
           if (err) {
             console.error("[floor_plans.update] failed", {
               id: existingId,
@@ -163,16 +192,28 @@ export function useFloorPlan(planId: string | null, options?: UseFloorPlanOption
             setError("Non connecté");
             return;
           }
-          const { data, error: err } = await supabase
+          const insertPayload = filterExistingColumns({
+            user_id: user.id,
+            name: meta?.name ?? safeNext.meta.planName ?? "Plan sans titre",
+            project_id: meta?.project_id ?? null,
+            plan_json: safeNext,
+            construction_manual: constructionManual,
+          });
+          let { data, error: err } = await supabase
             .from("floor_plans")
-            .insert({
-              user_id: user.id,
-              name: meta?.name ?? safeNext.meta.planName ?? "Plan sans titre",
-              project_id: meta?.project_id ?? null,
-              plan_json: safeNext,
-            })
-            .select("id,name,project_id,plan_json")
+            .insert(insertPayload)
+            .select("id,name,project_id,plan_json,construction_manual")
             .single();
+          if (err && /construction_manual|column/i.test(err.message)) {
+            const fallbackPayload = stripOptionalColumn(insertPayload, "construction_manual");
+            const retry = await supabase
+              .from("floor_plans")
+              .insert(fallbackPayload)
+              .select("id,name,project_id,plan_json")
+              .single();
+            data = retry.data as typeof data;
+            err = retry.error;
+          }
           if (err) {
             console.error("[floor_plans.insert] failed", {
               user_id: user.id,
@@ -190,6 +231,7 @@ export function useFloorPlan(planId: string | null, options?: UseFloorPlanOption
               name: (data.name as string) ?? "Plan",
               project_id: (data.project_id as string | null) ?? null,
               plan_json: parsePlanJson(data.plan_json),
+              construction_manual: (data.construction_manual as string | null) ?? null,
             });
             options?.onPlanCreated?.(newId);
           }
