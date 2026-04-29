@@ -8,11 +8,17 @@ export function useClients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasSupabaseEnv =
+    Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) && Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
   const fetchClients = useCallback(async () => {
     const supabase = createClient();
     if (!supabase) {
-      setError("Supabase non configuré (vérifiez .env.local)");
+      setError(
+        hasSupabaseEnv
+          ? "Initialisation Supabase en attente. Redémarrez le serveur de développement."
+          : "Supabase non configuré (variables NEXT_PUBLIC_SUPABASE_* manquantes dans .env.local)"
+      );
       setLoading(false);
       return;
     }
@@ -39,7 +45,7 @@ export function useClients() {
       setClients((data as Client[]) ?? []);
     }
     setLoading(false);
-  }, []);
+  }, [hasSupabaseEnv]);
 
   useEffect(() => {
     fetchClients();

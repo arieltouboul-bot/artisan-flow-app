@@ -23,6 +23,7 @@ import {
   Users,
   UsersRound,
   Ruler,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/translations";
@@ -39,6 +40,7 @@ const mainNavItems = [
   { href: "/dashboard", key: "dashboard", icon: LayoutDashboard },
   { href: "/projets", key: "projects", icon: FolderKanban },
   { href: "/plans", key: "floorPlans", icon: Ruler },
+  { href: "/architect-ai", key: "architectAi", icon: Shield },
   /** Table Supabase `clients` — page `app/(app)/clients/page.tsx` */
   { href: "/clients", key: "clients", icon: Users },
   { href: "/team", key: "team", icon: UsersRound },

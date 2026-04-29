@@ -4,6 +4,7 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import { CanvasTexture, RepeatWrapping } from "three";
 import type { DirectionalLight, Texture } from "three";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
+import type { ArchitectFurnitureItem } from "@/lib/architect-ai/ollamaArchitect";
 
 function pbrFor(family: ArchitecturalLibraryRow["material_family"]) {
   switch (family) {
@@ -25,6 +26,7 @@ function pbrFor(family: ArchitecturalLibraryRow["material_family"]) {
 type BuildingSceneProps = {
   schema: ArchitecturalSchema | null;
   materialsById: Map<string, ArchitecturalLibraryRow>;
+  furniture: ArchitectFurnitureItem[];
 };
 
 function makeTexture(kind: "wood" | "concrete" | "metal" | "plaster"): Texture {
@@ -87,7 +89,7 @@ function makeTexture(kind: "wood" | "concrete" | "metal" | "plaster"): Texture {
   return texture;
 }
 
-export function BuildingScene({ schema, materialsById }: BuildingSceneProps) {
+export function BuildingScene({ schema, materialsById, furniture }: BuildingSceneProps) {
   const textureSet = useMemo(
     () => ({
       wood: makeTexture("wood"),
@@ -153,6 +155,12 @@ export function BuildingScene({ schema, materialsById }: BuildingSceneProps) {
             metalness={w.metalness}
             envMapIntensity={0.6}
           />
+        </mesh>
+      ))}
+      {furniture.map((item) => (
+        <mesh key={item.id} castShadow receiveShadow position={[item.x, Math.max(0.1, item.height_m) / 2, item.z]}>
+          <boxGeometry args={[Math.max(0.2, item.width_m), Math.max(0.2, item.height_m), Math.max(0.2, item.depth_m)]} />
+          <meshStandardMaterial color="#f59e0b" roughness={0.55} metalness={0.15} />
         </mesh>
       ))}
     </group>

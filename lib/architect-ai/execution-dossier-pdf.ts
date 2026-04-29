@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "./bim-types";
+import type { ArchitectFurnitureItem } from "./ollamaArchitect";
 
 export type ExecutionDossierPdfInput = {
   projectName: string;
@@ -11,6 +12,7 @@ export type ExecutionDossierPdfInput = {
   render3dDataUrl: string | null;
   /** Plan 2D SVG exporté en PNG si disponible */
   render2dDataUrl: string | null;
+  furniture: ArchitectFurnitureItem[];
   language: "fr" | "en";
 };
 
@@ -138,11 +140,11 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
   const devisRows = buildDevisRows(input.schema, input.materialsById);
   doc.setFont("helvetica", "normal");
 
-  // Page 1 — plan technique (avec rendu 3D HD)
+  // Section 1: Overview
   let y = margin;
   doc.setFontSize(18);
   doc.setTextColor(30, 90, 160);
-  doc.text(L("Dossier Architecte — Plan technique", "Architect Dossier — Technical blueprint", lang), margin, y);
+  doc.text("1. Overview", margin, y);
   y += 10;
   doc.setFontSize(11);
   doc.setTextColor(50);
@@ -154,7 +156,10 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
   y += 6;
   doc.text(new Date().toLocaleDateString(lang === "fr" ? "fr-FR" : "en-GB"), margin, y);
   y += 9;
-
+  doc.setFontSize(12);
+  doc.setTextColor(30, 90, 160);
+  doc.text("2. Plan 2D", margin, y);
+  y += 4;
   if (input.render2dDataUrl) {
     try {
       doc.addImage(input.render2dDataUrl, "PNG", margin, y, pageW - 2 * margin, 120);
@@ -164,6 +169,11 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
   }
   y += 124;
 
+  y += 54;
+  doc.setFontSize(12);
+  doc.setTextColor(30, 90, 160);
+  doc.text("3. Vue 3D", margin, y);
+  y += 4;
   if (input.render3dDataUrl) {
     try {
       doc.addImage(input.render3dDataUrl, "PNG", margin, y, 72, 50);
@@ -171,6 +181,23 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
       doc.text(L("(Image 3D indisponible)", "(3D image unavailable)", lang), margin, y);
     }
   }
+  y += 56;
+  doc.setFontSize(12);
+  doc.setTextColor(30, 90, 160);
+  doc.text("4. Description", margin, y);
+  y += 6;
+  doc.setFontSize(10);
+  doc.setTextColor(35);
+  doc.text(
+    L(
+      "Concept Safe Room genere automatiquement pour etude preliminaire. Validation structurelle par bureau d'etudes obligatoire.",
+      "Safe room concept generated for preliminary studies. Structural validation by a certified engineer is required.",
+      lang
+    ),
+    margin,
+    y,
+    { maxWidth: pageW - 2 * margin }
+  );
   drawArchitectCartouche(doc, {
     projectName: input.projectName,
     companyName: input.companyName,
@@ -179,13 +206,67 @@ export async function generateExecutionDossierPdf(input: ExecutionDossierPdfInpu
     language: lang,
   });
 
-  // Page 2 — notice technique (materiaux + mode d'emploi)
+  // Page 2
   doc.addPage();
   y = margin;
   doc.setFontSize(12);
   doc.setTextColor(30, 90, 160);
-  doc.text(L("Notice technique chantier", "Technical site notice", lang), margin, y);
+  doc.text("5. Furniture", margin, y);
   y += 10;
+  autoTable(doc, {
+    startY: y,
+    margin: { left: margin },
+    head: [["ID", L("Nom", "Label", lang), "X", "Z", "W", "D", "H"]],
+    body: input.furniture.map((f) => [
+      f.id,
+      f.label,
+      f.x.toFixed(2),
+      f.z.toFixed(2),
+      f.width_m.toFixed(2),
+      f.depth_m.toFixed(2),
+      f.height_m.toFixed(2),
+    ]),
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [30, 64, 175] },
+  });
+  y = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 28) + 8;
+  doc.setFontSize(12);
+  doc.setTextColor(30, 90, 160);
+  doc.text("6. Checklist", margin, y);
+  y += 6;
+  doc.setFontSize(10);
+  doc.setTextColor(35);
+  const checklist = [
+    "- Verification des dimensions",
+    "- Verification des ouvertures",
+    "- Controle non-superposition mobilier/murs",
+    "- Verification ventilation et acces",
+    "- Validation finale par professionnel certifie",
+  ];
+  doc.text(checklist, margin, y, { maxWidth: pageW - 2 * margin });
+  y += 32;
+  doc.setFontSize(12);
+  doc.setTextColor(30, 90, 160);
+  doc.text("7. Manuel Utilisateur Schematise", margin, y);
+  y += 8;
+  doc.setFontSize(10);
+  doc.setTextColor(35);
+  doc.text(
+    [
+      "1) Definir le besoin et la variante (Basic/Optimized/Premium).",
+      "2) Generer le plan IA et verifier murs/ouvertures.",
+      "3) Ajuster le mobilier puis exporter en PDF.",
+      "4) Confier la validation finale a un bureau d'etudes.",
+    ],
+    margin,
+    y,
+    { maxWidth: pageW - 2 * margin }
+  );
+  y += 28;
+  doc.setFontSize(12);
+  doc.setTextColor(30, 90, 160);
+  doc.text(L("Notice technique chantier", "Technical site notice", lang), margin, y);
+  y += 8;
   autoTable(doc, {
     startY: y,
     margin: { left: margin },

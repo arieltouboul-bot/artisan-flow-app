@@ -3,7 +3,14 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
 import { buildMockArchitecturalSchema } from "@/lib/architect-ai/mock-schema";
 import { generateArchitecturalSchemaWithOpenAI } from "@/lib/architect-ai/openai-bim";
-import { checkOllamaHealth, generateArchitecturalSchemaWithOllama } from "@/lib/architect-ai/ollamaService";
+import {
+  deriveTechnicalKeywordsWithOllama,
+  buildOptimizedSearchQueryWithOllama,
+  checkOllamaHealthArchitect,
+  generateArchitecturalSchemaWithOllamaArchitect,
+  type ArchitectFurnitureItem,
+} from "@/lib/architect-ai/ollamaArchitect";
+import { searchSerperSnippets, type SerperSnippet } from "@/src/services/serperService";
 
 function collectUsedMaterialIds(schema: ArchitecturalSchema): Set<string> {
   const ids = new Set<string>();
@@ -136,11 +143,42 @@ export async function POST(req: Request) {
 
     const keywordDriven = /\b(safe|studio|garage|extension|securite|security|stockage|bunker)\b/i.test(prompt);
     let schema: ArchitecturalSchema;
-    const ollamaReady = await checkOllamaHealth();
+    let furniture: ArchitectFurnitureItem[] = [];
+    let webContextSnippets: SerperSnippet[] = [];
+    let ragKeywords: string[] = [];
+    let ragQuery: string | null = null;
+    const ollamaReady = await checkOllamaHealthArchitect();
     let warning: string | null = null;
     if (ollamaReady) {
       try {
-        schema = await generateArchitecturalSchemaWithOllama(prompt, language, materials, projectCategory);
+        let optimizedQuery = "";
+        try {
+          ragKeywords = await deriveTechnicalKeywordsWithOllama(prompt, projectCategory, language);
+          optimizedQuery = await buildOptimizedSearchQueryWithOllama(prompt, projectCategory, language);
+          if (ragKeywords.length > 0) {
+            optimizedQuery = `${optimizedQuery} ${ragKeywords.join(" ")}`.slice(0, 220);
+          }
+          ragQuery = optimizedQuery;
+        } catch {
+          optimizedQuery = `normes ${projectCategory} materiaux dispositifs securite`;
+          ragQuery = optimizedQuery;
+        }
+        try {
+          webContextSnippets = await searchSerperSnippets(optimizedQuery);
+        } catch (serperError) {
+          console.error("[architect.generate] serper unavailable", serperError);
+          warning = "Contexte web indisponible, generation basee sur connaissances internes";
+          webContextSnippets = [];
+        }
+        const generated = await generateArchitecturalSchemaWithOllamaArchitect(
+          prompt,
+          language,
+          materials,
+          projectCategory,
+          webContextSnippets
+        );
+        schema = generated.schema;
+        furniture = generated.furniture;
       } catch (ollamaError) {
         console.error("[architect.generate] ollama generation failed", ollamaError);
         warning = "Veuillez verifier qu'Ollama est lance";
@@ -171,7 +209,15 @@ export async function POST(req: Request) {
     const usedIds = collectUsedMaterialIds(schema);
     const used_materials = materials.filter((m) => usedIds.has(m.id));
 
-    return NextResponse.json({ schema, used_materials, warning });
+    return NextResponse.json({
+      schema,
+      used_materials,
+      warning,
+      furniture,
+      web_context_snippets: webContextSnippets,
+      rag_keywords: ragKeywords,
+      rag_query: ragQuery,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Erreur serveur";
     return NextResponse.json({ error: msg }, { status: 500 });

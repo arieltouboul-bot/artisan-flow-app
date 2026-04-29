@@ -2,20 +2,22 @@
 
 import { useMemo } from "react";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
+import type { ArchitectFurnitureItem } from "@/lib/architect-ai/ollamaArchitect";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 
 type ArchitectViewport2DProps = {
   schema: ArchitecturalSchema | null;
   materialsById: Map<string, ArchitecturalLibraryRow>;
+  furniture: ArchitectFurnitureItem[];
   cartouche: { projectName: string; clientName: string; scaleText: string; dateText: string };
   isGenerating?: boolean;
 };
 
 /** Plan de coupe / cotations 2D (XZ → SVG) à partir du schéma BIM. */
-export function ArchitectViewport2D({ schema, materialsById, cartouche, isGenerating = false }: ArchitectViewport2DProps) {
+export function ArchitectViewport2D({ schema, materialsById, furniture, cartouche, isGenerating = false }: ArchitectViewport2DProps) {
   const { language } = useLanguage();
-  const { viewBox, lines, dims, openings, zones } = useMemo(() => {
+  const { viewBox, lines, dims, openings, zones, furnitureRects } = useMemo(() => {
     if (!schema?.structure.walls.length) {
       return {
         viewBox: "0 0 400 300",
@@ -30,6 +32,7 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche, isGenera
         dims: [] as { x: number; y: number; t: string }[],
         openings: [] as { x: number; y: number; type: "porte" | "fenetre" | "baie"; id: string; r: number }[],
         zones: [] as Array<{ id: string; points: string; secure: boolean }>,
+        furnitureRects: [] as Array<{ id: string; x: number; y: number; w: number; h: number; label: string }>,
       };
     }
     let minX = Infinity,
@@ -102,8 +105,16 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche, isGenera
     }));
     const w = (maxX - minX) * scale + 80;
     const h = (maxZ - minZ) * scale + 60;
-    return { viewBox: `0 0 ${w} ${h}`, lines, dims, openings, zones };
-  }, [materialsById, schema]);
+    const furnitureRects = furniture.map((item) => ({
+      id: item.id,
+      x: toX(item.x),
+      y: toY(item.z),
+      w: Math.max(4, item.width_m * scale),
+      h: Math.max(4, item.depth_m * scale),
+      label: item.label,
+    }));
+    return { viewBox: `0 0 ${w} ${h}`, lines, dims, openings, zones, furnitureRects };
+  }, [furniture, materialsById, schema]);
 
   if (!schema) {
     return (
@@ -119,6 +130,9 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche, isGenera
         <defs>
           <pattern id="bp-grid" width="20" height="20" patternUnits="userSpaceOnUse">
             <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1e3a5f" strokeWidth="0.5" opacity="0.6" />
+          </pattern>
+          <pattern id="bp-grid-mm" width="10" height="10" patternUnits="userSpaceOnUse">
+            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#1e293b" strokeWidth="0.4" opacity="0.6" />
           </pattern>
           <pattern id="wall-hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
             <line x1="0" y1="0" x2="0" y2="10" stroke="#7dd3fc" strokeWidth="1" opacity="0.4" />
@@ -141,6 +155,7 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche, isGenera
             <line x1="0" y1="0" x2="0" y2="10" stroke="#ef4444" strokeWidth="1" opacity="0.55" />
           </pattern>
         </defs>
+        <rect width="100%" height="100%" fill="url(#bp-grid-mm)" />
         <rect width="100%" height="100%" fill="url(#bp-grid)" />
         {zones.map((z) => (
           <polygon key={z.id} points={z.points} fill={z.secure ? "url(#zone-hatch-secure)" : "transparent"} />
@@ -179,6 +194,14 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche, isGenera
             ) : (
               <rect x={o.x - o.r} y={o.y - 2} width={o.r * 2} height={4} fill="#93c5fd" />
             )}
+          </g>
+        ))}
+        {furnitureRects.map((f) => (
+          <g key={f.id}>
+            <rect x={f.x - f.w / 2} y={f.y - f.h / 2} width={f.w} height={f.h} fill="#f59e0b33" stroke="#fbbf24" strokeWidth="1" rx="2" />
+            <text x={f.x} y={f.y} fill="#fde68a" fontSize="10" textAnchor="middle" fontFamily="Inter, Arial, sans-serif">
+              {f.label}
+            </text>
           </g>
         ))}
         {dims.map((d, i) => (

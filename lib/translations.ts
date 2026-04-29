@@ -1008,6 +1008,7 @@ export const translations: Record<string, { fr: string; en: string }> = {
   appointmentLabel: { fr: "Rendez-vous", en: "Appointment" },
   creation: { fr: "Création", en: "Creation" },
   floorPlans: { fr: "Architecte IA 2D/3D", en: "AI Architect 2D/3D" },
+  architectAi: { fr: "Architect AI", en: "Architect AI" },
   floorPlanPageTitle: { fr: "Plans 2D & dossier technique", en: "2D plans & technical dossier" },
   floorPlanPageSubtitle: {
     fr: "Dessinez des murs (angles 90°), calibrez l’échelle, enregistrez le JSON dans Supabase et exportez un PDF.",
@@ -1111,6 +1112,17 @@ export const translations: Record<string, { fr: string; en: string }> = {
     en: "BIM synthesis & material matching…",
   },
   architectPlanNamePh: { fr: "Nom du projet / lot", en: "Project / lot name" },
+  architectDisclaimer: {
+    fr: "Conceptual designs only. Not for certified construction.",
+    en: "Conceptual designs only. Not for certified construction.",
+  },
+  architectHousingType: { fr: "Type logement", en: "Housing type" },
+  architectSurfaceM2: { fr: "Taille (m2)", en: "Size (m2)" },
+  architectSecurityLevel: { fr: "Niveau securite", en: "Security level" },
+  architectOccupants: { fr: "Nb personnes", en: "Occupants" },
+  architectVariantBasic: { fr: "Basic - Protection intrusion", en: "Basic - Intrusion protection" },
+  architectVariantOptimized: { fr: "Optimized - Survie 24h", en: "Optimized - 24h survival" },
+  architectVariantPremium: { fr: "Premium - Autonomie complete + sas", en: "Premium - Full autonomy + airlock" },
 };
 
 export function t(key: string, lang: Language): string {

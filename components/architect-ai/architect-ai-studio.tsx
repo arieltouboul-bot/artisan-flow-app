@@ -14,6 +14,7 @@ import {
   generateArchitecturalSchema,
   type ArchitecturalProjectCategory,
 } from "@/lib/architect-ai/generate-architectural-schema";
+import type { ArchitectFurnitureItem } from "@/lib/architect-ai/ollamaArchitect";
 import { architecturalSchemaToFloorPlan } from "@/lib/architect-ai/schema-to-floor-plan";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
 import { generateExecutionDossierPdf } from "@/lib/architect-ai/execution-dossier-pdf";
@@ -40,10 +41,17 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
   const [projectCategory, setProjectCategory] = useState<ArchitecturalProjectCategory>("house");
   const [schema, setSchema] = useState<ArchitecturalSchema | null>(null);
   const [usedMaterials, setUsedMaterials] = useState<ArchitecturalLibraryRow[]>([]);
+  const [furniture, setFurniture] = useState<ArchitectFurnitureItem[]>([]);
   const [generating, setGenerating] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [show3D, setShow3D] = useState(true);
   const [planTitle, setPlanTitle] = useState("");
+  const [housingType, setHousingType] = useState("Appartement");
+  const [surfaceM2, setSurfaceM2] = useState("24");
+  const [securityLevel, setSecurityLevel] = useState("Moyen");
+  const [occupants, setOccupants] = useState("2");
+  const [variant, setVariant] = useState<"basic" | "optimized" | "premium">("basic");
+  const [webAnalysisInProgress, setWebAnalysisInProgress] = useState(false);
   const root3dRef = useRef<HTMLDivElement>(null);
 
   const onPlanCreated = useCallback(
@@ -139,6 +147,18 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
       return;
     }
     const normalized = p.toLowerCase();
+    const businessBrief = [
+      `Type logement: ${housingType}`,
+      `Taille: ${surfaceM2} m2`,
+      `Niveau securite: ${securityLevel}`,
+      `Nombre personnes: ${occupants}`,
+      `Variante: ${variant}`,
+      variant === "premium" ? "Ajouter obligatoirement un sas de securite." : "",
+      variant === "optimized" ? "Priorite survie 24h avec stockage eau et alimentation." : "",
+      variant === "basic" ? "Priorite protection intrusion sans surequipement." : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
     const inferredCategory: ArchitecturalProjectCategory = normalized.includes("safe room")
       ? "safe_room"
       : normalized.includes("local technique") || normalized.includes("technical room")
@@ -147,11 +167,15 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
     if (inferredCategory !== projectCategory) setProjectCategory(inferredCategory);
     setChatMessages((prev) => [...prev, { id: `${Date.now()}-u`, role: "user", text: p }]);
     setGenerating(true);
+    setWebAnalysisInProgress(true);
     try {
-      const { schema: next, used_materials, warning } = await generateArchitecturalSchema(p, language, inferredCategory);
+      const { schema: next, used_materials, warning, furniture: generatedFurniture, rag_query } =
+        await generateArchitecturalSchema(`${p}\n\nContraintes metier:\n${businessBrief}`, language, inferredCategory);
       const snapped = snapAxisAlignedSchema(next);
       setSchema(snapped);
       setUsedMaterials(used_materials);
+      setFurniture(generatedFurniture ?? []);
+      setWebAnalysisInProgress(false);
       const doc = architecturalSchemaToFloorPlan(snapped);
       updateDocument(() => doc);
       setPlanTitle((prev) => prev || snapped.meta.label);
@@ -160,7 +184,11 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
         {
           id: `${Date.now()}-a`,
           role: "assistant",
-          text: warning ? `${t("architectChatGenerated", language)} ${warning}` : t("architectChatGenerated", language),
+          text: warning
+            ? `${t("architectChatGenerated", language)} ${warning}`
+            : rag_query
+              ? `${t("architectChatGenerated", language)} Requete web: ${rag_query}`
+              : t("architectChatGenerated", language),
         },
       ]);
       setPrompt("");
@@ -179,6 +207,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
         },
       ]);
     } finally {
+      setWebAnalysisInProgress(false);
       setGenerating(false);
     }
   };
@@ -256,6 +285,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
         materialsById,
         render3dDataUrl: png3d,
         render2dDataUrl: png2d,
+        furniture,
         language,
       });
       const url = URL.createObjectURL(blob);
@@ -272,6 +302,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
   const handleRegenerate = () => {
     setPrompt("");
     setChatMessages([]);
+    setFurniture([]);
   };
 
   if (loading) {
@@ -308,6 +339,14 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
       </motion.header>
 
       <main className="mx-auto max-w-[1600px] space-y-4 px-4 py-6">
+        <div className="rounded-lg border border-amber-500/40 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
+          {t("architectDisclaimer", language)}
+        </div>
+        {webAnalysisInProgress ? (
+          <div className="rounded-md border border-cyan-700/50 bg-cyan-950/25 px-3 py-2 text-xs text-cyan-200">
+            Analyse des donnees web en cours...
+          </div>
+        ) : null}
         {error && <p className="rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2 text-sm text-red-200">{error}</p>}
 
         <div className="rounded-2xl border border-cyan-500/35 bg-[#040b16] p-3 shadow-[0_0_22px_rgba(56,189,248,0.08)]">
@@ -348,6 +387,12 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
                 className="min-h-[48px] border-cyan-700/40 bg-[#050f1f] text-slate-100 placeholder:text-slate-500"
               />
             </div>
+            <div className="grid w-full grid-cols-2 gap-2 md:max-w-[440px]">
+              <Input value={housingType} onChange={(e) => setHousingType(e.target.value)} placeholder={t("architectHousingType", language)} className="min-h-[44px] border-cyan-700/40 bg-[#050f1f] text-slate-100" />
+              <Input value={surfaceM2} onChange={(e) => setSurfaceM2(e.target.value)} placeholder={t("architectSurfaceM2", language)} className="min-h-[44px] border-cyan-700/40 bg-[#050f1f] text-slate-100" />
+              <Input value={securityLevel} onChange={(e) => setSecurityLevel(e.target.value)} placeholder={t("architectSecurityLevel", language)} className="min-h-[44px] border-cyan-700/40 bg-[#050f1f] text-slate-100" />
+              <Input value={occupants} onChange={(e) => setOccupants(e.target.value)} placeholder={t("architectOccupants", language)} className="min-h-[44px] border-cyan-700/40 bg-[#050f1f] text-slate-100" />
+            </div>
             <div className="w-full space-y-1 md:max-w-[340px]">
               <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300/90">
                 {t("architectCategoryLabel", language)}
@@ -379,6 +424,25 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {t("architectGenerate", language)}
             </Button>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {(
+              [
+                { key: "basic", label: t("architectVariantBasic", language) },
+                { key: "optimized", label: t("architectVariantOptimized", language) },
+                { key: "premium", label: t("architectVariantPremium", language) },
+              ] as const
+            ).map((option) => (
+              <Button
+                key={option.key}
+                type="button"
+                variant={variant === option.key ? "default" : "secondary"}
+                className={variant === option.key ? "bg-emerald-500 text-slate-950 hover:bg-emerald-400" : "border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800"}
+                onClick={() => setVariant(option.key)}
+              >
+                {option.label}
+              </Button>
+            ))}
           </div>
         </div>
 
@@ -432,6 +496,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
             <ArchitectViewport2D
               schema={cleanedSchema}
               materialsById={materialsById}
+              furniture={furniture}
               isGenerating={generating}
               cartouche={{
                 projectName: "Projet : AI Generated",
@@ -450,7 +515,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
             >
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-sky-500/90">{t("architectPanel3d", language)}</p>
               <div ref={root3dRef} className="min-h-[360px] flex-1">
-                <ArchitectViewport3D schema={cleanedSchema} materialsById={materialsById} />
+                <ArchitectViewport3D schema={cleanedSchema} materialsById={materialsById} furniture={furniture} />
               </div>
             </motion.div>
           ) : null}
