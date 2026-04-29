@@ -62,7 +62,10 @@ const FLOOR_PLAN_MUTABLE_COLUMNS = new Set([
 ]);
 
 function filterExistingColumns(payload: Record<string, unknown>) {
-  return Object.fromEntries(Object.entries(payload).filter(([key]) => FLOOR_PLAN_MUTABLE_COLUMNS.has(key)));
+  const blockedKeys = new Set(["price", "avg_price", "unit_price_estimate", "name_fr", "name_en"]);
+  return Object.fromEntries(
+    Object.entries(payload).filter(([key]) => FLOOR_PLAN_MUTABLE_COLUMNS.has(key) && !blockedKeys.has(key))
+  );
 }
 
 function stripOptionalColumn(payload: Record<string, unknown>, column: string) {
@@ -92,6 +95,7 @@ export function useFloorPlan(planId: string | null, options?: UseFloorPlanOption
   const rowIdRef = useRef<string | null>(null);
 
   const loading = planLoading || materialsLoading;
+  const LOCAL_PLAN_FALLBACK_KEY = "architect_ai_unsaved_plan";
 
   const loadPlan = useCallback(async () => {
     const supabase = createClient();
@@ -183,6 +187,20 @@ export function useFloorPlan(planId: string | null, options?: UseFloorPlanOption
               error: err.message,
             });
             setError(err.message);
+            try {
+              window.localStorage.setItem(
+                LOCAL_PLAN_FALLBACK_KEY,
+                JSON.stringify({
+                  name: meta?.name ?? safeNext.meta.planName ?? "Plan sans titre",
+                  project_id: meta?.project_id ?? null,
+                  plan_json: safeNext,
+                  construction_manual: constructionManual,
+                  saved_at: new Date().toISOString(),
+                })
+              );
+            } catch {
+              // ignore localStorage failures
+            }
           }
         } else {
           const {
@@ -222,6 +240,20 @@ export function useFloorPlan(planId: string | null, options?: UseFloorPlanOption
               error: err.message,
             });
             setError(err.message);
+            try {
+              window.localStorage.setItem(
+                LOCAL_PLAN_FALLBACK_KEY,
+                JSON.stringify({
+                  name: meta?.name ?? safeNext.meta.planName ?? "Plan sans titre",
+                  project_id: meta?.project_id ?? null,
+                  plan_json: safeNext,
+                  construction_manual: constructionManual,
+                  saved_at: new Date().toISOString(),
+                })
+              );
+            } catch {
+              // ignore localStorage failures
+            }
           }
           else if (data) {
             const newId = data.id as string;

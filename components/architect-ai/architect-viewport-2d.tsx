@@ -18,7 +18,14 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche }: Archit
     if (!schema?.structure.walls.length) {
       return {
         viewBox: "0 0 400 300",
-        lines: [] as { x1: number; y1: number; x2: number; y2: number; id: string; hatchStyle: "metal" | "concrete" | "insulation" | "default" }[],
+        lines: [] as {
+          x1: number;
+          y1: number;
+          x2: number;
+          y2: number;
+          id: string;
+          hatchStyle: "bearing" | "metal" | "concrete" | "insulation" | "default";
+        }[],
         dims: [] as { x: number; y: number; t: string }[],
         openings: [] as { x: number; y: number; type: "porte" | "fenetre" | "baie"; id: string; r: number }[],
         zones: [] as Array<{ id: string; points: string; secure: boolean }>,
@@ -46,7 +53,9 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche }: Archit
       const material = materialsById.get(w.material_ref_id);
       const materialName = (material?.name ?? "").toLowerCase();
       const hatchStyle =
-        material?.material_family === "metal"
+        w.load_bearing
+          ? "bearing"
+          : material?.material_family === "metal"
           ? "metal"
           : material?.material_family === "concrete"
             ? "concrete"
@@ -123,6 +132,9 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche }: Archit
           <pattern id="wall-hatch-insulation" width="16" height="10" patternUnits="userSpaceOnUse">
             <path d="M0,5 Q4,0 8,5 T16,5" fill="none" stroke="#67e8f9" strokeWidth="1" opacity="0.85" />
           </pattern>
+          <pattern id="wall-hatch-bearing" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="6" stroke="#e2e8f0" strokeWidth="1.1" opacity="0.95" />
+          </pattern>
           <pattern id="zone-hatch-secure" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <rect width="10" height="10" fill="#1f2937" opacity="0.28" />
             <line x1="0" y1="0" x2="0" y2="10" stroke="#ef4444" strokeWidth="1" opacity="0.55" />
@@ -141,7 +153,9 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche }: Archit
               x2={ln.x2}
               y2={ln.y2}
               stroke={
-                ln.hatchStyle === "metal"
+                ln.hatchStyle === "bearing"
+                  ? "url(#wall-hatch-bearing)"
+                  : ln.hatchStyle === "metal"
                   ? "url(#wall-hatch-metal)"
                   : ln.hatchStyle === "concrete"
                     ? "url(#wall-hatch-concrete)"

@@ -63,6 +63,21 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
     return m;
   }, [usedMaterials]);
 
+  const cleanedSchema = useMemo<ArchitecturalSchema | null>(() => {
+    if (!schema) return null;
+    const cleanedWalls = schema.structure.walls.filter(
+      (w) =>
+        Number.isFinite(w.x1) &&
+        Number.isFinite(w.x2) &&
+        Number.isFinite(w.z1) &&
+        Number.isFinite(w.z2) &&
+        Number.isFinite(w.height_m) &&
+        Number.isFinite(w.thickness_m)
+    );
+    if (!cleanedWalls.length) return null;
+    return { ...schema, structure: { ...schema.structure, walls: cleanedWalls } };
+  }, [schema]);
+
   const categoryChoices = useMemo(
     () =>
       [
@@ -351,7 +366,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
               type="button"
               className="min-h-[48px] shrink-0 gap-2 bg-cyan-500 text-slate-950 hover:bg-cyan-400 md:mb-0.5"
               onClick={() => void handleGenerate()}
-              disabled={generating || !prompt.trim()}
+              disabled={generating}
             >
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {t("architectGenerate", language)}
@@ -394,12 +409,12 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
           >
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-sky-500/90">{t("architectPanel2d", language)}</p>
             <ArchitectViewport2D
-              schema={schema}
+              schema={cleanedSchema}
               materialsById={materialsById}
               cartouche={{
-                projectName: planTitle || schema?.meta.label || "",
-                clientName: profile?.company_name ?? "Client",
-                scaleText: "1/50",
+                projectName: "Projet : AI Generated",
+                clientName: new Date().toLocaleDateString(language === "fr" ? "fr-FR" : "en-GB"),
+                scaleText: "Échelle : Auto",
                 dateText: new Date().toLocaleDateString(language === "fr" ? "fr-FR" : "en-GB"),
               }}
             />
@@ -413,7 +428,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
             >
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-sky-500/90">{t("architectPanel3d", language)}</p>
               <div ref={root3dRef} className="min-h-[360px] flex-1">
-                <ArchitectViewport3D schema={schema} materialsById={materialsById} />
+                <ArchitectViewport3D schema={cleanedSchema} materialsById={materialsById} />
               </div>
             </motion.div>
           ) : null}
