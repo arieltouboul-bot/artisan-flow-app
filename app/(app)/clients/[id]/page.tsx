@@ -42,6 +42,29 @@ const statusVariant: Record<ProjectStatus, "gray" | "default" | "destructive" | 
   annule: "gray",
 };
 
+const PROJECT_INSERT_COLUMNS = new Set([
+  "user_id",
+  "client_id",
+  "name",
+  "status",
+  "address",
+  "start_date",
+  "end_date",
+  "started_at",
+  "ended_at",
+  "notes",
+  "contract_amount",
+  "material_costs",
+  "amount_collected",
+]);
+
+function sanitizeProjectPayload(payload: Record<string, unknown>) {
+  const blocked = new Set(["price", "avg_price", "unit_price_estimate", "name_fr", "name_en"]);
+  return Object.fromEntries(
+    Object.entries(payload).filter(([key]) => PROJECT_INSERT_COLUMNS.has(key) && !blocked.has(key))
+  );
+}
+
 export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -89,7 +112,7 @@ export default function ClientDetailPage() {
       return;
     }
     setSubmitLoading(true);
-    const payload = {
+    const payload = sanitizeProjectPayload({
       user_id: user.id,
       name: formName.trim(),
       client_id: clientId,
@@ -103,7 +126,7 @@ export default function ClientDetailPage() {
       contract_amount: 0,
       material_costs: 0,
       amount_collected: 0,
-    };
+    });
     const { error: insertError } = await supabase.from("projects").insert(payload);
     setSubmitLoading(false);
     if (insertError) {

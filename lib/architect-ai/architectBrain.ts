@@ -104,7 +104,7 @@ export const ARCHITECT_BRAIN_TEMPLATES: BrainTemplate[] = [
 
 export function detectArchitectTemplate(prompt: string): BrainTemplate {
   const lower = prompt.toLowerCase();
-  if (lower.includes("safe") || lower.includes("secur")) return ARCHITECT_BRAIN_TEMPLATES[0];
+  if (lower.includes("safe") || lower.includes("secur") || lower.includes("bunker")) return ARCHITECT_BRAIN_TEMPLATES[0];
   if (lower.includes("garage") || lower.includes("stock")) return ARCHITECT_BRAIN_TEMPLATES[2];
   if (lower.includes("extension")) return ARCHITECT_BRAIN_TEMPLATES[3];
   return ARCHITECT_BRAIN_TEMPLATES[1];

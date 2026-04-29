@@ -17,6 +17,29 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
+const PROJECT_INSERT_COLUMNS = new Set([
+  "user_id",
+  "client_id",
+  "name",
+  "status",
+  "address",
+  "start_date",
+  "end_date",
+  "started_at",
+  "ended_at",
+  "notes",
+  "contract_amount",
+  "material_costs",
+  "amount_collected",
+]);
+
+function sanitizeProjectPayload(payload: Record<string, unknown>) {
+  const blocked = new Set(["price", "avg_price", "unit_price_estimate", "name_fr", "name_en"]);
+  return Object.fromEntries(
+    Object.entries(payload).filter(([key]) => PROJECT_INSERT_COLUMNS.has(key) && !blocked.has(key))
+  );
+}
+
 function NouveauProjetPageContent() {
   const router = useRouter();
   const { language } = useLanguage();
@@ -64,7 +87,7 @@ function NouveauProjetPageContent() {
       return;
     }
     setSubmitLoading(true);
-    const payload = {
+    const payload = sanitizeProjectPayload({
       user_id: user.id,
       client_id: clientId,
       name: name.trim(),
@@ -78,7 +101,7 @@ function NouveauProjetPageContent() {
       contract_amount: 0,
       material_costs: 0,
       amount_collected: 0,
-    };
+    });
     const { data, error: insertError } = await supabase
       .from("projects")
       .insert(payload)

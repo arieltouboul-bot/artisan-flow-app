@@ -1090,6 +1090,10 @@ export const translations: Record<string, { fr: string; en: string }> = {
   architectWallVolume: { fr: "Volume materiaux murs", en: "Wall material volume" },
   architectShow3d: { fr: "Vue 3D", en: "3D View" },
   architectHide3d: { fr: "Masquer la 3D", en: "Hide 3D" },
+  architect3dFallback: {
+    fr: "Rendu 3D indisponible. Le plan 2D reste interactif.",
+    en: "3D rendering unavailable. The 2D plan remains interactive.",
+  },
   architectLoadingPlan: { fr: "Chargement…", en: "Loading…" },
   architectBlueprintLoading: {
     fr: "Synthèse BIM & appariement matériaux…",

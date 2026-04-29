@@ -1,15 +1,40 @@
 "use client";
 
-import { Suspense } from "react";
+import React, { Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, SoftShadows, ContactShadows, Environment } from "@react-three/drei";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
+import { useLanguage } from "@/context/language-context";
+import { t } from "@/lib/translations";
 import { BuildingScene, SunLighting } from "./building-scene";
 
 type ArchitectViewport3DProps = {
   schema: ArchitecturalSchema | null;
   materialsById: Map<string, ArchitecturalLibraryRow>;
 };
+
+type ErrorBoundaryProps = { children: React.ReactNode; fallbackText: string };
+type ErrorBoundaryState = { hasError: boolean };
+
+class ViewportErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false };
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
+  }
+  componentDidCatch(error: unknown) {
+    console.error("[architect.3d] render failed", error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-full min-h-[360px] items-center justify-center rounded-lg border border-slate-700/80 bg-slate-950/80 text-sm text-slate-400">
+          {this.props.fallbackText}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function SceneContent({ schema, materialsById }: ArchitectViewport3DProps) {
   return (
@@ -37,17 +62,20 @@ function SceneContent({ schema, materialsById }: ArchitectViewport3DProps) {
 }
 
 export function ArchitectViewport3D({ schema, materialsById }: ArchitectViewport3DProps) {
+  const { language } = useLanguage();
   return (
     <div className="relative h-full min-h-[360px] w-full overflow-hidden rounded-lg border border-slate-700/80 bg-[#050a12]">
-      <Canvas
-        shadows
-        gl={{ antialias: true, preserveDrawingBuffer: true, alpha: false }}
-        camera={{ position: [11, 9, 11], fov: 42 }}
-      >
-        <Suspense fallback={null}>
-          <SceneContent schema={schema} materialsById={materialsById} />
-        </Suspense>
-      </Canvas>
+      <ViewportErrorBoundary fallbackText={t("architect3dFallback", language)}>
+        <Canvas
+          shadows
+          gl={{ antialias: true, preserveDrawingBuffer: true, alpha: false }}
+          camera={{ position: [11, 9, 11], fov: 42 }}
+        >
+          <Suspense fallback={null}>
+            <SceneContent schema={schema} materialsById={materialsById} />
+          </Suspense>
+        </Canvas>
+      </ViewportErrorBoundary>
     </div>
   );
 }

@@ -99,7 +99,16 @@ export function BuildingScene({ schema, materialsById }: BuildingSceneProps) {
   );
   const walls = useMemo(() => {
     if (!schema) return [];
-    return schema.structure.walls.map((w) => {
+    return schema.structure.walls
+      .filter(
+        (w) =>
+          Number.isFinite(w.x1) &&
+          Number.isFinite(w.x2) &&
+          Number.isFinite(w.z1) &&
+          Number.isFinite(w.z2) &&
+          Number.isFinite(w.thickness_m)
+      )
+      .map((w) => {
       const dx = w.x2 - w.x1;
       const dz = w.z2 - w.z1;
       const len = Math.max(0.01, Math.hypot(dx, dz));
@@ -116,7 +125,7 @@ export function BuildingScene({ schema, materialsById }: BuildingSceneProps) {
             : mat?.material_family === "concrete"
               ? textureSet.concrete
               : textureSet.plaster;
-      return { id: w.id, cx, cz, len, h: 2.5, th: w.thickness_m, angle, texture, ...pbr };
+      return { id: w.id, cx, cz, len, h: 2.5, th: Math.max(0.05, w.thickness_m), angle, texture, ...pbr };
     });
   }, [materialsById, schema, textureSet]);
 

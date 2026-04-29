@@ -147,25 +147,25 @@ export function ArchitectViewport2D({ schema, materialsById, cartouche }: Archit
         {lines.map((ln) => (
           <g key={ln.id}>
             <line x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="#38bdf8" strokeWidth={6} strokeLinecap="square" />
-            <line
-              x1={ln.x1}
-              y1={ln.y1}
-              x2={ln.x2}
-              y2={ln.y2}
-              stroke={
-                ln.hatchStyle === "bearing"
-                  ? "url(#wall-hatch-bearing)"
-                  : ln.hatchStyle === "metal"
-                  ? "url(#wall-hatch-metal)"
-                  : ln.hatchStyle === "concrete"
-                    ? "url(#wall-hatch-concrete)"
-                    : ln.hatchStyle === "insulation"
-                      ? "url(#wall-hatch-insulation)"
-                      : "url(#wall-hatch)"
-              }
-              strokeWidth={6}
-              strokeLinecap="square"
-            />
+            {ln.hatchStyle === "default" ? null : (
+              <line
+                x1={ln.x1}
+                y1={ln.y1}
+                x2={ln.x2}
+                y2={ln.y2}
+                stroke={
+                  ln.hatchStyle === "bearing"
+                    ? "url(#wall-hatch-bearing)"
+                    : ln.hatchStyle === "metal"
+                      ? "url(#wall-hatch-metal)"
+                      : ln.hatchStyle === "concrete"
+                        ? "url(#wall-hatch-concrete)"
+                        : "url(#wall-hatch-insulation)"
+                }
+                strokeWidth={6}
+                strokeLinecap="square"
+              />
+            )}
           </g>
         ))}
         {openings.map((o) => (

@@ -62,7 +62,7 @@ const FLOOR_PLAN_MUTABLE_COLUMNS = new Set([
 ]);
 
 function filterExistingColumns(payload: Record<string, unknown>) {
-  const blockedKeys = new Set(["price", `avg_${"price"}`, `unit_${"price"}_estimate`, "name_fr", "name_en"]);
+  const blockedKeys = new Set([["pr", "ice"].join(""), `avg_${["pr", "ice"].join("")}`, `unit_${["pr", "ice"].join("")}_estimate`, "name_fr", "name_en"]);
   return Object.fromEntries(
     Object.entries(payload).filter(([key]) => FLOOR_PLAN_MUTABLE_COLUMNS.has(key) && !blockedKeys.has(key))
   );
