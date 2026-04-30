@@ -487,7 +487,8 @@ Contraintes:
   let enforcedWalls = ensureInternalPartitionWalls(walls, minX, minZ, maxX, maxZ, fallback.id);
   const requiredZones =
     projectCategory === "safe_room" ? safeRoomZonesFromWeb(minX, minZ, maxX, maxZ, webContextSnippets) : buildRequiredZones(minX, minZ, maxX, maxZ);
-  const roomZones: ArchitecturalSchema["zones"] = (parsed.rooms ?? requiredZones)
+  const rawRooms = parsed.rooms && parsed.rooms.length > 0 ? parsed.rooms : requiredZones;
+  const roomZones = rawRooms
     .map((room, i) => {
       const polygon = Array.isArray(room.polygon)
         ? room.polygon
@@ -501,12 +502,12 @@ Contraintes:
         type: room.type ?? "piece",
         polygon,
         area_m2: Number(areaFromPolygon(polygon).toFixed(2)),
-        floor_finish: normalizeFloorFinish(room.floor_finish),
-        lighting: normalizeLighting(room.lighting),
-        ventilation: normalizeVentilation(room.ventilation),
+        floor_finish: normalizeFloorFinish(room.floor_finish || "beton_poli"),
+        lighting: normalizeLighting(room.lighting || "direct"),
+        ventilation: normalizeVentilation(room.ventilation || "bouche_extraction"),
       };
     })
-    .filter((z): z is RoomZone => z !== null);
+    .filter((zone): zone is RoomZone => zone !== null) as RoomZone[];
 
   const requiredNames = new Set(requiredZones.map((z) => z.name.toLowerCase()));
   const roomNames = new Set(roomZones.map((z) => z.name.toLowerCase()));
