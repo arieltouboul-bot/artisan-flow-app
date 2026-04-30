@@ -544,7 +544,7 @@ Contraintes:
 
   const requiredNames = new Set(requiredZones.map((z) => z.name.toLowerCase()));
   const roomNames = new Set(roomZones.map((z) => z.name.toLowerCase()));
-  const missingRequired = [...requiredNames].some((n) => !roomNames.has(n));
+  const missingRequired = Array.from(requiredNames).some((n) => !roomNames.has(n));
   let zones = missingRequired || roomZones.length === 0 ? requiredZones : roomZones;
   if (parsed.flooring && parsed.flooring.length > 0) {
     const floorByRoom = new Map(parsed.flooring.map((f) => [(f.room_name ?? "").toLowerCase(), f]));
