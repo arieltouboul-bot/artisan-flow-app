@@ -1,5 +1,6 @@
 import type { ArchitecturalLibraryRow, ArchitecturalSchema, RoomZone } from "./bim-types";
 import type { SerperSnippet } from "@/src/services/serperService";
+import { searchSerperSnippets } from "@/src/services/serperService";
 
 type OllamaGenerateResponse = { response?: string };
 
@@ -92,6 +93,10 @@ type OllamaPayload = {
     x?: number;
     y?: number;
   }>;
+  technical_data?: {
+    furniture_positions?: Array<{ type?: string; x?: number; y?: number; rotation?: number }>;
+    security_sensors?: Array<{ type?: string; x?: number; y?: number }>;
+  };
   step_by_step?: string[];
 };
 
@@ -275,6 +280,20 @@ function extractAirRatioFromWebContext(webContext: SerperSnippet[]): number {
   return 18;
 }
 
+function deriveTechnicalConstraintsFromWeb(webContext: SerperSnippet[]): string[] {
+  return webContext
+    .map((w) => `${w.title} ${w.snippet}`.toLowerCase())
+    .flatMap((text) => {
+      const out: string[] = [];
+      if (/sas|decontamination|decontamination/.test(text)) out.push("Prevoir un sas de decontamination avec degagement minimum 1.2m.");
+      if (/filtration|vmc|air/.test(text)) out.push("Prevoir une VMC/filtration avec bouches extraction reparties selon la surface.");
+      if (/norme|dtu|iso/.test(text)) out.push("Respecter les normes techniques citees dans les references web.");
+      if (/blind|intrusion|security|securite/.test(text)) out.push("Renforcer les points d'acces et capteurs perimetriques.");
+      return out;
+    })
+    .slice(0, 8);
+}
+
 function ensureInternalPartitionWalls(
   walls: ArchitecturalSchema["structure"]["walls"],
   minX: number,
@@ -413,6 +432,17 @@ export async function generateArchitecturalSchemaWithOllamaArchitect(
   const fallback = materials[0];
   if (!fallback) throw new Error("Catalogue matériaux vide");
 
+  let effectiveWebContext = webContextSnippets;
+  if (effectiveWebContext.length === 0) {
+    try {
+      const fallbackQuery = `layout technique ${projectCategory} ${prompt} normes 2026 filtration dimensions`;
+      effectiveWebContext = await searchSerperSnippets(fallbackQuery);
+    } catch {
+      effectiveWebContext = [];
+    }
+  }
+  const technicalConstraints = deriveTechnicalConstraintsFromWeb(effectiveWebContext);
+
   const systemPrompt =
     language === "fr"
       ? `Tu es un architecte. Ne génère pas de boîte vide. Utilise les résultats de recherche fournis pour placer des murs intérieurs, un sol spécifique, une VMC, et du mobilier cohérent.
@@ -428,6 +458,7 @@ Respecte ce schema exact:
   "flooring":[{"room_name":"SAS de securite","material":"dalle technique","texture_type":"diagonal_hatch"}],
   "furniture":[{"id":"f1","type":"bed","label":"Lit","x":1.2,"y":1.1,"rotation":0,"width_m":2,"depth_m":1.6,"height_m":0.5}],
   "technical_nodes":[{"id":"t1","type":"air_outlet","x":0.7,"y":0.6},{"id":"t2","type":"water_inlet","x":3.4,"y":3.1},{"id":"t3","type":"light_point","x":2.5,"y":2}],
+  "technical_data":{"furniture_positions":[{"type":"bed","x":1.2,"y":1.1,"rotation":90}],"security_sensors":[{"type":"intrusion_sensor","x":0.3,"y":0.3}]},
   "step_by_step":["etape 1","etape 2","etape 3"]
 }
 Contraintes:
@@ -440,11 +471,13 @@ Contraintes:
       : `You are a Senior Security Architect. Return strict JSON only with walls/openings/furniture. Keep coherent coordinates, no overlapping walls, furniture must not intersect walls.`;
 
   const webContextBlock =
-    webContextSnippets.length > 0
-      ? `\n\nCONTEXTE WEB REEL:\n${webContextSnippets
+    effectiveWebContext.length > 0
+      ? `\n\nCONTEXTE WEB REEL:\n${effectiveWebContext
           .map((s, i) => `${i + 1}. [${s.source}] ${s.title} — ${s.snippet}`)
           .join("\n")}`
       : "";
+  const constraintsBlock =
+    technicalConstraints.length > 0 ? `\n\nCONTRAINTES TECHNIQUES REELLES:\n${technicalConstraints.map((c, i) => `${i + 1}. ${c}`).join("\n")}` : "";
 
   const response = await fetch(OLLAMA_ENDPOINT, {
     method: "POST",
@@ -452,7 +485,7 @@ Contraintes:
     body: JSON.stringify({
       model: OLLAMA_MODEL,
       stream: false,
-      prompt: `${systemPrompt}\n\nProject category: ${projectCategory}\nUser prompt: ${prompt}${webContextBlock}`,
+      prompt: `${systemPrompt}\n\nProject category: ${projectCategory}\nUser prompt: ${prompt}${webContextBlock}${constraintsBlock}`,
     }),
   });
 
@@ -507,7 +540,7 @@ Contraintes:
         ventilation: normalizeVentilation(room.ventilation || "bouche_extraction"),
       };
     })
-    .filter((zone): zone is RoomZone => zone !== null) as RoomZone[];
+    .filter(Boolean) as unknown as RoomZone[];
 
   const requiredNames = new Set(requiredZones.map((z) => z.name.toLowerCase()));
   const roomNames = new Set(roomZones.map((z) => z.name.toLowerCase()));
@@ -575,7 +608,7 @@ Contraintes:
     }))
     .filter((node) => Number.isFinite(node.x) && Number.isFinite(node.y));
   const occupiedArea = zones.reduce((sum, z) => sum + (z.area_m2 || 0), 0);
-  const areaPerOutlet = extractAirRatioFromWebContext(webContextSnippets);
+  const areaPerOutlet = extractAirRatioFromWebContext(effectiveWebContext);
   const requiredAirOutlets = Math.max(1, Math.ceil(occupiedArea / Math.max(10, areaPerOutlet)));
   const existingAir = technical_nodes.filter((n) => n.type === "air_outlet").length;
   for (let i = existingAir; i < requiredAirOutlets; i += 1) {
@@ -603,6 +636,17 @@ Contraintes:
       furniture,
     },
   };
+
+  if (parsed.technical_data) {
+    construction_tree.technical_data = parsed.technical_data;
+  } else {
+    construction_tree.technical_data = {
+      furniture_positions: furniture.map((f) => ({ type: f.label.toLowerCase().replace(/\s+/g, "_"), x: f.x, y: f.z, rotation: 0 })),
+      security_sensors: technical_nodes
+        .filter((n) => n.type === "air_outlet")
+        .map((n) => ({ type: "air_sensor", x: n.x, y: n.y })),
+    };
+  }
 
   return { schema, furniture, rooms, technical_nodes, construction_tree };
 }

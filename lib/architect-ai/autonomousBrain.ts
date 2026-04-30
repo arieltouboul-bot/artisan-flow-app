@@ -14,6 +14,11 @@ export type AutonomousBrainResult = {
 
 type SupabaseLikeClient = {
   from: (table: string) => {
+    select?: (columns: string) => {
+      ilike: (column: string, value: string) => {
+        limit: (n: number) => Promise<{ data: Array<Record<string, unknown>> | null; error: { message: string } | null }>;
+      };
+    };
     insert: (rows: Array<Record<string, unknown>>) => Promise<{ error: { message: string } | null }>;
   };
 };
@@ -73,6 +78,12 @@ function insightsToTopics(insights: SerperSnippet[]): { standards: string[]; sec
   };
 }
 
+function naiveEmbedding(text: string): number[] {
+  const vec = new Array<number>(16).fill(0);
+  for (let i = 0; i < text.length; i += 1) vec[i % 16] += text.charCodeAt(i) / 255;
+  return vec.map((x) => Number((x / Math.max(1, text.length / 8)).toFixed(6)));
+}
+
 async function maybeInsertRareMaterial(
   supabase: SupabaseLikeClient,
   rareMaterial: string,
@@ -95,12 +106,21 @@ async function maybeInsertRareMaterial(
     description: webInsights[0]?.snippet ?? `Materiau enrichi via web: ${rareMaterial}`,
     technical_specs: specs,
   };
-  const { error } = await supabase.from("materials_library").insert([
+  const kb = supabase.from("ai_knowledge_base");
+  const maybeFind = kb.select?.("id");
+  if (maybeFind) {
+    const existing = await maybeFind.ilike("subject", `%${rareMaterial}%`).limit(1);
+    if (!existing.error && existing.data && existing.data.length > 0) return row;
+  }
+
+  const { error } = await kb.insert([
     {
-      id: row.id,
-      name: row.name,
-      category: row.category,
-      technical_specs: row.technical_specs,
+      id: crypto.randomUUID(),
+      subject: rareMaterial,
+      content: JSON.stringify(specs),
+      source: "serper",
+      embedding: naiveEmbedding(`${rareMaterial} ${webInsights.map((w) => w.snippet).join(" ")}`),
+      created_at: new Date().toISOString(),
     },
   ]);
   if (error) return null;
