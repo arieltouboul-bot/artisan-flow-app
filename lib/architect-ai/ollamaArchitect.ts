@@ -35,10 +35,53 @@ export type ArchitectFurnitureItem = {
   height_m: number;
 };
 
+export type ArchitectRoom = {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  floor_material: string;
+};
+
+export type ArchitectTechnicalNode = {
+  id: string;
+  type: "air_outlet" | "water_inlet" | "light_point";
+  x: number;
+  y: number;
+};
+
 type OllamaPayload = {
   title?: string;
   blueprint_2d?: { segments?: OllamaWall[]; openings?: OllamaOpening[] };
-  furniture?: ArchitectFurnitureItem[];
+  internal_walls?: OllamaWall[];
+  flooring?: Array<{
+    room_name?: string;
+    material?: string;
+    texture_type?: "grid" | "diagonal_hatch" | "solid";
+  }>;
+  rooms?: Array<{
+    id?: string;
+    name?: string;
+    type?: "piece" | "circulation" | "technique" | "exterieur";
+    polygon?: [number, number][];
+    floor_finish?: "beton_poli" | "dalle_technique" | "carrelage_anti_derapant" | "resine";
+    lighting?: "direct" | "indirect";
+    ventilation?: "bouche_extraction" | "double_flux";
+  }>;
+  furniture?: Array<
+    ArchitectFurnitureItem & {
+      y?: number;
+      type?: "bed" | "desk" | "security_panel" | "vent" | "storage";
+    }
+  >;
+  technical_nodes?: Array<{
+    id?: string;
+    type?: "air_outlet" | "water_inlet" | "light_point";
+    x?: number;
+    y?: number;
+  }>;
   step_by_step?: string[];
 };
 
@@ -85,6 +128,163 @@ function normalizeWalls(walls: OllamaWall[], fallback: ArchitecturalLibraryRow):
     });
   }
   return normalized;
+}
+
+function areaFromPolygon(poly: [number, number][]): number {
+  let area = 0;
+  for (let i = 0; i < poly.length; i += 1) {
+    const [x1, y1] = poly[i];
+    const [x2, y2] = poly[(i + 1) % poly.length];
+    area += x1 * y2 - x2 * y1;
+  }
+  return Math.abs(area) / 2;
+}
+
+function buildRequiredZones(minX: number, minZ: number, maxX: number, maxZ: number): ArchitecturalSchema["zones"] {
+  const xMid = (minX + maxX) / 2;
+  const zMid = (minZ + maxZ) / 2;
+  const q = (x1: number, z1: number, x2: number, z2: number): [number, number][] => [
+    [x1, z1],
+    [x2, z1],
+    [x2, z2],
+    [x1, z2],
+  ];
+  const definitions = [
+    { name: "SAS de securite", poly: q(minX, minZ, xMid, zMid), floor: "dalle_technique", light: "direct", vent: "bouche_extraction", type: "circulation" },
+    { name: "Zone de vie", poly: q(xMid, minZ, maxX, zMid), floor: "beton_poli", light: "indirect", vent: "double_flux", type: "piece" },
+    { name: "Stockage technique", poly: q(minX, zMid, xMid, maxZ), floor: "dalle_technique", light: "direct", vent: "bouche_extraction", type: "technique" },
+    { name: "Sanitaires", poly: q(xMid, zMid, maxX, maxZ), floor: "carrelage_anti_derapant", light: "direct", vent: "bouche_extraction", type: "technique" },
+  ] as const;
+  return definitions.map((d, i) => ({
+    id: `z-required-${i + 1}`,
+    name: d.name,
+    type: d.type,
+    polygon: d.poly,
+    area_m2: Number(areaFromPolygon(d.poly).toFixed(2)),
+    floor_finish: d.floor,
+    lighting: d.light,
+    ventilation: d.vent,
+  }));
+}
+
+function withRequiredFurniture(items: ArchitectFurnitureItem[], minX: number, minZ: number, maxX: number, maxZ: number): ArchitectFurnitureItem[] {
+  const required = [
+    { key: "lit", label: "Lit", x: minX + 1.2, z: minZ + 1.2, width_m: 2, depth_m: 1.6, height_m: 0.5 },
+    { key: "console", label: "Console de controle", x: maxX - 1.5, z: minZ + 1.2, width_m: 1.4, depth_m: 0.7, height_m: 0.9 },
+    { key: "etagere", label: "Etageres de stockage", x: minX + 1.2, z: maxZ - 1.2, width_m: 1.6, depth_m: 0.6, height_m: 2 },
+  ];
+  const has = (k: string) => items.some((f) => f.label.toLowerCase().includes(k));
+  const enriched = [...items];
+  for (const req of required) {
+    if (!has(req.key)) enriched.push({ id: `f-${req.key}`, ...req });
+  }
+  return enriched;
+}
+
+function safeRoomZonesFromWeb(
+  minX: number,
+  minZ: number,
+  maxX: number,
+  maxZ: number,
+  webContext: SerperSnippet[]
+): ArchitecturalSchema["zones"] {
+  const text = webContext.map((s) => `${s.title} ${s.snippet}`).join(" ").toLowerCase();
+  const hasAirTopic = text.includes("air") || text.includes("ventilation") || text.includes("filtration");
+  const xMid = (minX + maxX) / 2;
+  const zMid = (minZ + maxZ) / 2;
+  const q = (x1: number, z1: number, x2: number, z2: number): [number, number][] => [
+    [x1, z1],
+    [x2, z1],
+    [x2, z2],
+    [x1, z2],
+  ];
+  const zones: ArchitecturalSchema["zones"] = [
+    {
+      id: "z-safe-sas",
+      name: "SAS de securite",
+      type: "circulation",
+      polygon: q(minX, minZ, xMid, zMid),
+      area_m2: Number(areaFromPolygon(q(minX, minZ, xMid, zMid)).toFixed(2)),
+      floor_finish: "dalle_technique",
+      lighting: "direct",
+      ventilation: "bouche_extraction",
+    },
+    {
+      id: "z-safe-tech",
+      name: "Stockage technique",
+      type: "technique",
+      polygon: q(xMid, minZ, maxX, zMid),
+      area_m2: Number(areaFromPolygon(q(xMid, minZ, maxX, zMid)).toFixed(2)),
+      floor_finish: "dalle_technique",
+      lighting: "direct",
+      ventilation: hasAirTopic ? "double_flux" : "bouche_extraction",
+    },
+    {
+      id: "z-safe-life",
+      name: "Zone de vie",
+      type: "piece",
+      polygon: q(minX, zMid, maxX, maxZ),
+      area_m2: Number(areaFromPolygon(q(minX, zMid, maxX, maxZ)).toFixed(2)),
+      floor_finish: "beton_poli",
+      lighting: "indirect",
+      ventilation: hasAirTopic ? "double_flux" : "bouche_extraction",
+    },
+  ];
+  zones.push({
+    id: "z-safe-wc",
+    name: "Sanitaires",
+    type: "technique",
+    polygon: q(maxX - (maxX - minX) * 0.28, zMid + (maxZ - minZ) * 0.08, maxX - 0.15, maxZ - 0.15),
+    area_m2: Number(
+      areaFromPolygon(q(maxX - (maxX - minX) * 0.28, zMid + (maxZ - minZ) * 0.08, maxX - 0.15, maxZ - 0.15)).toFixed(2)
+    ),
+    floor_finish: "carrelage_anti_derapant",
+    lighting: "direct",
+    ventilation: "bouche_extraction",
+  });
+  return zones;
+}
+
+function ensureInternalPartitionWalls(
+  walls: ArchitecturalSchema["structure"]["walls"],
+  minX: number,
+  minZ: number,
+  maxX: number,
+  maxZ: number,
+  materialId: string
+): ArchitecturalSchema["structure"]["walls"] {
+  const xMid = (minX + maxX) / 2;
+  const zMid = (minZ + maxZ) / 2;
+  const hasVertical = walls.some((w) => Math.abs(w.x1 - w.x2) < 0.02 && Math.abs(w.x1 - xMid) < 0.25);
+  const hasHorizontal = walls.some((w) => Math.abs(w.z1 - w.z2) < 0.02 && Math.abs(w.z1 - zMid) < 0.25);
+  const next = [...walls];
+  if (!hasVertical) {
+    next.push({
+      id: "w-int-v",
+      x1: xMid,
+      z1: minZ,
+      x2: xMid,
+      z2: maxZ,
+      height_m: 2.7,
+      thickness_m: 0.12,
+      load_bearing: false,
+      material_ref_id: materialId,
+    });
+  }
+  if (!hasHorizontal) {
+    next.push({
+      id: "w-int-h",
+      x1: minX,
+      z1: zMid,
+      x2: maxX,
+      z2: zMid,
+      height_m: 2.7,
+      thickness_m: 0.12,
+      load_bearing: false,
+      material_ref_id: materialId,
+    });
+  }
+  return next;
 }
 
 export async function checkOllamaHealthArchitect(): Promise<boolean> {
@@ -173,19 +373,29 @@ export async function generateArchitecturalSchemaWithOllamaArchitect(
   materials: ArchitecturalLibraryRow[],
   projectCategory: "safe_room" | "house" | "technical_room",
   webContextSnippets: SerperSnippet[] = []
-): Promise<{ schema: ArchitecturalSchema; furniture: ArchitectFurnitureItem[] }> {
+): Promise<{
+  schema: ArchitecturalSchema;
+  furniture: ArchitectFurnitureItem[];
+  rooms: ArchitectRoom[];
+  technical_nodes: ArchitectTechnicalNode[];
+}> {
   const fallback = materials[0];
   if (!fallback) throw new Error("Catalogue matériaux vide");
 
   const systemPrompt =
     language === "fr"
-      ? `Tu es un Senior Security Architect.
+      ? `Tu es un architecte. Ne génère pas de boîte vide. Utilise les résultats de recherche fournis pour placer des murs intérieurs, un sol spécifique, une VMC, et du mobilier cohérent.
+Tu es aussi architecte d'interieur, ne laisse jamais d'espace vide de plus de 5m2 sans proposer un amenagement ou une cloison.
 Retourne UNIQUEMENT du JSON strict.
 Respecte ce schema exact:
 {
   "title": "string",
   "blueprint_2d": { "segments": [{ "id":"w1","x1":0,"y1":0,"x2":5,"y2":0,"height_m":2.8,"thickness_m":0.2,"load_bearing":true,"material_name":"Beton" }], "openings":[{"id":"o1","wall_id":"w1","width_m":0.9,"height_m":2.1,"type":"porte","offset_m":1.0}] },
-  "furniture":[{"id":"f1","label":"Lit","x":1.2,"z":1.1,"width_m":2,"depth_m":1.6,"height_m":0.5}],
+  "internal_walls":[{"id":"iw1","x1":2.5,"y1":0,"x2":2.5,"y2":4,"height_m":2.7,"thickness_m":0.12,"load_bearing":false,"material_name":"Cloison technique"}],
+  "rooms":[{"id":"r1","name":"SAS de securite","x":0,"y":0,"width":2,"height":2,"floor_material":"dalle_technique","type":"circulation","polygon":[[0,0],[2,0],[2,2],[0,2]],"floor_finish":"dalle_technique","lighting":"direct","ventilation":"bouche_extraction"}],
+  "flooring":[{"room_name":"SAS de securite","material":"dalle technique","texture_type":"diagonal_hatch"}],
+  "furniture":[{"id":"f1","type":"bed","label":"Lit","x":1.2,"y":1.1,"rotation":0,"width_m":2,"depth_m":1.6,"height_m":0.5}],
+  "technical_nodes":[{"id":"t1","type":"air_outlet","x":0.7,"y":0.6},{"id":"t2","type":"water_inlet","x":3.4,"y":3.1},{"id":"t3","type":"light_point","x":2.5,"y":2}],
   "step_by_step":["etape 1","etape 2","etape 3"]
 }
 Contraintes:
@@ -218,7 +428,7 @@ Contraintes:
   const payload = (await response.json()) as OllamaGenerateResponse;
   const parsed = JSON.parse(extractJson(payload.response ?? "")) as OllamaPayload;
 
-  const walls = normalizeWalls(parsed.blueprint_2d?.segments ?? [], fallback);
+  const walls = normalizeWalls([...(parsed.blueprint_2d?.segments ?? []), ...(parsed.internal_walls ?? [])], fallback);
   if (!walls.length) throw new Error("Aucun mur genere par Ollama");
 
   const openings: ArchitecturalSchema["logic"]["openings"] = (parsed.blueprint_2d?.openings ?? []).map((o, i) => ({
@@ -238,6 +448,45 @@ Contraintes:
   const minZ = Math.min(...zs);
   const maxZ = Math.max(...zs);
 
+  let enforcedWalls = ensureInternalPartitionWalls(walls, minX, minZ, maxX, maxZ, fallback.id);
+  const requiredZones =
+    projectCategory === "safe_room" ? safeRoomZonesFromWeb(minX, minZ, maxX, maxZ, webContextSnippets) : buildRequiredZones(minX, minZ, maxX, maxZ);
+  const roomZones: ArchitecturalSchema["zones"] = (parsed.rooms ?? [])
+    .map((room, i) => {
+      const polygon = Array.isArray(room.polygon)
+        ? room.polygon
+            .map((p) => [Number(p?.[0]), Number(p?.[1])] as [number, number])
+            .filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]))
+        : [];
+      if (polygon.length < 3) return null;
+      return {
+        id: room.id || `z-room-${i + 1}`,
+        name: room.name || `Zone ${i + 1}`,
+        type: room.type ?? "piece",
+        polygon,
+        area_m2: Number(areaFromPolygon(polygon).toFixed(2)),
+        floor_finish: room.floor_finish ?? "beton_poli",
+        lighting: room.lighting ?? "direct",
+        ventilation: room.ventilation ?? "bouche_extraction",
+      };
+    })
+    .filter((z): z is ArchitecturalSchema["zones"][number] => Boolean(z));
+
+  const requiredNames = new Set(requiredZones.map((z) => z.name.toLowerCase()));
+  const roomNames = new Set(roomZones.map((z) => z.name.toLowerCase()));
+  const missingRequired = [...requiredNames].some((n) => !roomNames.has(n));
+  let zones = missingRequired || roomZones.length === 0 ? requiredZones : roomZones;
+  if (parsed.flooring && parsed.flooring.length > 0) {
+    const floorByRoom = new Map(parsed.flooring.map((f) => [(f.room_name ?? "").toLowerCase(), f]));
+    zones = zones.map((z) => {
+      const roomFloor = floorByRoom.get(z.name.toLowerCase());
+      if (!roomFloor) return z;
+      const finish: ArchitecturalSchema["zones"][number]["floor_finish"] =
+        roomFloor.texture_type === "diagonal_hatch" ? "dalle_technique" : "beton_poli";
+      return { ...z, floor_finish: finish };
+    });
+  }
+
   const schema: ArchitecturalSchema = {
     version: 1,
     meta: {
@@ -248,25 +497,14 @@ Contraintes:
       project_category: projectCategory,
       execution_guide: parsed.step_by_step?.slice(0, 20),
     },
-    structure: { walls },
-    zones: [
-      {
-        id: "z-main",
-        name: "Zone principale",
-        type: "piece",
-        polygon: [
-          [minX, minZ],
-          [maxX, minZ],
-          [maxX, maxZ],
-          [minX, maxZ],
-        ],
-        area_m2: Number(Math.max(0.01, (maxX - minX) * (maxZ - minZ)).toFixed(2)),
-      },
-    ],
+    structure: { walls: enforcedWalls },
+    zones,
     logic: { openings, circulations: [] },
   };
 
-  const furniture = (parsed.furniture ?? []).filter(
+  const normalizedFurniture = (parsed.furniture ?? [])
+    .map((item) => ({ ...item, z: Number.isFinite(item.z) ? item.z : Number(item.y) }))
+    .filter(
     (item) =>
       Number.isFinite(item.x) &&
       Number.isFinite(item.z) &&
@@ -275,6 +513,37 @@ Contraintes:
       item.width_m > 0 &&
       item.depth_m > 0
   );
+  const furniture = withRequiredFurniture(normalizedFurniture, minX, minZ, maxX, maxZ);
 
-  return { schema, furniture };
+  const rooms: ArchitectRoom[] = zones.map((z) => {
+    const xsRoom = z.polygon.map((p) => p[0]);
+    const ysRoom = z.polygon.map((p) => p[1]);
+    return {
+      id: z.id,
+      name: z.name,
+      x: Math.min(...xsRoom),
+      y: Math.min(...ysRoom),
+      width: Math.max(0.1, Math.max(...xsRoom) - Math.min(...xsRoom)),
+      height: Math.max(0.1, Math.max(...ysRoom) - Math.min(...ysRoom)),
+      floor_material: z.floor_finish ?? "beton_poli",
+    };
+  });
+
+  const technical_nodes: ArchitectTechnicalNode[] = (parsed.technical_nodes ?? [])
+    .map((node, i) => ({
+      id: node.id || `tn-${i + 1}`,
+      type: node.type ?? "light_point",
+      x: Number(node.x),
+      y: Number(node.y),
+    }))
+    .filter((node) => Number.isFinite(node.x) && Number.isFinite(node.y));
+  if (technical_nodes.length === 0) {
+    technical_nodes.push(
+      { id: "tn-air", type: "air_outlet", x: minX + 0.5, y: minZ + 0.5 },
+      { id: "tn-water", type: "water_inlet", x: maxX - 0.7, y: maxZ - 0.7 },
+      { id: "tn-light", type: "light_point", x: (minX + maxX) / 2, y: (minZ + maxZ) / 2 }
+    );
+  }
+
+  return { schema, furniture, rooms, technical_nodes };
 }

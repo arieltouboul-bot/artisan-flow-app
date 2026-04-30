@@ -2,20 +2,22 @@
 
 import { useMemo } from "react";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
-import type { ArchitectFurnitureItem } from "@/lib/architect-ai/ollamaArchitect";
+import type { ArchitectFurnitureItem, ArchitectRoom } from "@/lib/architect-ai/ollamaArchitect";
 import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
+import { BlueprintCanvas } from "./BlueprintCanvas";
 
 type ArchitectViewport2DProps = {
   schema: ArchitecturalSchema | null;
   materialsById: Map<string, ArchitecturalLibraryRow>;
   furniture: ArchitectFurnitureItem[];
+  rooms: ArchitectRoom[];
   cartouche: { projectName: string; clientName: string; scaleText: string; dateText: string };
   isGenerating?: boolean;
 };
 
 /** Plan de coupe / cotations 2D (XZ → SVG) à partir du schéma BIM. */
-export function ArchitectViewport2D({ schema, materialsById, furniture, cartouche, isGenerating = false }: ArchitectViewport2DProps) {
+export function ArchitectViewport2D({ schema, materialsById, furniture, rooms, cartouche, isGenerating = false }: ArchitectViewport2DProps) {
   const { language } = useLanguage();
   const { viewBox, lines, dims, openings, zones, furnitureRects } = useMemo(() => {
     if (!schema?.structure.walls.length) {
@@ -31,7 +33,14 @@ export function ArchitectViewport2D({ schema, materialsById, furniture, cartouch
         }[],
         dims: [] as { x: number; y: number; t: string }[],
         openings: [] as { x: number; y: number; type: "porte" | "fenetre" | "baie"; id: string; r: number }[],
-        zones: [] as Array<{ id: string; points: string; secure: boolean }>,
+        zones: [] as Array<{
+          id: string;
+          points: string;
+          secure: boolean;
+          floor: "beton_poli" | "dalle_technique" | "carrelage_anti_derapant" | "resine";
+          type: "piece" | "circulation" | "technique" | "exterieur";
+          label: string;
+        }>,
         furnitureRects: [] as Array<{ id: string; x: number; y: number; w: number; h: number; label: string }>,
       };
     }
@@ -73,6 +82,7 @@ export function ArchitectViewport2D({ schema, materialsById, furniture, cartouch
       x2: toX(w.x2),
       y2: toY(w.z2),
       hatchStyle,
+      internal: !w.load_bearing,
     };
     });
     const dims = schema.structure.walls.map((w) => {
@@ -102,6 +112,9 @@ export function ArchitectViewport2D({ schema, materialsById, furniture, cartouch
       id: z.id,
       points: z.polygon.map(([x, zz]) => `${toX(x)},${toY(zz)}`).join(" "),
       secure: schema.meta.project_category === "safe_room" || z.name.toLowerCase().includes("safe"),
+      floor: z.floor_finish ?? "beton_poli",
+      type: z.type,
+      label: z.name,
     }));
     const w = (maxX - minX) * scale + 80;
     const h = (maxZ - minZ) * scale + 60;
@@ -126,90 +139,7 @@ export function ArchitectViewport2D({ schema, materialsById, furniture, cartouch
 
   return (
     <div className="relative h-full min-h-[360px] w-full overflow-hidden rounded-lg border border-slate-700/80 bg-[#0a1020]">
-      <svg viewBox={viewBox} className="h-full w-full text-sky-200/90">
-        <defs>
-          <pattern id="bp-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1e3a5f" strokeWidth="0.5" opacity="0.6" />
-          </pattern>
-          <pattern id="bp-grid-mm" width="10" height="10" patternUnits="userSpaceOnUse">
-            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#1e293b" strokeWidth="0.4" opacity="0.6" />
-          </pattern>
-          <pattern id="wall-hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
-            <line x1="0" y1="0" x2="0" y2="10" stroke="#7dd3fc" strokeWidth="1" opacity="0.4" />
-          </pattern>
-          <pattern id="wall-hatch-concrete" width="8" height="8" patternUnits="userSpaceOnUse">
-            <circle cx="2" cy="2" r="0.8" fill="#93c5fd" opacity="0.7" />
-            <circle cx="6" cy="6" r="0.8" fill="#93c5fd" opacity="0.7" />
-          </pattern>
-          <pattern id="wall-hatch-metal" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <line x1="0" y1="0" x2="0" y2="12" stroke="#cbd5e1" strokeWidth="1.1" opacity="0.85" />
-          </pattern>
-          <pattern id="wall-hatch-insulation" width="16" height="10" patternUnits="userSpaceOnUse">
-            <path d="M0,5 Q4,0 8,5 T16,5" fill="none" stroke="#67e8f9" strokeWidth="1" opacity="0.85" />
-          </pattern>
-          <pattern id="wall-hatch-bearing" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <line x1="0" y1="0" x2="0" y2="6" stroke="#e2e8f0" strokeWidth="1.1" opacity="0.95" />
-          </pattern>
-          <pattern id="zone-hatch-secure" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <rect width="10" height="10" fill="#1f2937" opacity="0.28" />
-            <line x1="0" y1="0" x2="0" y2="10" stroke="#ef4444" strokeWidth="1" opacity="0.55" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#bp-grid-mm)" />
-        <rect width="100%" height="100%" fill="url(#bp-grid)" />
-        {zones.map((z) => (
-          <polygon key={z.id} points={z.points} fill={z.secure ? "url(#zone-hatch-secure)" : "transparent"} />
-        ))}
-        {lines.map((ln) => (
-          <g key={ln.id}>
-            <line x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="#38bdf8" strokeWidth={6} strokeLinecap="square" />
-            {ln.hatchStyle === "default" ? null : (
-              <line
-                x1={ln.x1}
-                y1={ln.y1}
-                x2={ln.x2}
-                y2={ln.y2}
-                stroke={
-                  ln.hatchStyle === "bearing"
-                    ? "url(#wall-hatch-bearing)"
-                    : ln.hatchStyle === "metal"
-                      ? "url(#wall-hatch-metal)"
-                      : ln.hatchStyle === "concrete"
-                        ? "url(#wall-hatch-concrete)"
-                        : "url(#wall-hatch-insulation)"
-                }
-                strokeWidth={6}
-                strokeLinecap="square"
-              />
-            )}
-          </g>
-        ))}
-        {openings.map((o) => (
-          <g key={o.id}>
-            {o.type === "porte" ? (
-              <>
-                <circle cx={o.x} cy={o.y} r={o.r} fill="none" stroke="#bef264" strokeWidth="1.5" />
-                <path d={`M ${o.x} ${o.y} L ${o.x + o.r} ${o.y - o.r}`} stroke="#bef264" strokeWidth="1.5" />
-              </>
-            ) : (
-              <rect x={o.x - o.r} y={o.y - 2} width={o.r * 2} height={4} fill="#93c5fd" />
-            )}
-          </g>
-        ))}
-        {furnitureRects.map((f) => (
-          <g key={f.id}>
-            <rect x={f.x - f.w / 2} y={f.y - f.h / 2} width={f.w} height={f.h} fill="#f59e0b33" stroke="#fbbf24" strokeWidth="1" rx="2" />
-            <text x={f.x} y={f.y} fill="#fde68a" fontSize="10" textAnchor="middle" fontFamily="Inter, Arial, sans-serif">
-              {f.label}
-            </text>
-          </g>
-        ))}
-        {dims.map((d, i) => (
-          <text key={i} x={d.x} y={d.y} fill="#cbd5e1" fontSize="11" textAnchor="middle" fontFamily="Inter, Arial, sans-serif">
-            {d.t}
-          </text>
-        ))}
-      </svg>
+      <BlueprintCanvas viewBox={viewBox} zones={zones} rooms={rooms} lines={lines} openings={openings} furnitureRects={furnitureRects} dims={dims} />
       <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-slate-900/80 px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-sky-400/90">
         {t("architectPlan2dCaption", language)}
       </div>

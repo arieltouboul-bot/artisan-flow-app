@@ -1,7 +1,7 @@
 "use client";
 
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "./bim-types";
-import type { ArchitectFurnitureItem } from "./ollamaArchitect";
+import type { ArchitectFurnitureItem, ArchitectRoom, ArchitectTechnicalNode } from "./ollamaArchitect";
 import type { SerperSnippet } from "@/src/services/serperService";
 import { buildKnowledgeContext } from "./knowledge-dictionary";
 
@@ -9,9 +9,12 @@ export type GenerateArchitecturalSchemaResult = {
   schema: ArchitecturalSchema;
   used_materials: ArchitecturalLibraryRow[];
   furniture?: ArchitectFurnitureItem[];
+  rooms?: ArchitectRoom[];
+  technical_nodes?: ArchitectTechnicalNode[];
   web_context_snippets?: SerperSnippet[];
   rag_keywords?: string[];
   rag_query?: string | null;
+  thought_steps?: string[];
   warning?: string | null;
 };
 

@@ -8,6 +8,8 @@ import {
   buildOptimizedSearchQueryWithOllama,
   checkOllamaHealthArchitect,
   generateArchitecturalSchemaWithOllamaArchitect,
+  type ArchitectRoom,
+  type ArchitectTechnicalNode,
   type ArchitectFurnitureItem,
 } from "@/lib/architect-ai/ollamaArchitect";
 import { searchSerperSnippets, type SerperSnippet } from "@/src/services/serperService";
@@ -144,15 +146,19 @@ export async function POST(req: Request) {
     const keywordDriven = /\b(safe|studio|garage|extension|securite|security|stockage|bunker)\b/i.test(prompt);
     let schema: ArchitecturalSchema;
     let furniture: ArchitectFurnitureItem[] = [];
+    let rooms: ArchitectRoom[] = [];
+    let technicalNodes: ArchitectTechnicalNode[] = [];
     let webContextSnippets: SerperSnippet[] = [];
     let ragKeywords: string[] = [];
     let ragQuery: string | null = null;
+    const thought_steps: string[] = [];
     const ollamaReady = await checkOllamaHealthArchitect();
     let warning: string | null = null;
     if (ollamaReady) {
       try {
         let optimizedQuery = "";
         try {
+          thought_steps.push("Recherche web en cours...");
           ragKeywords = await deriveTechnicalKeywordsWithOllama(prompt, projectCategory, language);
           optimizedQuery = await buildOptimizedSearchQueryWithOllama(prompt, projectCategory, language);
           if (ragKeywords.length > 0) {
@@ -165,11 +171,18 @@ export async function POST(req: Request) {
         }
         try {
           webContextSnippets = await searchSerperSnippets(optimizedQuery);
+          thought_steps.push("Analyse structurelle...");
+          console.log("[architect.generate] web context received", {
+            query: optimizedQuery,
+            count: webContextSnippets.length,
+            sources: webContextSnippets.map((s) => s.source),
+          });
         } catch (serperError) {
           console.error("[architect.generate] serper unavailable", serperError);
           warning = "Contexte web indisponible, generation basee sur connaissances internes";
           webContextSnippets = [];
         }
+        thought_steps.push("Optimisation du mobilier...");
         const generated = await generateArchitecturalSchemaWithOllamaArchitect(
           prompt,
           language,
@@ -179,6 +192,8 @@ export async function POST(req: Request) {
         );
         schema = generated.schema;
         furniture = generated.furniture;
+        rooms = generated.rooms;
+        technicalNodes = generated.technical_nodes;
       } catch (ollamaError) {
         console.error("[architect.generate] ollama generation failed", ollamaError);
         warning = "Veuillez verifier qu'Ollama est lance";
@@ -214,9 +229,12 @@ export async function POST(req: Request) {
       used_materials,
       warning,
       furniture,
+      rooms,
+      technical_nodes: technicalNodes,
       web_context_snippets: webContextSnippets,
       rag_keywords: ragKeywords,
       rag_query: ragQuery,
+      thought_steps,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Erreur serveur";

@@ -14,7 +14,7 @@ import {
   generateArchitecturalSchema,
   type ArchitecturalProjectCategory,
 } from "@/lib/architect-ai/generate-architectural-schema";
-import type { ArchitectFurnitureItem } from "@/lib/architect-ai/ollamaArchitect";
+import type { ArchitectFurnitureItem, ArchitectRoom, ArchitectTechnicalNode } from "@/lib/architect-ai/ollamaArchitect";
 import { architecturalSchemaToFloorPlan } from "@/lib/architect-ai/schema-to-floor-plan";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
 import { generateExecutionDossierPdf } from "@/lib/architect-ai/execution-dossier-pdf";
@@ -42,6 +42,8 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
   const [schema, setSchema] = useState<ArchitecturalSchema | null>(null);
   const [usedMaterials, setUsedMaterials] = useState<ArchitecturalLibraryRow[]>([]);
   const [furniture, setFurniture] = useState<ArchitectFurnitureItem[]>([]);
+  const [rooms, setRooms] = useState<ArchitectRoom[]>([]);
+  const [technicalNodes, setTechnicalNodes] = useState<ArchitectTechnicalNode[]>([]);
   const [generating, setGenerating] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [show3D, setShow3D] = useState(true);
@@ -52,6 +54,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
   const [occupants, setOccupants] = useState("2");
   const [variant, setVariant] = useState<"basic" | "optimized" | "premium">("basic");
   const [webAnalysisInProgress, setWebAnalysisInProgress] = useState(false);
+  const [thinkingStep, setThinkingStep] = useState<string | null>(null);
   const root3dRef = useRef<HTMLDivElement>(null);
 
   const onPlanCreated = useCallback(
@@ -168,13 +171,19 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
     setChatMessages((prev) => [...prev, { id: `${Date.now()}-u`, role: "user", text: p }]);
     setGenerating(true);
     setWebAnalysisInProgress(true);
+    setThinkingStep("Recherche web en cours...");
+    const step1 = window.setTimeout(() => setThinkingStep("Analyse structurelle..."), 900);
+    const step2 = window.setTimeout(() => setThinkingStep("Optimisation du mobilier..."), 1900);
     try {
-      const { schema: next, used_materials, warning, furniture: generatedFurniture, rag_query } =
+      const { schema: next, used_materials, warning, furniture: generatedFurniture, rooms: generatedRooms, technical_nodes, rag_query, thought_steps } =
         await generateArchitecturalSchema(`${p}\n\nContraintes metier:\n${businessBrief}`, language, inferredCategory);
+      if (thought_steps?.length) setThinkingStep(thought_steps[thought_steps.length - 1] ?? null);
       const snapped = snapAxisAlignedSchema(next);
       setSchema(snapped);
       setUsedMaterials(used_materials);
       setFurniture(generatedFurniture ?? []);
+      setRooms(generatedRooms ?? []);
+      setTechnicalNodes(technical_nodes ?? []);
       setWebAnalysisInProgress(false);
       const doc = architecturalSchemaToFloorPlan(snapped);
       updateDocument(() => doc);
@@ -189,6 +198,11 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
             : rag_query
               ? `${t("architectChatGenerated", language)} Requete web: ${rag_query}`
               : t("architectChatGenerated", language),
+        },
+        {
+          id: `${Date.now()}-disclaimer`,
+          role: "assistant",
+          text: t("architectDisclaimer", language),
         },
       ]);
       setPrompt("");
@@ -205,9 +219,17 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
           role: "assistant",
           text: t("architectChatError", language),
         },
+        {
+          id: `${Date.now()}-disclaimer-err`,
+          role: "assistant",
+          text: t("architectDisclaimer", language),
+        },
       ]);
     } finally {
+      window.clearTimeout(step1);
+      window.clearTimeout(step2);
       setWebAnalysisInProgress(false);
+      setThinkingStep(null);
       setGenerating(false);
     }
   };
@@ -303,6 +325,9 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
     setPrompt("");
     setChatMessages([]);
     setFurniture([]);
+    setRooms([]);
+    setTechnicalNodes([]);
+    setThinkingStep(null);
   };
 
   if (loading) {
@@ -344,7 +369,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
         </div>
         {webAnalysisInProgress ? (
           <div className="rounded-md border border-cyan-700/50 bg-cyan-950/25 px-3 py-2 text-xs text-cyan-200">
-            Analyse des donnees web en cours...
+            {thinkingStep ?? "Recherche web en cours..."}
           </div>
         ) : null}
         {error && <p className="rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2 text-sm text-red-200">{error}</p>}
@@ -497,6 +522,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
               schema={cleanedSchema}
               materialsById={materialsById}
               furniture={furniture}
+              rooms={rooms}
               isGenerating={generating}
               cartouche={{
                 projectName: "Projet : AI Generated",
@@ -533,6 +559,16 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
                 ))
               )}
             </div>
+            {technicalNodes.length > 0 ? (
+              <div className="mt-3 border-t border-slate-800 pt-2">
+                <p className="mb-1 text-[11px] uppercase tracking-wider text-slate-400">Technical nodes</p>
+                {technicalNodes.map((node) => (
+                  <p key={node.id} className="text-[11px] text-slate-300">
+                    {node.type} ({node.x.toFixed(2)}, {node.y.toFixed(2)})
+                  </p>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
 

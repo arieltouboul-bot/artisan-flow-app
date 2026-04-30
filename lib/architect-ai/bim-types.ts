@@ -33,6 +33,9 @@ export type RoomZone = {
   /** Polygone horizontal (x,z), m — au moins 3 points */
   polygon: [number, number][];
   area_m2: number;
+  floor_finish?: "beton_poli" | "dalle_technique" | "carrelage_anti_derapant" | "resine";
+  lighting?: "direct" | "indirect";
+  ventilation?: "bouche_extraction" | "double_flux";
 };
 
 export type CirculationPath = {
