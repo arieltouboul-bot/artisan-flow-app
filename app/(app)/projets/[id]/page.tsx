@@ -178,10 +178,10 @@ export default function ProjetDetailPage() {
     return () => setPageContext({});
   }, [id, currentProject?.name, setPageContext]);
 
-  const pushToast = (kind: "success" | "error", message: string) => {
+  const pushToast = useCallback((kind: "success" | "error", message: string) => {
     setToast({ kind, message });
     window.setTimeout(() => setToast(null), 2200);
-  };
+  }, []);
 
   const openVatRateEditor = useCallback(async () => {
     if (!supabase || !id || !currentUserId || !currentProject) return;
