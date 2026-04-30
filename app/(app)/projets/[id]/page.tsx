@@ -358,7 +358,7 @@ export default function ProjetDetailPage() {
       return;
     }
     setExpenseTvaRate(20);
-  }, [currentProject?.id, currentProject?.vat_rate]);
+  }, [currentProject]);
 
   useEffect(() => {
     if (!supabase) return;
