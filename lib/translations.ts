@@ -1008,7 +1008,7 @@ export const translations: Record<string, { fr: string; en: string }> = {
   appointmentLabel: { fr: "Rendez-vous", en: "Appointment" },
   creation: { fr: "Création", en: "Creation" },
   floorPlans: { fr: "Architecte IA 2D/3D", en: "AI Architect 2D/3D" },
-  architectAi: { fr: "Architect AI", en: "Architect AI" },
+  architectAi: { fr: "Architect Intelligence", en: "Architect Intelligence" },
   floorPlanPageTitle: { fr: "Plans 2D & dossier technique", en: "2D plans & technical dossier" },
   floorPlanPageSubtitle: {
     fr: "Dessinez des murs (angles 90°), calibrez l’échelle, enregistrez le JSON dans Supabase et exportez un PDF.",
@@ -1044,11 +1044,17 @@ export const translations: Record<string, { fr: string; en: string }> = {
     en: "No materials. Check the materials_library table or RLS policies.",
   },
   materialSelectorPlaceholder: { fr: "Choisir un matériau…", en: "Choose a material…" },
-  architectPageTitle: { fr: "Architecte IA — conception 2D/3D", en: "AI Architect — 2D/3D design" },
+  architectPageTitle: { fr: "Architect Intelligence", en: "Architect Intelligence" },
   architectPageSubtitle: {
-    fr: "Décrivez le projet : l’IA génère un schéma BIM (murs, zones, circulations) enrichi par la bibliothèque architecturale.",
-    en: "Describe the project: the AI builds a BIM schema (walls, zones, circulation) enriched from the architectural library.",
+    fr: "Décrivez votre besoin : recherche Serper pour les normes, puis conception assistée par Ollama (pièces, mobilier, zones techniques).",
+    en: "Describe your need: Serper for standards, then Ollama-aided layout (rooms, furniture, technical zones).",
   },
+  architectIntelligencePromptPlaceholder: {
+    fr: "Que voulez-vous concevoir ?",
+    en: "What do you want to design?",
+  },
+  architectIntelligenceGenerate: { fr: "Générer", en: "Generate" },
+  architectScaleAuto: { fr: "Échelle automatique", en: "Auto scale" },
   architectPromptLabel: { fr: "Brief architectural", en: "Architectural brief" },
   architectPromptPlaceholder: {
     fr: "Ex. : Studio 4,5×3,2 m, baie sud, cloison Placo, parquet chêne…",

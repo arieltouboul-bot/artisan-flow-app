@@ -11,7 +11,7 @@ import { useLanguage } from "@/context/language-context";
 import { t } from "@/lib/translations";
 import { useProfile } from "@/hooks/use-profile";
 import { generateArchitecturalSchema, type ArchitecturalProjectCategory } from "@/lib/architect-ai/generate-architectural-schema";
-import type { ArchitectFurnitureItem, ArchitectRoom, ArchitectTechnicalNode } from "@/lib/architect-ai/ollamaArchitect";
+import type { ArchitectFurnitureItem, ArchitectRoom } from "@/lib/architect-ai/ollamaArchitect";
 import type { SerperSnippet } from "@/src/services/serperService";
 import { architecturalSchemaToFloorPlan } from "@/lib/architect-ai/schema-to-floor-plan";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
@@ -27,7 +27,7 @@ type ArchitectAiStudioProps = {
 function parseAreaM2FromPrompt(text: string): number | null {
   const normalized = text.replace(/\s+/g, " ");
   const m =
-    normalized.match(/(\d+(?:[.,]\d+)?)\s*m(?:²|\^?2\b)/iu) ?? normalized.match(/(\d+(?:[.,]\d+)?)\s*m2\b/iu);
+    normalized.match(/(\d+(?:[.,]\d+)?)\s*m(?:²|\^?2\b)/i) ?? normalized.match(/(\d+(?:[.,]\d+)?)\s*m2\b/i);
   if (!m) return null;
   const n = parseFloat(m[1].replace(",", "."));
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -141,7 +141,6 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
       setUsedMaterials(used_materials);
       setFurniture(generatedFurniture ?? []);
       setRooms(generatedRooms ?? []);
-      setTechnicalNodes(technical_nodes ?? []);
       setWebInsights(web_context_snippets ?? []);
       const doc = architecturalSchemaToFloorPlan(snapped);
       updateDocument(() => doc);
@@ -349,9 +348,6 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
           {statusMessage ? (
             <p className="rounded-md border border-slate-700/80 bg-slate-900/50 px-3 py-2 text-center text-sm text-slate-300">{statusMessage}</p>
           ) : null}
-          {!generating && statusMessage && cleanedSchema ? (
-            <p className="text-center text-xs text-slate-500">{t("architectDisclaimer", language)}</p>
-          ) : null}
         </motion.div>
 
         {cleanedSchema ? (
@@ -403,14 +399,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
               </Button>
             </motion.div>
           </>
-        ) : (
-          !generating &&
-          statusMessage &&
-          /^Conceptual|^Schema/i.test(statusMessage) === false &&
-          schema === null &&
-          statusMessage.includes(t("architectDisclaimer", language)) === false &&
-          false
-        )}
+        ) : null}
       </main>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import type { RefObject } from "react";
+import type { Ref } from "react";
 import { useMemo } from "react";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
 import type { ArchitectFurnitureItem, ArchitectRoom } from "@/lib/architect-ai/ollamaArchitect";
@@ -16,6 +16,7 @@ type ArchitectViewport2DProps = {
   targetAreaM2?: number | null;
   cartouche: { projectName: string; clientName: string; scaleText: string; dateText: string };
   isGenerating?: boolean;
+  containerRef?: Ref<HTMLDivElement>;
 };
 
 /** Plan de coupe / cotations 2D (XZ → SVG) à partir du schéma BIM. */

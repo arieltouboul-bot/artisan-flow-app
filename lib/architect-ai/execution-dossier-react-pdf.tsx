@@ -41,7 +41,7 @@ function DossierDocument(input: ExecutionDossierPdfInput) {
   const isFr = input.language === "fr";
   const capOverview = isFr ? "Vue d\u0027ensemble" : "Overview";
   const capTechnical = isFr ? "Zoom technique" : "Technical zoom";
-  const capDetails = isFr ? "Details (mobilier / equipements)" : "Details (furniture / equipment)";
+  const capDetails = isFr ? "D\u00E9tails (mobilier / \u00E9quipements)" : "Details (furniture / equipment)";
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -81,8 +81,11 @@ function DossierDocument(input: ExecutionDossierPdfInput) {
               ) : null}
             </>
           ) : input.render2dDataUrl ? (
-            // eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image does not expose alt (see types)
-            <Image src={input.render2dDataUrl} style={styles.image} />
+            <View wrap={false}>
+              <Text style={styles.imageCaption}>{capOverview}</Text>
+              {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image does not expose alt (see types) */}
+              <Image src={input.render2dDataUrl} style={styles.image} />
+            </View>
           ) : (
             <Text style={styles.small}>Plan 2D indisponible</Text>
           )}
