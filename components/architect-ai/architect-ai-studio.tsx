@@ -17,7 +17,7 @@ import {
 import type { ArchitectFurnitureItem, ArchitectRoom, ArchitectTechnicalNode } from "@/lib/architect-ai/ollamaArchitect";
 import { architecturalSchemaToFloorPlan } from "@/lib/architect-ai/schema-to-floor-plan";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
-import { generateExecutionDossierPdf } from "@/lib/architect-ai/execution-dossier-pdf";
+import { generateExecutionDossierPdf } from "@/lib/architect-ai/execution-dossier-react-pdf";
 import { ArchitectViewport2D } from "./architect-viewport-2d";
 import { ArchitectViewport3D } from "./architect-viewport-3d";
 import { BlueprintLoader } from "./blueprint-loader";

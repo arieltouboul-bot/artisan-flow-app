@@ -258,6 +258,13 @@ function safeRoomZonesFromWeb(
   return zones;
 }
 
+function extractAirRatioFromWebContext(webContext: SerperSnippet[]): number {
+  const text = webContext.map((s) => `${s.title} ${s.snippet}`).join(" ").toLowerCase();
+  if (/15\s?m2/.test(text) || /15\s?m²/.test(text)) return 15;
+  if (/20\s?m2/.test(text) || /20\s?m²/.test(text)) return 20;
+  return 18;
+}
+
 function ensureInternalPartitionWalls(
   walls: ArchitecturalSchema["structure"]["walls"],
   minX: number,
@@ -550,12 +557,23 @@ Contraintes:
       y: Number(node.y),
     }))
     .filter((node) => Number.isFinite(node.x) && Number.isFinite(node.y));
-  if (technical_nodes.length === 0) {
-    technical_nodes.push(
-      { id: "tn-air", type: "air_outlet", x: minX + 0.5, y: minZ + 0.5 },
-      { id: "tn-water", type: "water_inlet", x: maxX - 0.7, y: maxZ - 0.7 },
-      { id: "tn-light", type: "light_point", x: (minX + maxX) / 2, y: (minZ + maxZ) / 2 }
-    );
+  const occupiedArea = zones.reduce((sum, z) => sum + (z.area_m2 || 0), 0);
+  const areaPerOutlet = extractAirRatioFromWebContext(webContextSnippets);
+  const requiredAirOutlets = Math.max(1, Math.ceil(occupiedArea / Math.max(10, areaPerOutlet)));
+  const existingAir = technical_nodes.filter((n) => n.type === "air_outlet").length;
+  for (let i = existingAir; i < requiredAirOutlets; i += 1) {
+    technical_nodes.push({
+      id: `tn-air-${i + 1}`,
+      type: "air_outlet",
+      x: minX + 0.6 + i * 0.8,
+      y: minZ + 0.6,
+    });
+  }
+  if (!technical_nodes.some((n) => n.type === "water_inlet")) {
+    technical_nodes.push({ id: "tn-water", type: "water_inlet", x: maxX - 0.7, y: maxZ - 0.7 });
+  }
+  if (!technical_nodes.some((n) => n.type === "light_point")) {
+    technical_nodes.push({ id: "tn-light", type: "light_point", x: (minX + maxX) / 2, y: (minZ + maxZ) / 2 });
   }
 
   return { schema, furniture, rooms, technical_nodes };
