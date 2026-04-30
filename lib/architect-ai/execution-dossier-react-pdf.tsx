@@ -4,6 +4,7 @@ import React from "react";
 import { Document, Image, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "./bim-types";
 import type { ArchitectFurnitureItem } from "./ollamaArchitect";
+import type { SerperSnippet } from "@/src/services/serperService";
 
 export type ExecutionDossierPdfInput = {
   projectName: string;
@@ -13,6 +14,7 @@ export type ExecutionDossierPdfInput = {
   render3dDataUrl: string | null;
   render2dDataUrl: string | null;
   furniture: ArchitectFurnitureItem[];
+  webInsights: SerperSnippet[];
   language: "fr" | "en";
 };
 
@@ -46,12 +48,12 @@ function DossierDocument(input: ExecutionDossierPdfInput) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>2. Plan 2D</Text>
-          {input.render2dDataUrl ? <Image src={input.render2dDataUrl} style={styles.image} alt="" /> : <Text style={styles.small}>Plan 2D indisponible</Text>}
+          {input.render2dDataUrl ? <Image src={input.render2dDataUrl} style={styles.image} /> : <Text style={styles.small}>Plan 2D indisponible</Text>}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>3. Vue 3D</Text>
-          {input.render3dDataUrl ? <Image src={input.render3dDataUrl} style={styles.image} alt="" /> : <Text style={styles.small}>Vue 3D indisponible</Text>}
+          {input.render3dDataUrl ? <Image src={input.render3dDataUrl} style={styles.image} /> : <Text style={styles.small}>Vue 3D indisponible</Text>}
         </View>
 
         <View style={styles.section}>
@@ -100,6 +102,16 @@ function DossierDocument(input: ExecutionDossierPdfInput) {
           <Text style={styles.listItem}>- Legende: symboles air/eau/lumiere identifies dans la couche technique.</Text>
           <Text style={styles.listItem}>- Entretien: verifier regulierement les bouches extraction et filtres VMC.</Text>
           <Text style={styles.listItem}>- Recommandation: mise a jour annuelle des equipements de securite.</Text>
+          {input.webInsights.length > 0 ? (
+            <View style={{ marginTop: 4 }}>
+              <Text style={styles.small}>References web (Serper):</Text>
+              {input.webInsights.slice(0, 4).map((w) => (
+                <Text key={`${w.source}-${w.title}`} style={styles.listItem}>
+                  - [{w.source}] {w.title}
+                </Text>
+              ))}
+            </View>
+          ) : null}
           {steps.length > 0 ? (
             <View style={{ marginTop: 4 }}>
               <Text style={styles.small}>Guide execution:</Text>

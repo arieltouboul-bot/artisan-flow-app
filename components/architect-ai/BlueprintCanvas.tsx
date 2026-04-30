@@ -30,6 +30,7 @@ type BlueprintCanvasProps = {
   openings: OpeningShape[];
   furnitureRects: FurnitureShape[];
   dims: DimText[];
+  targetAreaM2?: number | null;
 };
 
 function applyFloorPatterns(zones: ZoneShape[]) {
@@ -61,7 +62,7 @@ function drawFurniture(furnitureRects: FurnitureShape[]) {
   ));
 }
 
-export function BlueprintCanvas({ viewBox, zones, rooms = [], lines, openings, furnitureRects, dims }: BlueprintCanvasProps) {
+export function BlueprintCanvas({ viewBox, zones, rooms = [], lines, openings, furnitureRects, dims, targetAreaM2 = null }: BlueprintCanvasProps) {
   const roomPolygons: ZoneShape[] =
     rooms.length > 0
       ? rooms.map((r) => ({
@@ -78,6 +79,14 @@ export function BlueprintCanvas({ viewBox, zones, rooms = [], lines, openings, f
           points: `${r.x},${r.y} ${r.x + r.width},${r.y} ${r.x + r.width},${r.y + r.height} ${r.x},${r.y + r.height}`,
         }))
       : zones;
+  const dimFontSize = targetAreaM2 && targetAreaM2 >= 25 ? 12 : 10;
+  const allPoints = roomPolygons.flatMap((z) =>
+    z.points.split(" ").map((pair) => pair.split(",").map(Number) as [number, number]).filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]))
+  );
+  const minX = allPoints.length ? Math.min(...allPoints.map((p) => p[0])) : 0;
+  const maxX = allPoints.length ? Math.max(...allPoints.map((p) => p[0])) : 0;
+  const minY = allPoints.length ? Math.min(...allPoints.map((p) => p[1])) : 0;
+  const maxY = allPoints.length ? Math.max(...allPoints.map((p) => p[1])) : 0;
   return (
     <svg viewBox={viewBox} className="h-full w-full text-sky-200/90">
       <defs>
@@ -119,8 +128,20 @@ export function BlueprintCanvas({ viewBox, zones, rooms = [], lines, openings, f
         </g>
       ))}
       {drawFurniture(furnitureRects)}
+      {allPoints.length ? (
+        <>
+          <line x1={minX} y1={maxY + 10} x2={maxX} y2={maxY + 10} stroke="#7dd3fc" strokeWidth={1} strokeDasharray="4 3" />
+          <line x1={maxX + 10} y1={minY} x2={maxX + 10} y2={maxY} stroke="#7dd3fc" strokeWidth={1} strokeDasharray="4 3" />
+          <text x={(minX + maxX) / 2} y={maxY + 8} fill="#7dd3fc" textAnchor="middle" fontSize={dimFontSize}>
+            {Math.abs(maxX - minX).toFixed(1)} u
+          </text>
+          <text x={maxX + 12} y={(minY + maxY) / 2} fill="#7dd3fc" fontSize={dimFontSize}>
+            {Math.abs(maxY - minY).toFixed(1)} u
+          </text>
+        </>
+      ) : null}
       {dims.map((d, i) => (
-        <text key={i} x={d.x} y={d.y} fill="#cbd5e1" fontSize="11" textAnchor="middle" fontFamily="Inter, Arial, sans-serif">
+        <text key={i} x={d.x} y={d.y} fill="#cbd5e1" fontSize={dimFontSize} textAnchor="middle" fontFamily="Inter, Arial, sans-serif">
           {d.t}
         </text>
       ))}

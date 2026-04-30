@@ -13,6 +13,7 @@ import {
   type ArchitectFurnitureItem,
 } from "@/lib/architect-ai/ollamaArchitect";
 import { searchSerperSnippets, type SerperSnippet } from "@/src/services/serperService";
+import { runAutonomousBrain } from "@/lib/architect-ai/autonomousBrain";
 
 function collectUsedMaterialIds(schema: ArchitecturalSchema): Set<string> {
   const ids = new Set<string>();
@@ -140,7 +141,7 @@ export async function POST(req: Request) {
         haystack.includes("arme")
       );
     });
-    const materials =
+    let materials =
       projectCategory === "safe_room" && securityMaterials.length > 0 ? securityMaterials : allMaterials;
 
     const keywordDriven = /\b(safe|studio|garage|extension|securite|security|stockage|bunker)\b/i.test(prompt);
@@ -148,6 +149,7 @@ export async function POST(req: Request) {
     let furniture: ArchitectFurnitureItem[] = [];
     let rooms: ArchitectRoom[] = [];
     let technicalNodes: ArchitectTechnicalNode[] = [];
+    let constructionTree: Record<string, unknown> | null = null;
     let webContextSnippets: SerperSnippet[] = [];
     let ragKeywords: string[] = [];
     let ragQuery: string | null = null;
@@ -160,17 +162,29 @@ export async function POST(req: Request) {
         try {
           thought_steps.push("Recherche web en cours...");
           ragKeywords = await deriveTechnicalKeywordsWithOllama(prompt, projectCategory, language);
-          optimizedQuery = await buildOptimizedSearchQueryWithOllama(prompt, projectCategory, language);
-          if (ragKeywords.length > 0) {
-            optimizedQuery = `${optimizedQuery} ${ragKeywords.join(" ")}`.slice(0, 220);
-          }
+          const seedQuery = await buildOptimizedSearchQueryWithOllama(prompt, projectCategory, language);
+          const autonomous = await runAutonomousBrain({
+            prompt,
+            projectCategory,
+            materials,
+            supabase: supabase as unknown as {
+              from: (table: string) => {
+                insert: (rows: Array<Record<string, unknown>>) => Promise<{ error: { message: string } | null }>;
+              };
+            },
+          });
+          optimizedQuery = `${seedQuery} ${autonomous.optimizedQuery} ${ragKeywords.join(" ")}`.slice(0, 220);
           ragQuery = optimizedQuery;
+          materials = autonomous.enrichedMaterials;
+          webContextSnippets = autonomous.webInsights;
         } catch {
           optimizedQuery = `normes ${projectCategory} materiaux dispositifs securite`;
           ragQuery = optimizedQuery;
         }
         try {
-          webContextSnippets = await searchSerperSnippets(optimizedQuery);
+          if (webContextSnippets.length === 0) {
+            webContextSnippets = await searchSerperSnippets(optimizedQuery);
+          }
           thought_steps.push("Analyse structurelle...");
           console.log("[architect.generate] web context received", {
             query: optimizedQuery,
@@ -194,6 +208,7 @@ export async function POST(req: Request) {
         furniture = generated.furniture;
         rooms = generated.rooms;
         technicalNodes = generated.technical_nodes;
+        constructionTree = generated.construction_tree;
       } catch (ollamaError) {
         console.error("[architect.generate] ollama generation failed", ollamaError);
         warning = "Veuillez verifier qu'Ollama est lance";
@@ -231,6 +246,7 @@ export async function POST(req: Request) {
       furniture,
       rooms,
       technical_nodes: technicalNodes,
+      construction_tree: constructionTree,
       web_context_snippets: webContextSnippets,
       rag_keywords: ragKeywords,
       rag_query: ragQuery,

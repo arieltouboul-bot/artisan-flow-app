@@ -15,6 +15,7 @@ import {
   type ArchitecturalProjectCategory,
 } from "@/lib/architect-ai/generate-architectural-schema";
 import type { ArchitectFurnitureItem, ArchitectRoom, ArchitectTechnicalNode } from "@/lib/architect-ai/ollamaArchitect";
+import type { SerperSnippet } from "@/src/services/serperService";
 import { architecturalSchemaToFloorPlan } from "@/lib/architect-ai/schema-to-floor-plan";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
 import { generateExecutionDossierPdf } from "@/lib/architect-ai/execution-dossier-react-pdf";
@@ -44,6 +45,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
   const [furniture, setFurniture] = useState<ArchitectFurnitureItem[]>([]);
   const [rooms, setRooms] = useState<ArchitectRoom[]>([]);
   const [technicalNodes, setTechnicalNodes] = useState<ArchitectTechnicalNode[]>([]);
+  const [webInsights, setWebInsights] = useState<SerperSnippet[]>([]);
   const [generating, setGenerating] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [show3D, setShow3D] = useState(true);
@@ -175,7 +177,17 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
     const step1 = window.setTimeout(() => setThinkingStep("Analyse structurelle..."), 900);
     const step2 = window.setTimeout(() => setThinkingStep("Optimisation du mobilier..."), 1900);
     try {
-      const { schema: next, used_materials, warning, furniture: generatedFurniture, rooms: generatedRooms, technical_nodes, rag_query, thought_steps } =
+      const {
+        schema: next,
+        used_materials,
+        warning,
+        furniture: generatedFurniture,
+        rooms: generatedRooms,
+        technical_nodes,
+        rag_query,
+        thought_steps,
+        web_context_snippets,
+      } =
         await generateArchitecturalSchema(`${p}\n\nContraintes metier:\n${businessBrief}`, language, inferredCategory);
       if (thought_steps?.length) setThinkingStep(thought_steps[thought_steps.length - 1] ?? null);
       const snapped = snapAxisAlignedSchema(next);
@@ -184,6 +196,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
       setFurniture(generatedFurniture ?? []);
       setRooms(generatedRooms ?? []);
       setTechnicalNodes(technical_nodes ?? []);
+      setWebInsights(web_context_snippets ?? []);
       setWebAnalysisInProgress(false);
       const doc = architecturalSchemaToFloorPlan(snapped);
       updateDocument(() => doc);
@@ -308,6 +321,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
         render3dDataUrl: png3d,
         render2dDataUrl: png2d,
         furniture,
+        webInsights,
         language,
       });
       const url = URL.createObjectURL(blob);
@@ -327,6 +341,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
     setFurniture([]);
     setRooms([]);
     setTechnicalNodes([]);
+    setWebInsights([]);
     setThinkingStep(null);
   };
 
@@ -523,6 +538,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
               materialsById={materialsById}
               furniture={furniture}
               rooms={rooms}
+              targetAreaM2={Number(surfaceM2) || geometryStats.areaM2}
               isGenerating={generating}
               cartouche={{
                 projectName: "Projet : AI Generated",

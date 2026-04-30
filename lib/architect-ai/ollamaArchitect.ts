@@ -54,6 +54,16 @@ export type ArchitectTechnicalNode = {
 
 type OllamaPayload = {
   title?: string;
+  construction_tree?: {
+    structure?: { load_bearing_walls?: OllamaWall[]; slabs?: Array<{ id?: string; material?: string; thickness_m?: number }> };
+    compartmentage?: { internal_walls?: OllamaWall[]; sas?: Array<{ id?: string; x?: number; y?: number; width?: number; height?: number }> };
+    equipment?: {
+      hvac?: Array<{ id?: string; x?: number; y?: number; type?: string }>;
+      plumbing?: Array<{ id?: string; x?: number; y?: number; type?: string }>;
+      electrical?: Array<{ id?: string; x?: number; y?: number; type?: string }>;
+      furniture?: Array<{ id?: string; x?: number; y?: number; type?: string; rotation?: number }>;
+    };
+  };
   blueprint_2d?: { segments?: OllamaWall[]; openings?: OllamaOpening[] };
   internal_walls?: OllamaWall[];
   flooring?: Array<{
@@ -398,6 +408,7 @@ export async function generateArchitecturalSchemaWithOllamaArchitect(
   furniture: ArchitectFurnitureItem[];
   rooms: ArchitectRoom[];
   technical_nodes: ArchitectTechnicalNode[];
+  construction_tree: Record<string, unknown>;
 }> {
   const fallback = materials[0];
   if (!fallback) throw new Error("Catalogue matériaux vide");
@@ -410,6 +421,7 @@ Retourne UNIQUEMENT du JSON strict.
 Respecte ce schema exact:
 {
   "title": "string",
+  "construction_tree":{"structure":{"load_bearing_walls":[{"id":"lw1","x1":0,"y1":0,"x2":5,"y2":0}],"slabs":[{"id":"s1","material":"beton arme","thickness_m":0.2}]},"compartmentage":{"internal_walls":[{"id":"iw1","x1":2.5,"y1":0,"x2":2.5,"y2":4}],"sas":[{"id":"sas1","x":0,"y":0,"width":1.8,"height":1.6}]},"equipment":{"hvac":[{"id":"v1","x":1.2,"y":0.8,"type":"vmc"}],"plumbing":[{"id":"w1","x":3.5,"y":3.2,"type":"arrivee_eau"}],"electrical":[{"id":"e1","x":2.2,"y":2.1,"type":"point_lumineux"}],"furniture":[{"id":"f1","x":1.1,"y":1.1,"type":"bed","rotation":90}]}}
   "blueprint_2d": { "segments": [{ "id":"w1","x1":0,"y1":0,"x2":5,"y2":0,"height_m":2.8,"thickness_m":0.2,"load_bearing":true,"material_name":"Beton" }], "openings":[{"id":"o1","wall_id":"w1","width_m":0.9,"height_m":2.1,"type":"porte","offset_m":1.0}] },
   "internal_walls":[{"id":"iw1","x1":2.5,"y1":0,"x2":2.5,"y2":4,"height_m":2.7,"thickness_m":0.12,"load_bearing":false,"material_name":"Cloison technique"}],
   "rooms":[{"id":"r1","name":"SAS de securite","x":0,"y":0,"width":2,"height":2,"floor_material":"dalle_technique","type":"circulation","polygon":[[0,0],[2,0],[2,2],[0,2]],"floor_finish":"dalle_technique","lighting":"direct","ventilation":"bouche_extraction"}],
@@ -448,7 +460,11 @@ Contraintes:
   const payload = (await response.json()) as OllamaGenerateResponse;
   const parsed = JSON.parse(extractJson(payload.response ?? "")) as OllamaPayload;
 
-  const walls = normalizeWalls([...(parsed.blueprint_2d?.segments ?? []), ...(parsed.internal_walls ?? [])], fallback);
+  const treeWalls = [
+    ...(parsed.construction_tree?.structure?.load_bearing_walls ?? []),
+    ...(parsed.construction_tree?.compartmentage?.internal_walls ?? []),
+  ];
+  const walls = normalizeWalls([...(parsed.blueprint_2d?.segments ?? []), ...(parsed.internal_walls ?? []), ...treeWalls], fallback);
   if (!walls.length) throw new Error("Aucun mur genere par Ollama");
 
   const openings: ArchitecturalSchema["logic"]["openings"] = (parsed.blueprint_2d?.openings ?? []).map((o, i) => ({
@@ -576,5 +592,16 @@ Contraintes:
     technical_nodes.push({ id: "tn-light", type: "light_point", x: (minX + maxX) / 2, y: (minZ + maxZ) / 2 });
   }
 
-  return { schema, furniture, rooms, technical_nodes };
+  const construction_tree: Record<string, unknown> = parsed.construction_tree ?? {
+    structure: { load_bearing_walls: schema.structure.walls, slabs: [{ id: "slab-default", material: "beton arme", thickness_m: 0.2 }] },
+    compartmentage: { internal_walls: schema.structure.walls.filter((w) => !w.load_bearing), sas: rooms.filter((r) => /sas/i.test(r.name)) },
+    equipment: {
+      hvac: technical_nodes.filter((n) => n.type === "air_outlet"),
+      plumbing: technical_nodes.filter((n) => n.type === "water_inlet"),
+      electrical: technical_nodes.filter((n) => n.type === "light_point"),
+      furniture,
+    },
+  };
+
+  return { schema, furniture, rooms, technical_nodes, construction_tree };
 }

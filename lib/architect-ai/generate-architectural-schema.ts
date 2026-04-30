@@ -11,6 +11,7 @@ export type GenerateArchitecturalSchemaResult = {
   furniture?: ArchitectFurnitureItem[];
   rooms?: ArchitectRoom[];
   technical_nodes?: ArchitectTechnicalNode[];
+  construction_tree?: Record<string, unknown> | null;
   web_context_snippets?: SerperSnippet[];
   rag_keywords?: string[];
   rag_query?: string | null;
