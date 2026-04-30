@@ -28,7 +28,8 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 12, marginBottom: 4, color: "#0c4a6e" },
   row: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
   small: { fontSize: 9, color: "#334155" },
-  image: { width: "100%", objectFit: "contain", marginTop: 4 },
+  image: { width: "100%", objectFit: "contain", marginTop: 2 },
+  imageCaption: { fontSize: 9, color: "#64748b", marginBottom: 6 },
   listItem: { marginBottom: 2 },
   tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#e2e8f0", paddingVertical: 2 },
   tableHead: { fontSize: 9, width: "25%", color: "#0f172a" },
@@ -37,6 +38,10 @@ const styles = StyleSheet.create({
 
 function DossierDocument(input: ExecutionDossierPdfInput) {
   const steps = input.schema.meta.execution_guide ?? [];
+  const isFr = input.language === "fr";
+  const capOverview = isFr ? "Vue d\u0027ensemble" : "Overview";
+  const capTechnical = isFr ? "Zoom technique" : "Technical zoom";
+  const capDetails = isFr ? "Details (mobilier / equipements)" : "Details (furniture / equipment)";
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -53,11 +58,30 @@ function DossierDocument(input: ExecutionDossierPdfInput) {
           <Text style={styles.sectionTitle}>2. Plan 2D</Text>
           {input.render2dOverviewDataUrl || input.render2dTechnicalDataUrl || input.render2dFurnitureDataUrl ? (
             <>
-              {input.render2dOverviewDataUrl ? <Image src={input.render2dOverviewDataUrl} style={styles.image} /> : null}
-              {input.render2dTechnicalDataUrl ? <Image src={input.render2dTechnicalDataUrl} style={styles.image} /> : null}
-              {input.render2dFurnitureDataUrl ? <Image src={input.render2dFurnitureDataUrl} style={styles.image} /> : null}
+              {input.render2dOverviewDataUrl ? (
+                <View wrap={false}>
+                  <Text style={styles.imageCaption}>{capOverview}</Text>
+                  {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image does not expose alt (see types) */}
+                  <Image src={input.render2dOverviewDataUrl} style={styles.image} />
+                </View>
+              ) : null}
+              {input.render2dTechnicalDataUrl ? (
+                <View wrap={false}>
+                  <Text style={styles.imageCaption}>{capTechnical}</Text>
+                  {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image does not expose alt (see types) */}
+                  <Image src={input.render2dTechnicalDataUrl} style={styles.image} />
+                </View>
+              ) : null}
+              {input.render2dFurnitureDataUrl ? (
+                <View wrap={false}>
+                  <Text style={styles.imageCaption}>{capDetails}</Text>
+                  {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image does not expose alt (see types) */}
+                  <Image src={input.render2dFurnitureDataUrl} style={styles.image} />
+                </View>
+              ) : null}
             </>
           ) : input.render2dDataUrl ? (
+            // eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image does not expose alt (see types)
             <Image src={input.render2dDataUrl} style={styles.image} />
           ) : (
             <Text style={styles.small}>Plan 2D indisponible</Text>
@@ -66,7 +90,12 @@ function DossierDocument(input: ExecutionDossierPdfInput) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>3. Vue 3D</Text>
-          {input.render3dDataUrl ? <Image src={input.render3dDataUrl} style={styles.image} /> : <Text style={styles.small}>Vue 3D indisponible</Text>}
+          {input.render3dDataUrl ? (
+            // eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer Image does not expose alt (see types)
+            <Image src={input.render3dDataUrl} style={styles.image} />
+          ) : (
+            <Text style={styles.small}>Vue 3D indisponible</Text>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -110,7 +139,7 @@ function DossierDocument(input: ExecutionDossierPdfInput) {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>7. Mode emploi (pedagogique)</Text>
+          <Text style={styles.sectionTitle}>{isFr ? "7. Mode emploi (genere)" : "7. User guide (generated)"}</Text>
           <Text style={styles.listItem}>- Lecture du plan: murs porteurs = traits epais, cloisons internes = traits fins.</Text>
           <Text style={styles.listItem}>- Legende: symboles air/eau/lumiere identifies dans la couche technique.</Text>
           <Text style={styles.listItem}>- Entretien: verifier regulierement les bouches extraction et filtres VMC.</Text>
@@ -120,7 +149,8 @@ function DossierDocument(input: ExecutionDossierPdfInput) {
               <Text style={styles.small}>Installation des equipements cites:</Text>
               {input.furniture.slice(0, 6).map((f, i) => (
                 <Text key={`install-${f.id}`} style={styles.listItem}>
-                  {i + 1}. Positionner "{f.label}" a ({f.x.toFixed(2)}, {f.z.toFixed(2)}) puis verifier son degagement minimal.
+                  {i + 1}. Positionner &quot;{f.label}&quot; a ({f.x.toFixed(2)}, {f.z.toFixed(2)}) puis verifier son degagement
+                  minimal.
                 </Text>
               ))}
             </View>

@@ -1,5 +1,6 @@
 "use client";
 
+import type { RefObject } from "react";
 import { useMemo } from "react";
 import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "@/lib/architect-ai/bim-types";
 import type { ArchitectFurnitureItem, ArchitectRoom } from "@/lib/architect-ai/ollamaArchitect";
@@ -18,7 +19,16 @@ type ArchitectViewport2DProps = {
 };
 
 /** Plan de coupe / cotations 2D (XZ → SVG) à partir du schéma BIM. */
-export function ArchitectViewport2D({ schema, materialsById, furniture, rooms, targetAreaM2 = null, cartouche, isGenerating = false }: ArchitectViewport2DProps) {
+export function ArchitectViewport2D({
+  schema,
+  materialsById,
+  furniture,
+  rooms,
+  targetAreaM2 = null,
+  cartouche,
+  isGenerating = false,
+  containerRef,
+}: ArchitectViewport2DProps) {
   const { language } = useLanguage();
   const { viewBox, lines, dims, openings, zones, furnitureRects } = useMemo(() => {
     if (!schema?.structure.walls.length) {
@@ -139,7 +149,7 @@ export function ArchitectViewport2D({ schema, materialsById, furniture, rooms, t
   }
 
   return (
-    <div className="relative h-full min-h-[360px] w-full overflow-hidden rounded-lg border border-slate-700/80 bg-[#0a1020]">
+    <div ref={containerRef} className="relative h-full min-h-[360px] w-full overflow-hidden rounded-lg border border-slate-700/80 bg-[#0a1020]">
       <BlueprintCanvas viewBox={viewBox} zones={zones} rooms={rooms} lines={lines} openings={openings} furnitureRects={furnitureRects} dims={dims} targetAreaM2={targetAreaM2} />
       <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-slate-900/80 px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-sky-400/90">
         {t("architectPlan2dCaption", language)}

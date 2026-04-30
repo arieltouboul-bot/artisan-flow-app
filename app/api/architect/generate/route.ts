@@ -196,6 +196,21 @@ export async function POST(req: Request) {
           warning = "Contexte web indisponible, generation basee sur connaissances internes";
           webContextSnippets = [];
         }
+        /** Seconde requête ciblée normes/réglementation pour enrichir le contexte avant Ollama. */
+        try {
+          const normsSnippetQuery =
+            language === "fr"
+              ? `normes réglementation construction sécurité ventilation filtration ${projectCategory.replace(/_/g, " ")} ${prompt.slice(0, 120)}`
+              : `building codes safety HVAC filtration standards ${projectCategory.replace(/_/g, " ")} ${prompt.slice(0, 120)}`;
+          const normSnippets = await searchSerperSnippets(normsSnippetQuery);
+          const dedupeKey = (s: SerperSnippet) => `${s.source}|${s.title}|${s.snippet.slice(0, 48)}`;
+          const merged = new Map<string, SerperSnippet>();
+          for (const s of webContextSnippets) merged.set(dedupeKey(s), s);
+          for (const s of normSnippets) merged.set(dedupeKey(s), s);
+          webContextSnippets = Array.from(merged.values()).slice(0, 10);
+        } catch (normErr) {
+          console.warn("[architect.generate] norms serper merge skipped", normErr);
+        }
         thought_steps.push("Optimisation du mobilier...");
         const generated = await generateArchitecturalSchemaWithOllamaArchitect(
           prompt,

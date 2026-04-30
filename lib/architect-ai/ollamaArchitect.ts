@@ -447,6 +447,7 @@ export async function generateArchitecturalSchemaWithOllamaArchitect(
     language === "fr"
       ? `Tu es un architecte. Ne génère pas de boîte vide. Utilise les résultats de recherche fournis pour placer des murs intérieurs, un sol spécifique, une VMC, et du mobilier cohérent.
 Tu es aussi architecte d'interieur, ne laisse jamais d'espace vide de plus de 5m2 sans proposer un amenagement ou une cloison.
+Les extraits fournis (Serper) sont ton CONTEXTE NORMATIF ET TECHNIQUE reel : appuie-toi dessus pour dimensionner les pieces, le mobilier et les zones techniques (VMC, eau, electricite).
 Retourne UNIQUEMENT du JSON strict.
 Respecte ce schema exact:
 {
@@ -469,7 +470,7 @@ Contraintes:
 - Interdiction de renvoyer un plan sans au moins 3 zones internes et 5 elements de mobilier ou equipements techniques.
 - Utilise ces donnees reelles pour valider la faisabilite technique et le choix des materiaux dans le plan JSON.
 - Analyse et exploite "CONTEXTE WEB REEL" pour adapter les materiaux (noms reels + proprietes techniques a jour) et les dispositifs de securite.`
-      : `You are a Senior Security Architect. Return strict JSON only with walls/openings/furniture. Keep coherent coordinates, no overlapping walls, furniture must not intersect walls.`;
+      : `You are a Senior Security Architect. Real web excerpts (Serper) are mandatory context: use them to size rooms, furniture, and technical zones (HVAC, water, electrical). Return strict JSON only with walls/openings/furniture/zones/nodes. Coherent coordinates, no overlapping walls, furniture must not intersect walls.`;
 
   const webContextBlock =
     effectiveWebContext.length > 0
