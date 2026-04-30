@@ -1,4 +1,4 @@
-import type { ArchitecturalLibraryRow, ArchitecturalSchema } from "./bim-types";
+import type { ArchitecturalLibraryRow, ArchitecturalSchema, RoomZone } from "./bim-types";
 import type { SerperSnippet } from "@/src/services/serperService";
 
 type OllamaGenerateResponse = { response?: string };
@@ -128,6 +128,19 @@ function normalizeWalls(walls: OllamaWall[], fallback: ArchitecturalLibraryRow):
     });
   }
   return normalized;
+}
+
+function normalizeFloorFinish(value?: string): RoomZone["floor_finish"] {
+  if (value === "dalle_technique" || value === "carrelage_anti_derapant" || value === "resine") return value;
+  return "beton_poli";
+}
+
+function normalizeLighting(value?: string): RoomZone["lighting"] {
+  return value === "indirect" ? "indirect" : "direct";
+}
+
+function normalizeVentilation(value?: string): RoomZone["ventilation"] {
+  return value === "double_flux" ? "double_flux" : "bouche_extraction";
 }
 
 function areaFromPolygon(poly: [number, number][]): number {
@@ -451,7 +464,7 @@ Contraintes:
   let enforcedWalls = ensureInternalPartitionWalls(walls, minX, minZ, maxX, maxZ, fallback.id);
   const requiredZones =
     projectCategory === "safe_room" ? safeRoomZonesFromWeb(minX, minZ, maxX, maxZ, webContextSnippets) : buildRequiredZones(minX, minZ, maxX, maxZ);
-  const roomZones: ArchitecturalSchema["zones"] = (parsed.rooms ?? [])
+  const roomZones: ArchitecturalSchema["zones"] = (parsed.rooms ?? requiredZones)
     .map((room, i) => {
       const polygon = Array.isArray(room.polygon)
         ? room.polygon
@@ -465,12 +478,12 @@ Contraintes:
         type: room.type ?? "piece",
         polygon,
         area_m2: Number(areaFromPolygon(polygon).toFixed(2)),
-        floor_finish: room.floor_finish ?? "beton_poli",
-        lighting: room.lighting ?? "direct",
-        ventilation: room.ventilation ?? "bouche_extraction",
+        floor_finish: normalizeFloorFinish(room.floor_finish),
+        lighting: normalizeLighting(room.lighting),
+        ventilation: normalizeVentilation(room.ventilation),
       };
     })
-    .filter((z): z is ArchitecturalSchema["zones"][number] => Boolean(z));
+    .filter((z): z is RoomZone => z !== null);
 
   const requiredNames = new Set(requiredZones.map((z) => z.name.toLowerCase()));
   const roomNames = new Set(roomZones.map((z) => z.name.toLowerCase()));
