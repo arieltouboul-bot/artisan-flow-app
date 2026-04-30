@@ -1123,6 +1123,12 @@ export const translations: Record<string, { fr: string; en: string }> = {
   architectVariantBasic: { fr: "Basic - Protection intrusion", en: "Basic - Intrusion protection" },
   architectVariantOptimized: { fr: "Optimized - Survie 24h", en: "Optimized - 24h survival" },
   architectVariantPremium: { fr: "Premium - Autonomie complete + sas", en: "Premium - Full autonomy + airlock" },
+  architectSearchPlaceholder: { fr: "Décris ton besoin (ex: safe room 20m2 normes 2026)...", en: "Describe your need (e.g. 20m2 safe room standards 2026)..." },
+  architectGenerateExpert: { fr: "Generer le Plan Expert", en: "Generate Expert Plan" },
+  architectStepSerper: { fr: "Recherche Web Serper", en: "Serper Web Search" },
+  architectStepOllama: { fr: "Analyse Ollama", en: "Ollama Analysis" },
+  architectStepVector: { fr: "Conception Vectorielle", en: "Vector Design" },
+  architectDownloadProPdf: { fr: "Telecharger le Dossier PDF Pro", en: "Download Pro PDF Dossier" },
 };
 
 export function t(key: string, lang: Language): string {

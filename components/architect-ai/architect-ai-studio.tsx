@@ -134,6 +134,14 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
     return { areaM2, volumeM3 };
   }, [schema]);
 
+  const thoughtStepIndex = useMemo(() => {
+    if (!thinkingStep) return -1;
+    if (thinkingStep.toLowerCase().includes("recherche")) return 0;
+    if (thinkingStep.toLowerCase().includes("analyse")) return 1;
+    if (thinkingStep.toLowerCase().includes("optimisation")) return 2;
+    return -1;
+  }, [thinkingStep]);
+
   const handleGenerate = async () => {
     const p = prompt.trim();
     if (generating) return;
@@ -305,6 +313,40 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
     }
   };
 
+  const cropDataUrl = (dataUrl: string, crop: { x: number; y: number; w: number; h: number }): Promise<string | null> =>
+    new Promise((resolve) => {
+      const image = new window.Image();
+      image.onload = () => {
+        const canvas = window.document.createElement("canvas");
+        canvas.width = Math.max(1, Math.floor(crop.w));
+        canvas.height = Math.max(1, Math.floor(crop.h));
+        const context = canvas.getContext("2d");
+        if (!context) return resolve(null);
+        context.drawImage(image, crop.x, crop.y, crop.w, crop.h, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/png"));
+      };
+      image.onerror = () => resolve(null);
+      image.src = dataUrl;
+    });
+
+  const capture2dVariants = async (): Promise<{ overview: string | null; technical: string | null; furniture: string | null }> => {
+    const base = await capture2dPng();
+    if (!base) return { overview: null, technical: null, furniture: null };
+    const image = new window.Image();
+    const loaded = new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error("capture2dVariants load failed"));
+    });
+    image.src = base;
+    await loaded;
+    const w = image.width || 1280;
+    const h = image.height || 720;
+    const overview = base;
+    const technical = await cropDataUrl(base, { x: 0, y: 0, w: w * 0.58, h: h * 0.62 });
+    const furnitureView = await cropDataUrl(base, { x: w * 0.35, y: h * 0.2, w: w * 0.58, h: h * 0.68 });
+    return { overview, technical, furniture: furnitureView };
+  };
+
   const handleExportExecution = async () => {
     if (!schema) return;
     setExporting(true);
@@ -313,6 +355,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
       await new Promise((r) => setTimeout(r, 450));
       const png3d = capture3dPng();
       const png2d = await capture2dPng();
+      const variants2d = await capture2dVariants();
       const blob = await generateExecutionDossierPdf({
         projectName: planTitle || schema.meta.label,
         companyName: profile?.company_name ?? null,
@@ -320,6 +363,9 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
         materialsById,
         render3dDataUrl: png3d,
         render2dDataUrl: png2d,
+        render2dOverviewDataUrl: variants2d.overview,
+        render2dTechnicalDataUrl: variants2d.technical,
+        render2dFurnitureDataUrl: variants2d.furniture,
         furniture,
         webInsights,
         language,
@@ -357,17 +403,13 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-[#0a1424] to-slate-950 text-slate-100">
       {generating && <BlueprintLoader />}
-      <motion.header
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md"
-      >
-        <div className="mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-sky-100 md:text-2xl">{t("architectPageTitle", language)}</h1>
-            <p className="mt-0.5 text-sm text-slate-400">{t("architectPageSubtitle", language)}</p>
-          </div>
-          <div className="flex w-full max-w-md flex-col gap-2 sm:flex-row sm:items-center">
+      <motion.header initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md">
+        <div className="mx-auto max-w-[1200px] px-4 py-8 text-center">
+          <h1 className="text-3xl font-semibold tracking-tight text-sky-100" style={{ fontFamily: "Inter, sans-serif" }}>
+            {t("architectPageTitle", language)}
+          </h1>
+          <p className="mt-2 text-sm text-slate-400">{t("architectPageSubtitle", language)}</p>
+          <div className="mx-auto mt-4 max-w-md">
             <Input
               value={planTitle}
               onChange={(e) => setPlanTitle(e.target.value)}
@@ -389,7 +431,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
         ) : null}
         {error && <p className="rounded-lg border border-red-900/50 bg-red-950/40 px-3 py-2 text-sm text-red-200">{error}</p>}
 
-        <div className="rounded-2xl border border-cyan-500/35 bg-[#040b16] p-3 shadow-[0_0_22px_rgba(56,189,248,0.08)]">
+        <div className="rounded-2xl border border-cyan-500/35 bg-[#040b16] p-4 shadow-[0_0_22px_rgba(56,189,248,0.08)]">
           <div className="mb-3 max-h-[200px] space-y-2 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/70 p-3">
             {chatMessages.length === 0 ? (
               <p className="text-sm text-slate-400">{t("architectChatEmpty", language)}</p>
@@ -408,11 +450,8 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
               ))
             )}
           </div>
-          <div className="flex flex-col gap-2 md:flex-row md:items-end">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <div className="flex-1 space-y-1">
-              <label htmlFor="architect-prompt" className="text-xs font-semibold uppercase tracking-wider text-cyan-300/90">
-              {t("architectPromptLabel", language)}
-              </label>
               <Input
                 id="architect-prompt"
                 value={prompt}
@@ -423,8 +462,8 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
                     void handleGenerate();
                   }
                 }}
-                placeholder={t("architectPromptChatPlaceholder", language)}
-                className="min-h-[48px] border-cyan-700/40 bg-[#050f1f] text-slate-100 placeholder:text-slate-500"
+                placeholder={t("architectSearchPlaceholder", language)}
+                className="min-h-[58px] rounded-2xl border-cyan-700/40 bg-[#050f1f] text-slate-100 placeholder:text-slate-500"
               />
             </div>
             <div className="grid w-full grid-cols-2 gap-2 md:max-w-[440px]">
@@ -457,13 +496,31 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
             </div>
             <Button
               type="button"
-              className="min-h-[48px] shrink-0 gap-2 bg-cyan-500 text-slate-950 hover:bg-cyan-400 md:mb-0.5"
+              className="min-h-[58px] shrink-0 gap-2 rounded-2xl bg-cyan-500 px-6 text-slate-950 hover:bg-cyan-400 md:mb-0.5"
               onClick={() => void handleGenerate()}
               disabled={generating}
             >
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {t("architectGenerate", language)}
+              {t("architectGenerateExpert", language)}
             </Button>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {[
+              { key: t("architectStepSerper", language), idx: 0 },
+              { key: t("architectStepOllama", language), idx: 1 },
+              { key: t("architectStepVector", language), idx: 2 },
+            ].map((step) => {
+              const active = thoughtStepIndex >= step.idx || (!generating && schema);
+              return (
+                <motion.span
+                  key={step.key}
+                  animate={{ opacity: active ? 1 : 0.55, scale: active ? 1 : 0.98 }}
+                  className={`rounded-full border px-3 py-1 text-xs ${active ? "border-emerald-500/70 bg-emerald-500/15 text-emerald-200" : "border-slate-700 text-slate-400"}`}
+                >
+                  {step.key}
+                </motion.span>
+              );
+            })}
           </div>
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
             {(
@@ -525,7 +582,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
           </Button>
         </div>
 
-        <div className={`grid min-h-[min(78vh,860px)] grid-cols-1 gap-4 ${show3D ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+        <div className={`relative grid min-h-[min(78vh,860px)] grid-cols-1 gap-4 ${show3D ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
           <motion.div
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
@@ -586,6 +643,17 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
               </div>
             ) : null}
           </div>
+          {schema ? (
+            <Button
+              type="button"
+              className="fixed bottom-6 right-6 z-[120] min-h-[52px] rounded-full bg-indigo-600 px-5 text-white shadow-2xl hover:bg-indigo-500"
+              onClick={() => void handleExportExecution()}
+              disabled={exporting}
+            >
+              {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+              {t("architectDownloadProPdf", language)}
+            </Button>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap gap-2 border-t border-slate-800/80 pt-4">

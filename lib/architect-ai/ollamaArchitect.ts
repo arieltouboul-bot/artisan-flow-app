@@ -466,6 +466,7 @@ Contraintes:
 - Pas de murs superposes.
 - Pas de meuble qui coupe un mur.
 - Geometrie orthogonale recommandee pour safe room.
+- Interdiction de renvoyer un plan sans au moins 3 zones internes et 5 elements de mobilier ou equipements techniques.
 - Utilise ces donnees reelles pour valider la faisabilite technique et le choix des materiaux dans le plan JSON.
 - Analyse et exploite "CONTEXTE WEB REEL" pour adapter les materiaux (noms reels + proprietes techniques a jour) et les dispositifs de securite.`
       : `You are a Senior Security Architect. Return strict JSON only with walls/openings/furniture. Keep coherent coordinates, no overlapping walls, furniture must not intersect walls.`;
@@ -485,7 +486,7 @@ Contraintes:
     body: JSON.stringify({
       model: OLLAMA_MODEL,
       stream: false,
-      prompt: `${systemPrompt}\n\nProject category: ${projectCategory}\nUser prompt: ${prompt}${webContextBlock}${constraintsBlock}`,
+      prompt: `${webContextBlock}${constraintsBlock}\n\n${systemPrompt}\n\nProject category: ${projectCategory}\nUser prompt: ${prompt}`,
     }),
   });
 
@@ -624,6 +625,14 @@ Contraintes:
   }
   if (!technical_nodes.some((n) => n.type === "light_point")) {
     technical_nodes.push({ id: "tn-light", type: "light_point", x: (minX + maxX) / 2, y: (minZ + maxZ) / 2 });
+  }
+  while (furniture.length + technical_nodes.length < 5) {
+    technical_nodes.push({
+      id: `tn-extra-${furniture.length + technical_nodes.length + 1}`,
+      type: "light_point",
+      x: minX + 1 + technical_nodes.length * 0.4,
+      y: minZ + 1,
+    });
   }
 
   const construction_tree: Record<string, unknown> = parsed.construction_tree ?? {

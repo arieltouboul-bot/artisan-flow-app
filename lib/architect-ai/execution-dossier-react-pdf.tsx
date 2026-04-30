@@ -13,6 +13,9 @@ export type ExecutionDossierPdfInput = {
   materialsById: Map<string, ArchitecturalLibraryRow>;
   render3dDataUrl: string | null;
   render2dDataUrl: string | null;
+  render2dOverviewDataUrl?: string | null;
+  render2dTechnicalDataUrl?: string | null;
+  render2dFurnitureDataUrl?: string | null;
   furniture: ArchitectFurnitureItem[];
   webInsights: SerperSnippet[];
   language: "fr" | "en";
@@ -48,7 +51,17 @@ function DossierDocument(input: ExecutionDossierPdfInput) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>2. Plan 2D</Text>
-          {input.render2dDataUrl ? <Image src={input.render2dDataUrl} style={styles.image} /> : <Text style={styles.small}>Plan 2D indisponible</Text>}
+          {input.render2dOverviewDataUrl || input.render2dTechnicalDataUrl || input.render2dFurnitureDataUrl ? (
+            <>
+              {input.render2dOverviewDataUrl ? <Image src={input.render2dOverviewDataUrl} style={styles.image} /> : null}
+              {input.render2dTechnicalDataUrl ? <Image src={input.render2dTechnicalDataUrl} style={styles.image} /> : null}
+              {input.render2dFurnitureDataUrl ? <Image src={input.render2dFurnitureDataUrl} style={styles.image} /> : null}
+            </>
+          ) : input.render2dDataUrl ? (
+            <Image src={input.render2dDataUrl} style={styles.image} />
+          ) : (
+            <Text style={styles.small}>Plan 2D indisponible</Text>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -102,6 +115,16 @@ function DossierDocument(input: ExecutionDossierPdfInput) {
           <Text style={styles.listItem}>- Legende: symboles air/eau/lumiere identifies dans la couche technique.</Text>
           <Text style={styles.listItem}>- Entretien: verifier regulierement les bouches extraction et filtres VMC.</Text>
           <Text style={styles.listItem}>- Recommandation: mise a jour annuelle des equipements de securite.</Text>
+          {input.furniture.length > 0 ? (
+            <View style={{ marginTop: 4 }}>
+              <Text style={styles.small}>Installation des equipements cites:</Text>
+              {input.furniture.slice(0, 6).map((f, i) => (
+                <Text key={`install-${f.id}`} style={styles.listItem}>
+                  {i + 1}. Positionner "{f.label}" a ({f.x.toFixed(2)}, {f.z.toFixed(2)}) puis verifier son degagement minimal.
+                </Text>
+              ))}
+            </View>
+          ) : null}
           {input.webInsights.length > 0 ? (
             <View style={{ marginTop: 4 }}>
               <Text style={styles.small}>References web (Serper):</Text>
