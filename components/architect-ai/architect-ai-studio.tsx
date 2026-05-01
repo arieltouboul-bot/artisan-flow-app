@@ -54,6 +54,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
   const [exporting, setExporting] = useState(false);
   const [show3D, setShow3D] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [generationFeedback, setGenerationFeedback] = useState<string | null>(null);
   const root3dRef = useRef<HTMLDivElement>(null);
   const blueprintRootRef = useRef<HTMLDivElement>(null);
 
@@ -126,6 +127,10 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
     }
     const inferredCategory = inferProjectCategory(p);
     setGenerating(true);
+    setGenerationFeedback(t("architectWorkingWebNorms", language));
+    let feedbackTimer: number | undefined = window.setTimeout(() => {
+      setGenerationFeedback(t("architectWorkingOllamaOptimize", language));
+    }, 1000);
     try {
       const {
         schema: next,
@@ -156,6 +161,8 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
       });
       setStatusMessage(t("architectChatError", language));
     } finally {
+      if (feedbackTimer !== undefined) window.clearTimeout(feedbackTimer);
+      setGenerationFeedback(null);
       setGenerating(false);
     }
   };
@@ -329,7 +336,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
                 }
               }}
               placeholder={t("architectIntelligencePromptPlaceholder", language)}
-              className="min-h-[56px] flex-1 rounded-2xl border-slate-700 bg-slate-900 text-base text-slate-100 placeholder:text-slate-500"
+              className="min-h-[56px] flex-1 rounded-2xl border border-cyan-400/55 bg-transparent/80 text-base text-slate-100 shadow-[0_0_24px_rgba(34,211,238,0.12)] backdrop-blur-md placeholder:text-slate-500 transition-[box-shadow,border-color] focus-visible:border-cyan-300 focus-visible:shadow-[0_0_36px_rgba(34,211,238,0.22)]"
               aria-label={t("architectIntelligencePromptPlaceholder", language)}
             />
             <Button
@@ -342,8 +349,8 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
               {t("architectIntelligenceGenerate", language)}
             </Button>
           </div>
-          {generating ? (
-            <p className="text-center text-xs text-cyan-200/90">{t("architectBlueprintLoading", language)}</p>
+          {generating && generationFeedback ? (
+            <p className="text-center text-xs font-medium tracking-wide text-cyan-200/95">{generationFeedback}</p>
           ) : null}
           {statusMessage ? (
             <p className="rounded-md border border-slate-700/80 bg-slate-900/50 px-3 py-2 text-center text-sm text-slate-300">{statusMessage}</p>
@@ -395,7 +402,7 @@ export function ArchitectAiStudio({ planId }: ArchitectAiStudioProps) {
                 disabled={exporting}
               >
                 {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
-                {t("architectDownloadProPdf", language)}
+                {t("architectExportConstructionPdf", language)}
               </Button>
             </motion.div>
           </>

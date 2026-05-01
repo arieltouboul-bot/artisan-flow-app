@@ -137,6 +137,7 @@ export function ArchitectViewport2D({
       w: Math.max(4, item.width_m * scale),
       h: Math.max(4, item.depth_m * scale),
       label: item.label,
+      symbol: item.blueprint_kind ?? "generic",
     }));
     return { viewBox: `0 0 ${w} ${h}`, lines, dims, openings, zones, furnitureRects };
   }, [furniture, materialsById, schema]);

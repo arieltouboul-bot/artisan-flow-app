@@ -1055,6 +1055,18 @@ export const translations: Record<string, { fr: string; en: string }> = {
   },
   architectIntelligenceGenerate: { fr: "Générer", en: "Generate" },
   architectScaleAuto: { fr: "Échelle automatique", en: "Auto scale" },
+  architectWorkingWebNorms: {
+    fr: "Recherche des normes sur le Web...",
+    en: "Searching the web for applicable standards…",
+  },
+  architectWorkingOllamaOptimize: {
+    fr: "Optimisation de l'espace par Ollama...",
+    en: "Optimizing space with Ollama…",
+  },
+  architectExportConstructionPdf: {
+    fr: "Exporter le Dossier de Construction PDF",
+    en: "Export Construction Dossier (PDF)",
+  },
   architectPromptLabel: { fr: "Brief architectural", en: "Architectural brief" },
   architectPromptPlaceholder: {
     fr: "Ex. : Studio 4,5×3,2 m, baie sud, cloison Placo, parquet chêne…",

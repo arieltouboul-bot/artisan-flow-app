@@ -14,6 +14,8 @@ import {
 } from "@/lib/architect-ai/ollamaArchitect";
 import { searchSerperSnippets, type SerperSnippet } from "@/src/services/serperService";
 import { runAutonomousBrain } from "@/lib/architect-ai/autonomousBrain";
+import { fetchAiKnowledgeBaseContext } from "@/lib/architect-ai/knowledge-base-context";
+import { buildDeterministicSerperQueryFromPrompt } from "@/lib/architect-ai/serper-query-build";
 
 function collectUsedMaterialIds(schema: ArchitecturalSchema): Set<string> {
   const ids = new Set<string>();
@@ -212,12 +214,19 @@ export async function POST(req: Request) {
           console.warn("[architect.generate] norms serper merge skipped", normErr);
         }
         thought_steps.push("Optimisation du mobilier...");
+        let knowledgeBaseContext = "";
+        try {
+          knowledgeBaseContext = await fetchAiKnowledgeBaseContext(supabase, prompt, 8);
+        } catch (kbErr) {
+          console.warn("[architect.generate] ai_knowledge_base skipped", kbErr);
+        }
         const generated = await generateArchitecturalSchemaWithOllamaArchitect(
           prompt,
           language,
           materials,
           projectCategory,
-          webContextSnippets
+          webContextSnippets,
+          knowledgeBaseContext
         );
         schema = generated.schema;
         furniture = generated.furniture;

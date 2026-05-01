@@ -18,7 +18,9 @@ type ZoneShape = {
   label: string;
 };
 
-type FurnitureShape = { id: string; x: number; y: number; w: number; h: number; label: string };
+type FurnitureSymbol = "bed" | "desk" | "vent" | "storage" | "security" | "generic";
+
+type FurnitureShape = { id: string; x: number; y: number; w: number; h: number; label: string; symbol?: FurnitureSymbol };
 type OpeningShape = { x: number; y: number; type: "porte" | "fenetre" | "baie"; id: string; r: number };
 type DimText = { x: number; y: number; t: string };
 
@@ -51,12 +53,74 @@ function drawInternalWalls(lines: WallLine[]) {
     .map((ln) => <line key={`int-${ln.id}`} x1={ln.x1} y1={ln.y1} x2={ln.x2} y2={ln.y2} stroke="#cbd5e1" strokeWidth={3} strokeDasharray="6 4" />);
 }
 
+function FurnitureGlyph({ f }: { f: FurnitureShape }) {
+  const sym: FurnitureSymbol = f.symbol ?? "generic";
+  const cx = f.x;
+  const cy = f.y;
+  const hw = f.w / 2;
+  const hh = f.h / 2;
+  if (sym === "bed") {
+    return (
+      <g>
+        <rect x={cx - hw} y={cy - hh} width={f.w} height={f.h} rx={4} fill="#1e3a5f88" stroke="#38bdf8" strokeWidth={1.2} />
+        <line x1={cx - hw + 3} y1={cy - hh + 4} x2={cx + hw - 3} y2={cy - hh + 4} stroke="#94a3b8" strokeWidth={2} strokeLinecap="round" />
+        <rect x={cx - hw + 4} y={cy - hh + 8} width={f.w - 8} height={Math.max(4, f.h * 0.45)} rx={2} fill="#0f172a55" stroke="#64748b" strokeWidth={0.8} />
+      </g>
+    );
+  }
+  if (sym === "desk") {
+    return (
+      <g>
+        <rect x={cx - hw} y={cy - hh} width={f.w} height={f.h * 0.35} rx={2} fill="#33415599" stroke="#a78bfa" strokeWidth={1.2} />
+        <line x1={cx - hw + 4} y1={cy - hh + f.h * 0.35} x2={cx - hw + 4} y2={cy + hh} stroke="#a78bfa" strokeWidth={1.5} />
+        <line x1={cx + hw - 4} y1={cy - hh + f.h * 0.35} x2={cx + hw - 4} y2={cy + hh} stroke="#a78bfa" strokeWidth={1.5} />
+      </g>
+    );
+  }
+  if (sym === "vent") {
+    const r = Math.min(hw, hh, 14);
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={r} fill="#0ea5e933" stroke="#22d3ee" strokeWidth={1.5} />
+        <path d={`M ${cx - r * 0.55} ${cy} L ${cx + r * 0.55} ${cy} M ${cx} ${cy - r * 0.55} L ${cx} ${cy + r * 0.55} M ${cx - r * 0.38} ${cy - r * 0.38} L ${cx + r * 0.38} ${cy + r * 0.38}`} stroke="#67e8f9" strokeWidth={1} />
+      </g>
+    );
+  }
+  if (sym === "storage") {
+    return (
+      <g>
+        <rect x={cx - hw} y={cy - hh} width={f.w} height={f.h} fill="#42200677" stroke="#f59e0b" strokeWidth={1} strokeDasharray="3 2" rx={2} />
+        <line x1={cx - hw + 3} y1={cy - hh + 6} x2={cx + hw - 3} y2={cy - hh + 6} stroke="#fcd34d" strokeWidth={0.8} />
+        <line x1={cx - hw + 3} y1={cy} x2={cx + hw - 3} y2={cy} stroke="#fcd34d" strokeWidth={0.8} />
+      </g>
+    );
+  }
+  if (sym === "security") {
+    return (
+      <g>
+        <rect x={cx - hw} y={cy - hh} width={f.w} height={f.h} fill="#14532d55" stroke="#4ade80" strokeWidth={2} rx={2} />
+        <path d={`M ${cx - hw * 0.5} ${cy - hh * 0.2} L ${cx} ${cy + hh * 0.35} L ${cx + hw * 0.5} ${cy - hh * 0.2}`} fill="none" stroke="#86efac" strokeWidth={1.5} />
+      </g>
+    );
+  }
+  return (
+    <rect x={cx - hw} y={cy - hh} width={f.w} height={f.h} fill="#f59e0b33" stroke="#fbbf24" strokeWidth={1} rx={2} />
+  );
+}
+
 function drawFurniture(furnitureRects: FurnitureShape[]) {
   return furnitureRects.map((f) => (
     <g key={f.id}>
-      <rect x={f.x - f.w / 2} y={f.y - f.h / 2} width={f.w} height={f.h} fill="#f59e0b33" stroke="#fbbf24" strokeWidth="1" rx="2" />
-      <text x={f.x} y={f.y} fill="#fde68a" fontSize="10" textAnchor="middle" fontFamily="Inter, Arial, sans-serif">
-        {f.label}
+      <FurnitureGlyph f={f} />
+      <text
+        x={f.x}
+        y={f.y + f.h / 2 + 12}
+        fill="#fde68a"
+        fontSize={9}
+        textAnchor="middle"
+        fontFamily="Inter, Arial, sans-serif"
+      >
+        {f.label.length > 18 ? `${f.label.slice(0, 16)}\u2026` : f.label}
       </text>
     </g>
   ));

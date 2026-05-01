@@ -1,4 +1,5 @@
 import type { ArchitecturalLibraryRow, ArchitecturalSchema, RoomZone } from "./bim-types";
+import { buildDeterministicSerperQueryFromPrompt } from "./serper-query-build";
 import type { SerperSnippet } from "@/src/services/serperService";
 import { searchSerperSnippets } from "@/src/services/serperService";
 
@@ -34,6 +35,8 @@ export type ArchitectFurnitureItem = {
   width_m: number;
   depth_m: number;
   height_m: number;
+  /** Rendu icônes 2D (BlueprintCanvas) */
+  blueprint_kind?: "bed" | "desk" | "vent" | "storage" | "security" | "generic";
 };
 
 export type ArchitectRoom = {
@@ -102,6 +105,40 @@ type OllamaPayload = {
 
 const OLLAMA_ENDPOINT = "http://localhost:11434/api/generate";
 const OLLAMA_MODEL = "llama3.1";
+
+function formatWebContextTag(snippets: SerperSnippet[]): string {
+  if (snippets.length === 0) return "<web_context></web_context>";
+  const body = snippets.map((s, i) => `${i + 1}. [${s.source}] ${s.title} — ${s.snippet}`).join("\n");
+  return `<web_context>\n${body}\n</web_context>`;
+}
+
+async function callOllamaPlain(fullPrompt: string): Promise<string> {
+  const res = await fetch(OLLAMA_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: OLLAMA_MODEL,
+      stream: false,
+      prompt: fullPrompt,
+    }),
+  });
+  if (!res.ok) throw new Error(`Ollama indisponible (${res.status})`);
+  const payload = (await res.json()) as OllamaGenerateResponse;
+  return (payload.response ?? "").trim();
+}
+
+function mapFurnitureBlueprintKind(
+  type: string | undefined,
+  label: string
+): NonNullable<ArchitectFurnitureItem["blueprint_kind"]> {
+  const t = `${type ?? ""} ${label}`.toLowerCase();
+  if (type === "bed" || /\blit\b/.test(t)) return "bed";
+  if (type === "desk" || /bureau|console|desk/.test(t)) return "desk";
+  if (type === "vent" || /vmc|ventil|bouche|extraction|air/.test(t)) return "vent";
+  if (type === "storage" || /etagere|stockage|armoire|coffre|range/.test(t)) return "storage";
+  if (type === "security_panel" || /securite|panneau|blind/.test(t)) return "security";
+  return "generic";
+}
 
 function extractJson(raw: string): string {
   const input = raw.trim();
@@ -196,15 +233,48 @@ function buildRequiredZones(minX: number, minZ: number, maxX: number, maxZ: numb
 }
 
 function withRequiredFurniture(items: ArchitectFurnitureItem[], minX: number, minZ: number, maxX: number, maxZ: number): ArchitectFurnitureItem[] {
-  const required = [
-    { key: "lit", label: "Lit", x: minX + 1.2, z: minZ + 1.2, width_m: 2, depth_m: 1.6, height_m: 0.5 },
-    { key: "console", label: "Console de controle", x: maxX - 1.5, z: minZ + 1.2, width_m: 1.4, depth_m: 0.7, height_m: 0.9 },
-    { key: "etagere", label: "Etageres de stockage", x: minX + 1.2, z: maxZ - 1.2, width_m: 1.6, depth_m: 0.6, height_m: 2 },
+  const required: Array<{ key: string } & ArchitectFurnitureItem> = [
+    {
+      key: "lit",
+      id: "",
+      label: "Lit",
+      x: minX + 1.2,
+      z: minZ + 1.2,
+      width_m: 2,
+      depth_m: 1.6,
+      height_m: 0.5,
+      blueprint_kind: "bed",
+    },
+    {
+      key: "console",
+      id: "",
+      label: "Console de controle",
+      x: maxX - 1.5,
+      z: minZ + 1.2,
+      width_m: 1.4,
+      depth_m: 0.7,
+      height_m: 0.9,
+      blueprint_kind: "desk",
+    },
+    {
+      key: "etagere",
+      id: "",
+      label: "Etageres de stockage",
+      x: minX + 1.2,
+      z: maxZ - 1.2,
+      width_m: 1.6,
+      depth_m: 0.6,
+      height_m: 2,
+      blueprint_kind: "storage",
+    },
   ];
   const has = (k: string) => items.some((f) => f.label.toLowerCase().includes(k));
   const enriched = [...items];
   for (const req of required) {
-    if (!has(req.key)) enriched.push({ id: `f-${req.key}`, ...req });
+    if (!has(req.key)) {
+      const { key, ...furnitureRow } = req;
+      enriched.push({ ...furnitureRow, id: `f-${key}` });
+    }
   }
   return enriched;
 }
@@ -421,7 +491,8 @@ export async function generateArchitecturalSchemaWithOllamaArchitect(
   language: "fr" | "en",
   materials: ArchitecturalLibraryRow[],
   projectCategory: "safe_room" | "house" | "technical_room",
-  webContextSnippets: SerperSnippet[] = []
+  webContextSnippets: SerperSnippet[] = [],
+  knowledgeBaseContext = ""
 ): Promise<{
   schema: ArchitecturalSchema;
   furniture: ArchitectFurnitureItem[];
@@ -435,7 +506,7 @@ export async function generateArchitecturalSchemaWithOllamaArchitect(
   let effectiveWebContext = webContextSnippets;
   if (effectiveWebContext.length === 0) {
     try {
-      const fallbackQuery = `layout technique ${projectCategory} ${prompt} normes 2026 filtration dimensions`;
+      const fallbackQuery = buildDeterministicSerperQueryFromPrompt(prompt, projectCategory);
       effectiveWebContext = await searchSerperSnippets(fallbackQuery);
     } catch {
       effectiveWebContext = [];
@@ -443,11 +514,36 @@ export async function generateArchitecturalSchemaWithOllamaArchitect(
   }
   const technicalConstraints = deriveTechnicalConstraintsFromWeb(effectiveWebContext);
 
+  const kbInject =
+    knowledgeBaseContext.trim().length > 0
+      ? `\n<base_connaissance>\n${knowledgeBaseContext.trim()}\n</base_connaissance>\n`
+      : "";
+
+  /** Phase 1 — réflexion spatiale textuelle avant le JSON précis */
+  let spatialReflection = "";
+  try {
+    const reflectionPromptFr = `${formatWebContextTag(effectiveWebContext)}${kbInject}
+Tu es architecte de securite. En t appuyant STRICTEMENT sur <web_context> et sur <base_connaissance> si presente, decrire en 140 a 220 mots l organisation spatiale : acces, SAS si besoin, zone technique (VMC, eau), espace de vie, circulation et zones mobilier. Texte continu, SANS JSON, SANS numerotation.
+Brief utilisateur: ${prompt}`;
+
+    const reflectionPromptEn = `${formatWebContextTag(effectiveWebContext)}${kbInject}
+You are a security architect. Based strictly on <web_context> and optional <base_connaissance>, describe in 140-220 words the spatial layout: access, airlock if needed, technical zone (HVAC, water), living area, circulation, furniture zones. Continuous prose, NO JSON, NO numbered lists.
+User brief: ${prompt}`;
+
+    spatialReflection = await callOllamaPlain(language === "fr" ? reflectionPromptFr : reflectionPromptEn);
+  } catch {
+    spatialReflection = "";
+  }
+
+  const strictMandateFr = `CONSIGNE STRICTE: Tu DOIS utiliser les dimensions et equipements trouves dans <web_context> pour dessiner les cloisons internes et placer le mobilier. Ne genere jamais un plan vide. Si <web_context> est vide, deduis des contraintes realistes a partir du brief et des normes courantes.`;
+
+  const strictMandateEn = `STRICT MANDATE: You MUST use dimensions and equipment implied in <web_context> to draw internal partitions and place furniture. Never output an empty shell plan. If <web_context> is empty, infer realistic constraints from the brief.`;
+
   const systemPrompt =
     language === "fr"
-      ? `Tu es un architecte. Ne génère pas de boîte vide. Utilise les résultats de recherche fournis pour placer des murs intérieurs, un sol spécifique, une VMC, et du mobilier cohérent.
+      ? `Tu es un architecte. Ne génère pas de boîte vide. Le bloc <web_context> contient les extraits Serper (normes et retours web) : suis-les pour le dimensionnement.
 Tu es aussi architecte d'interieur, ne laisse jamais d'espace vide de plus de 5m2 sans proposer un amenagement ou une cloison.
-Les extraits fournis (Serper) sont ton CONTEXTE NORMATIF ET TECHNIQUE reel : appuie-toi dessus pour dimensionner les pieces, le mobilier et les zones techniques (VMC, eau, electricite).
+${strictMandateFr}
 Retourne UNIQUEMENT du JSON strict.
 Respecte ce schema exact:
 {
@@ -469,17 +565,27 @@ Contraintes:
 - Geometrie orthogonale recommandee pour safe room.
 - Interdiction de renvoyer un plan sans au moins 3 zones internes et 5 elements de mobilier ou equipements techniques.
 - Utilise ces donnees reelles pour valider la faisabilite technique et le choix des materiaux dans le plan JSON.
-- Analyse et exploite "CONTEXTE WEB REEL" pour adapter les materiaux (noms reels + proprietes techniques a jour) et les dispositifs de securite.`
-      : `You are a Senior Security Architect. Real web excerpts (Serper) are mandatory context: use them to size rooms, furniture, and technical zones (HVAC, water, electrical). Return strict JSON only with walls/openings/furniture/zones/nodes. Coherent coordinates, no overlapping walls, furniture must not intersect walls.`;
+- Analyse et exploite <web_context> pour adapter les materiaux (noms reels + proprietes techniques a jour) et les dispositifs de securite.`
+      : `You are a Senior Security Architect. The <web_context> tag holds Serper excerpts; use them to size rooms, furniture, and technical zones (HVAC, water, electrical). ${strictMandateEn} Return strict JSON only with walls/openings/furniture/zones/nodes. Coherent coordinates, no overlapping walls, furniture must not intersect walls.`;
 
-  const webContextBlock =
-    effectiveWebContext.length > 0
-      ? `\n\nCONTEXTE WEB REEL:\n${effectiveWebContext
-          .map((s, i) => `${i + 1}. [${s.source}] ${s.title} — ${s.snippet}`)
-          .join("\n")}`
-      : "";
+  const webInline = formatWebContextTag(effectiveWebContext);
   const constraintsBlock =
     technicalConstraints.length > 0 ? `\n\nCONTRAINTES TECHNIQUES REELLES:\n${technicalConstraints.map((c, i) => `${i + 1}. ${c}`).join("\n")}` : "";
+
+  const reflectionBlock =
+    spatialReflection.trim().length > 0
+      ? language === "fr"
+        ? `\n\nReflexion spatiale (phase 1, respecter lors du trace JSON):\n${spatialReflection}\n`
+        : `\n\nSpatial reflection (phase 1, honor when emitting JSON):\n${spatialReflection}\n`
+      : "";
+
+  const drawPrompt = `${systemPrompt}
+
+${webInline}
+${kbInject}${reflectionBlock}${constraintsBlock}
+
+Project category: ${projectCategory}
+User prompt: ${prompt}`;
 
   const response = await fetch(OLLAMA_ENDPOINT, {
     method: "POST",
@@ -487,7 +593,7 @@ Contraintes:
     body: JSON.stringify({
       model: OLLAMA_MODEL,
       stream: false,
-      prompt: `${webContextBlock}${constraintsBlock}\n\n${systemPrompt}\n\nProject category: ${projectCategory}\nUser prompt: ${prompt}`,
+      prompt: drawPrompt,
     }),
   });
 
@@ -559,6 +665,12 @@ Contraintes:
     });
   }
 
+  const stepGuide = [...(parsed.step_by_step ?? [])];
+  if (spatialReflection.trim().length > 0) {
+    const refLabel = language === "fr" ? "Reflexion spatiale (phase 1)" : "Spatial reflection (phase 1)";
+    stepGuide.unshift(`${refLabel}: ${spatialReflection.trim().slice(0, 500)}`);
+  }
+
   const schema: ArchitecturalSchema = {
     version: 1,
     meta: {
@@ -567,24 +679,35 @@ Contraintes:
       generated_at: new Date().toISOString(),
       source_prompt: prompt.slice(0, 2000),
       project_category: projectCategory,
-      execution_guide: parsed.step_by_step?.slice(0, 20),
+      execution_guide: stepGuide.slice(0, 22),
     },
     structure: { walls: enforcedWalls },
     zones,
     logic: { openings, circulations: [] },
   };
 
-  const normalizedFurniture = (parsed.furniture ?? [])
-    .map((item) => ({ ...item, z: Number.isFinite(item.z) ? item.z : Number(item.y) }))
-    .filter(
-    (item) =>
-      Number.isFinite(item.x) &&
-      Number.isFinite(item.z) &&
-      Number.isFinite(item.width_m) &&
-      Number.isFinite(item.depth_m) &&
-      item.width_m > 0 &&
-      item.depth_m > 0
-  );
+  const normalizedFurniture: ArchitectFurnitureItem[] = (parsed.furniture ?? [])
+    .map((raw, i): ArchitectFurnitureItem | null => {
+      const item = raw as ArchitectFurnitureItem & { y?: number; type?: string };
+      const zVal = Number.isFinite(item.z) ? item.z : Number(item.y);
+      const label = typeof item.label === "string" && item.label.trim() ? item.label : item.type ?? `Meuble ${i + 1}`;
+      const wm = Number(item.width_m);
+      const dm = Number(item.depth_m);
+      const hm = Number.isFinite(Number(item.height_m)) ? Number(item.height_m) : 0.55;
+      if (!Number.isFinite(item.x) || !Number.isFinite(zVal) || !Number.isFinite(wm) || !Number.isFinite(dm) || wm <= 0 || dm <= 0) return null;
+      const typeField = item.type;
+      return {
+        id: item.id || `f-ai-${i + 1}`,
+        label,
+        x: Number(item.x),
+        z: zVal,
+        width_m: wm,
+        depth_m: dm,
+        height_m: hm,
+        blueprint_kind: mapFurnitureBlueprintKind(typeField, label),
+      };
+    })
+    .filter((x): x is ArchitectFurnitureItem => x !== null);
   const furniture = withRequiredFurniture(normalizedFurniture, minX, minZ, maxX, maxZ);
 
   const rooms: ArchitectRoom[] = zones.map((z) => {

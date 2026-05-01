@@ -1,4 +1,5 @@
 import type { ArchitecturalLibraryRow } from "./bim-types";
+import { buildDeterministicSerperQueryFromPrompt } from "./serper-query-build";
 import type { SerperSnippet } from "@/src/services/serperService";
 import { searchSerperSnippets } from "@/src/services/serperService";
 
@@ -135,9 +136,7 @@ export async function runAutonomousBrain(params: {
 }): Promise<AutonomousBrainResult> {
   const { prompt, projectCategory, materials, supabase } = params;
   const rareMaterial = detectRareMaterial(prompt);
-  const optimizedQuery = `layout technique ${projectCategory} ${prompt} normes 2026 dimensions minimales sas decontamination`
-    .replace(/\s+/g, " ")
-    .slice(0, 220);
+  const optimizedQuery = buildDeterministicSerperQueryFromPrompt(prompt, projectCategory);
   const webInsights = await searchSerperSnippets(optimizedQuery);
   const topSimilar = pickTopSimilarMaterials(prompt, materials);
   const enriched = [...materials];
